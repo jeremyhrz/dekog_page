@@ -4,7 +4,7 @@ import { ChevronRight, Armchair, BedDouble, Layers, User, Settings, ShieldCheck,
 export default function ServiciosSection({ setCategoria }) {
   const handleNavigation = (targetId, cat = 'Todos') => {
     if (setCategoria) setCategoria(cat);
-    
+
     setTimeout(() => {
       const el = document.getElementById(targetId);
       if (el) {
@@ -36,7 +36,7 @@ export default function ServiciosSection({ setCategoria }) {
               En DEKOG integramos arquitectura, ejecución y mobiliario en un solo proceso para elevar tu estilo de vida.
             </p>
           </div>
-          <a 
+          <a
             href="https://wa.me/584145847791?text=Hola,%20quisiera%20solicitar%20asesoría%20para%20un%20proyecto"
             target="_blank"
             rel="noopener noreferrer"
@@ -47,10 +47,10 @@ export default function ServiciosSection({ setCategoria }) {
         </div>
         <div className="order-1 lg:order-2 relative group cursor-pointer" onClick={() => handleNavigation('arquitectura')}>
           <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-500 z-10" />
-          <img 
-            src="/arquitectura/comercial2.jpeg" 
-            alt="Proyecto Arquitectónico" 
-            className="w-full h-auto object-cover rounded-sm shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]" 
+          <img
+            src="/arquitectura/comercial2.jpeg"
+            alt="Proyecto Arquitectónico"
+            className="w-full h-auto object-cover rounded-sm shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]"
             loading="lazy"
           />
           <div className="absolute -bottom-6 -left-6 bg-[#FDFCFA] p-6 shadow-xl hidden md:block z-20 border border-gray-100">
@@ -92,7 +92,7 @@ export default function ServiciosSection({ setCategoria }) {
       {/* 3. MAIN SECTION - SERVICIOS (GRID LAYOUT) */}
       <div className="max-w-7xl mx-auto px-6 py-24">
         <div className="grid lg:grid-cols-12 gap-16">
-          
+
           {/* CATEGORÍAS/SERVICIOS (Left Column) */}
           <div className="lg:col-span-8">
             <div className="mb-12">
@@ -100,7 +100,7 @@ export default function ServiciosSection({ setCategoria }) {
               <h3 className="text-3xl md:text-4xl font-light uppercase tracking-widest">ÁREAS DE DISEÑO</h3>
               <div className="h-px w-20 bg-gray-800 mt-6" />
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {[
                 { title: 'SALA Y COMEDOR', img: '/muebles/estambul.png', count: 'Proyectos a medida', cat: 'Muebles' },
@@ -110,11 +110,11 @@ export default function ServiciosSection({ setCategoria }) {
               ].map(cat => (
                 <div key={cat.title} onClick={() => handleNavigation('catalogo', cat.cat)} className="group cursor-pointer relative overflow-hidden bg-[#FDFCFA] shadow-lg">
                   <div className="aspect-[4/5] overflow-hidden">
-                    <img 
-                      src={cat.img} 
-                      alt={cat.title} 
+                    <img
+                      src={cat.img}
+                      alt={cat.title}
                       loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+                      className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500" />
                   </div>
@@ -129,14 +129,14 @@ export default function ServiciosSection({ setCategoria }) {
 
           {/* SIDEBAR - SERVICIOS (Right Column) */}
           <div className="lg:col-span-4 space-y-16">
-            
+
             {/* NUESTRO ENFOQUE - SERVICIOS */}
             <div className="bg-[#FDFCFA] p-10 shadow-xl border border-gray-100">
               <div className="mb-10">
                 <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-400 mb-4">NUESTRO ENFOQUE</p>
                 <h3 className="text-2xl font-light tracking-tight leading-tight">diseñamos mobiliario arquitectónico para elevar tu descanso</h3>
               </div>
-              
+
               <div className="space-y-10">
                 {[
                   { icon: Settings, title: 'FUNCIONALIDAD', desc: 'Cada pieza cumple un propósito en tu día a día.' },
@@ -159,11 +159,11 @@ export default function ServiciosSection({ setCategoria }) {
             {/* PROCESO - SERVICIOS */}
             <div className="bg-[#1a1a1a] text-white p-10 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-              
+
               <div className="relative z-10">
                 <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40 mb-4">METODOLOGÍA</p>
                 <h3 className="text-2xl font-light tracking-tight mb-12">Así trabajamos</h3>
-                
+
                 <div className="space-y-10">
                   {[
                     { num: '01', title: 'AUDITORÍA DE ESPACIO', desc: 'Analizamos medidas y necesidades reales.' },
@@ -189,3 +189,4 @@ export default function ServiciosSection({ setCategoria }) {
     </section>
   );
 }
+
