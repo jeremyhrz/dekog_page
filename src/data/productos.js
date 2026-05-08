@@ -64,12 +64,10 @@ export const productos = [
   {id: 62,nombre: "Mesa Amsterdam",precio: 180,categoria: "Mesas",imagen: "/mesas/amsterdam.png",desc: "Diseño Exclusivo"},
   {id: 63,nombre: "Mesa Auckland",precio: 220,categoria: "Mesas",imagen: "/mesas/auckland.png",desc: "Diseño Exclusivo"},
   {id: 64,nombre: "Mesa Corsica Gris",precio: 160,categoria: "Mesas",imagen: "/mesas/corsica-gris.png",desc: "Diseño Exclusivo"},
-  {id: 65,nombre: "Mesa Corsica",precio: 160,categoria: "Mesas",imagen: "/mesas/corsica.png",desc: "Diseño Exclusivo"},
   {id: 66,nombre: "Mesa Dubai",precio: 260,categoria: "Mesas",imagen: "/mesas/dubai.png",desc: "Diseño Exclusivo"},
   {id: 67,nombre: "Mesa Kenia",precio: 170,categoria: "Mesas",imagen: "/mesas/kenia.png",desc: "Diseño Exclusivo"},
-  {id: 68,nombre: "Mesa Luxemburgo",precio: 900,categoria: "Mesas",imagen: "/mesas/luxemburgo.png",desc: "Diseño Exclusivo"},
+  {id: 68,nombre: "Vanity Luxemburgo",precio: 900,categoria: "Mesas",imagen: "/mesas/luxemburgo.png",desc: "Diseño Exclusivo"},
   {id: 69,nombre: "Mesa New York",precio: 190,categoria: "Mesas",imagen: "/mesas/new-york.png",desc: "Diseño Exclusivo"},
-  {id: 70,nombre: "Mesa Paris",precio: 170,categoria: "Mesas",imagen: "/mesas/paris.png",desc: "Diseño Exclusivo"},
   {id: 70,nombre: "Mesa Paris",precio: 170,categoria: "Mesas",imagen: "/mesas/paris.png",desc: "Diseño Exclusivo"}
 ];
 
