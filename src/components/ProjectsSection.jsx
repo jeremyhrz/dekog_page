@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { ArrowRight, Globe, Edit3, Shield, Sofa, CheckCircle } from 'lucide-react';
 import { proyectosData, categories } from '../data/proyectosData';
 import ProjectModal from './ProjectModal';
+import { motion } from 'framer-motion';
+import ImageWithSkeleton from './ImageWithSkeleton';
 
 import './ProjectsSection.css';
 
@@ -37,11 +39,10 @@ const ProjectsSection = () => {
           </a>
         </div>
         <div className="hero-image-container">
-          <img
+          <ImageWithSkeleton
             src="/hero/IMG_3919.PNG"
             alt="Hero Proyecto"
             className="hero-image"
-            loading="lazy"
           />
         </div>
       </header>
@@ -73,24 +74,27 @@ const ProjectsSection = () => {
 
       {/* Grid */}
       <section className="projects-grid">
-        {filteredProjects.map((project) => (
-          <div key={project.id} className="project-card">
+        {filteredProjects.map((project, index) => (
+          <motion.div 
+            key={project.id} 
+            className="project-card"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.6, delay: index % 3 * 0.1 }}
+          >
             <div
               className="card-image-container"
               onClick={() => setSelectedProject(project)}
             >
               <span className="card-category">{project.categoria}</span>
-              <img
+              <ImageWithSkeleton
                 src={project.imageFolder
                   ? `/assets/PROYECTOS/${project.imageFolder}/${project.portada}`
                   : `/assets/PROYECTOS/${project.imageFolders[0].folder}/${project.portada}`
                 }
                 alt={project.titulo}
                 className="card-image"
-                loading="lazy"
-                onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800';
-                }}
               />
             </div>
             <div className="card-info">
@@ -111,7 +115,7 @@ const ProjectsSection = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
       </section>
 

@@ -27,7 +27,7 @@ export default function Nosotros() {
             </div>
 
             <a 
-              href="mailto:info@dekog.com?subject=Postulaci%C3%B3n%20CV"
+              href="mailto:dekog.inf@gmail.com?subject=Postulaci%C3%B3n%20CV"
               className="inline-flex items-center gap-3 mt-8 border-2 border-[#1a1a1a] text-[#1a1a1a] px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-[#1a1a1a] hover:text-white transition-all duration-300"
             >
               <Mail size={16} /> Únete a nuestro equipo
