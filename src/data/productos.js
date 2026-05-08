@@ -1,4 +1,5 @@
 export const productos = [
+  {id: 71,nombre: "Oslo",precio: 580,categoria: "Camas",subcategoria: "Camas Clásicas",imagen: "/muebles/oslo.png",desc: "Base Lisa Individual",tallas: [{nombre: "Individual 1,00x1,90 M",precio: 580},{nombre: "Matrimonial 1,40x1,90 M",precio: 655},{nombre: "Queen 1,60x1,90 M",precio: 765},{nombre: "King 2,00x2,00 M",precio: 850}]},
   {id: 1,nombre: "Amsterdam",precio: 1215,categoria: "Muebles",imagen: "/muebles/amsterdam.png",desc: "Confort Premium"},
   {id: 2,nombre: "Antalya",precio: 1200,categoria: "Muebles",imagen: "/muebles/antalya.jpeg",desc: "Diseño Exclusivo"},
   {id: 3,nombre: "Atenas",precio: 960,categoria: "Muebles",imagen: "/muebles/atenas.png",desc: "Equilibrio y Confort"},
@@ -69,7 +70,7 @@ export const productos = [
   {id: 68,nombre: "Mesa Luxemburgo",precio: 900,categoria: "Mesas",imagen: "/mesas/luxemburgo.png",desc: "Diseño Exclusivo"},
   {id: 69,nombre: "Mesa New York",precio: 190,categoria: "Mesas",imagen: "/mesas/new-york.png",desc: "Diseño Exclusivo"},
   {id: 70,nombre: "Mesa Paris",precio: 170,categoria: "Mesas",imagen: "/mesas/paris.png",desc: "Diseño Exclusivo"},
-  {id: 71,nombre: "Oslo",precio: 580,categoria: "Camas",subcategoria: "Camas Clásicas",imagen: "/muebles/oslo.png",desc: "Base Lisa Individual",tallas: [{nombre: "Individual 1,00x1,90 M",precio: 580},{nombre: "Matrimonial 1,40x1,90 M",precio: 655},{nombre: "Queen 1,60x1,90 M",precio: 765},{nombre: "King 2,00x2,00 M",precio: 850}]}
+  {id: 70,nombre: "Mesa Paris",precio: 170,categoria: "Mesas",imagen: "/mesas/paris.png",desc: "Diseño Exclusivo"}
 ];
 
 export const heroSlides = [
@@ -82,6 +83,6 @@ export const heroSlides = [
 
 export const categorias = [
   { nombre: 'Muebles', imagen: '/muebles/dubai.png', count: 36 },
-  { nombre: 'Camas', imagen: '/muebles/aurora.png', count: 15 },
+  { nombre: 'Camas', imagen: "/muebles/oslo.png", count: 16 },
   { nombre: 'Mesas', imagen: '/mesas/amsterdam.png', count: 9 },
 ];
