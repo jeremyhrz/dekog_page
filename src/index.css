@@ -1,4 +1,6 @@
-body {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -6,4 +8,332 @@ body {
 
 html {
   scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Hero Slider animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes kenburns {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.8s ease-out forwards;
+}
+
+.animate-slide-left {
+  animation: slideInLeft 0.8s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.6s ease-out forwards;
+}
+
+.animate-kenburns {
+  animation: kenburns 8s ease-out forwards;
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Delay classes */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+
+/* Hero slider specific */
+.hero-slide {
+  transition: opacity 700ms ease-in-out, transform 700ms ease-in-out;
+}
+
+.hero-slide-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hero-slide-inactive {
+  opacity: 0;
+  transform: scale(1.02);
+}
+
+/* Product card hover effects */
+.product-card {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+.product-card:hover .product-image {
+  transform: scale(1.08);
+}
+
+.product-card:hover .product-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.product-image {
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-overlay {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Category card */
+.category-card {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.category-card:hover {
+  transform: scale(1.03);
+}
+
+.category-card:hover .category-image {
+  transform: scale(1.1);
+}
+
+.category-image {
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Navigation link hover effect */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: #000;
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* Button ripple effect */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Slider dots */
+.slider-dot {
+  transition: all 0.3s ease;
+}
+
+.slider-dot-active {
+  width: 32px;
+  background: #fff;
+}
+
+/* Smooth image loading */
+.img-loading {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.img-loaded {
+  opacity: 1;
+}
+
+/* Glassmorphism navbar */
+.glass-nav {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.glass-nav-scrolled {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Cart slide animation */
+.cart-overlay {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.cart-panel {
+  animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Section reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Marquee ticker */
+.ticker {
+  display: flex;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ticker-content {
+  display: flex;
+  animation: marquee 25s linear infinite;
+}
+
+/* Mobile menu */
+.mobile-menu {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Quick view modal */
+.modal-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Search overlay */
+.search-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Logo invert for dark backgrounds */
+.logo-dark {
+  filter: invert(1);
 }

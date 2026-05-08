@@ -3,13 +3,33 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="icon" type="image/png" href="/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DEKOG.HOME | Mobiliario Arquitectónico</title>
+  <meta name="description" content="DEKOG HOME — Mobiliario con estilo arquitectónico. Sofás, camas y puffs de diseño exclusivo en Valencia, Venezuela." />
+  <meta name="keywords" content="muebles, sofás, camas, puffs, diseño, arquitectónico, Valencia, Venezuela, Dekog Home" />
+  <meta property="og:title" content="DEKOG HOME | Estilo Arquitectónico" />
+  <meta property="og:description" content="Mobiliario con estilo arquitectónico. Sofás, camas y puffs de diseño exclusivo." />
+  <meta property="og:image" content="/logo.png" />
+  <title>DEKOG HOME | Estilo Arquitectónico</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'sans': ['Inter', 'system-ui', 'sans-serif'],
+            'display': ['Playfair Display', 'serif'],
+          },
+        }
+      }
+    }
+  </script>
 </head>
 
-<body>
+<body class="font-sans">
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
