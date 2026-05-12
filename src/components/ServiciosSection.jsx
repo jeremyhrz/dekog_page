@@ -48,8 +48,8 @@ export default function ServiciosSection({ setCategoria }) {
       <div className="max-w-7xl mx-auto px-6 pb-32">
         <div className="space-y-32">
           {steps.map((step, index) => (
-            <motion.div 
-              key={index} 
+            <motion.div
+              key={index}
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-100px" }}
