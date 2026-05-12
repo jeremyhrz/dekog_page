@@ -32,9 +32,9 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
 
     // Logic based on slide name
     if (nombre.includes('MOBILIARIO')) {
-      cat = 'Sillas y Sofás';
+      cat = 'Sofás';
     } else if (nombre.includes('DESCANSAR') || nombre.includes('INTERIORISMO')) {
-      cat = 'Camas y Cabeceras';
+      cat = 'Camas';
     } else if (nombre === 'PROYECTOS' || nombre === 'DEKOG') {
       // Si es Proyectos o Dekog (Planos), lo mandamos a la página de Proyectos real
       window.location.href = '/proyectos';

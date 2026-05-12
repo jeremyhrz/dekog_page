@@ -53,7 +53,7 @@ export default function Home({
   }, [categoria, searchQuery]);
 
   const isCamasCategory =
-    categoria === 'Camas y Cabeceras' ||
+    categoria === 'Camas' ||
     ['Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].includes(categoria);
 
   return (
@@ -79,12 +79,12 @@ export default function Home({
 
           {/* Filtros */}
             <div className="flex flex-wrap justify-center gap-2">
-              {['Todos', 'Sillas y Sofás', 'Camas y Cabeceras', 'Decoración'].map(c => (
+              {['Todos', 'Sofás', 'Camas', 'Mesas'].map(c => (
                 <button
                   key={c}
                   onClick={() => handleCategoryClick(c)}
                   className={`px-6 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-                    (categoria === c || (c === 'Camas y Cabeceras' && isCamasCategory)) && !searchQuery
+                    (categoria === c || (c === 'Camas' && isCamasCategory)) && !searchQuery
                       ? 'bg-black text-white shadow-lg shadow-black/20 scale-105'
                       : 'bg-[#FDFCFA] text-gray-400 hover:bg-[#eae6e1] border border-gray-200'
                   }`}

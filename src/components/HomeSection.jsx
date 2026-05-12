@@ -48,7 +48,7 @@ export default function HomeSection({ setCategoria }) {
             CONOCE MÁS <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
-        <div className="order-1 lg:order-2 relative group cursor-pointer" onClick={() => handleNavigation('catalogo', 'Muebles')}>
+        <div className="order-1 lg:order-2 relative group cursor-pointer" onClick={() => handleNavigation('catalogo', 'Sofás')}>
           <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-500 z-10" />
           <img 
             src="/catalogo/dubai.png" 
@@ -72,8 +72,8 @@ export default function HomeSection({ setCategoria }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 text-center">
             {[
-              { icon: Armchair, title: 'MOBILIARIO\nA MEDIDA', desc: 'Diseñamos y fabricamos muebles personalizados que se adaptan perfectamente a tu espacio.', target: 'catalogo', cat: 'Sillas y Sofás' },
-              { icon: Lamp, title: 'DECORACIÓN', desc: 'Seleccionamos piezas decorativas que aportan estilo, personalidad y armonía a cada ambiente.', target: 'catalogo', cat: 'Decoración' },
+              { icon: Armchair, title: 'MOBILIARIO\nA MEDIDA', desc: 'Diseñamos y fabricamos muebles personalizados que se adaptan perfectamente a tu espacio.', target: 'catalogo', cat: 'Sofás' },
+              { icon: Lamp, title: 'DECORACIÓN', desc: 'Seleccionamos piezas decorativas que aportan estilo, personalidad y armonía a cada ambiente.', target: 'catalogo', cat: 'Mesas' },
               { icon: Layers, title: 'ACABADOS Y\nTEXTURAS', desc: 'Elegimos materiales y acabados de alta calidad que elevan el diseño de tus espacios.', target: 'arquitectura', cat: 'Todos' },
               { icon: User, title: 'ASESORÍA\nPERSONALIZADA', desc: 'Te acompañamos en la elección de cada detalle para crear un espacio único y funcional.', target: 'contacto', cat: 'Todos' }
             ].map((item, i) => (
@@ -105,9 +105,9 @@ export default function HomeSection({ setCategoria }) {
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
               {[
-                { title: 'SILLAS Y SOFÁS', img: '/catalogo/qatar.png', count: `${productos.filter(p => p.categoria === 'Sillas y Sofás').length} Modelos`, cat: 'Sillas y Sofás' },
-                { title: 'CAMAS Y CABECERAS', img: '/catalogo/berna.png', count: `${productos.filter(p => p.categoria === 'Camas y Cabeceras').length} Diseños`, cat: 'Camas y Cabeceras' },
-                { title: 'DECORACIÓN', img: '/mesas/luxemburgo.png', count: 'Mesas de noche y Vanity', cat: 'Decoración' }
+                { title: 'SOFÁS', img: '/catalogo/qatar.png', count: `${productos.filter(p => p.categoria === 'Sofás').length} Modelos`, cat: 'Sofás' },
+                { title: 'CAMAS', img: '/catalogo/berna.png', count: `${productos.filter(p => p.categoria === 'Camas').length} Diseños`, cat: 'Camas' },
+                { title: 'MESAS', img: '/mesas/luxemburgo.png', count: `${productos.filter(p => p.categoria === 'Mesas').length} Modelos`, cat: 'Mesas' }
               ].map(cat => (
                 <div key={cat.title} onClick={() => handleNavigation('catalogo', cat.cat)} className="group cursor-pointer relative overflow-hidden bg-[#FDFCFA] shadow-lg">
                   <div className="aspect-[4/5] overflow-hidden">

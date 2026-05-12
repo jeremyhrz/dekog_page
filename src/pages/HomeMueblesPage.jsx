@@ -32,7 +32,7 @@ export default function HomeMueblesPage({
   }, [categoria]);
 
   const isCamasCategory =
-    categoria === 'Camas y Cabeceras' ||
+    categoria === 'Camas' ||
     ['Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].includes(categoria);
 
   return (
