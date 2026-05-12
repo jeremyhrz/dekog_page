@@ -1,5 +1,5 @@
-import React from 'react';
 import { ChevronRight, Armchair, Lamp, Layers, User, Settings, ShieldCheck, Gem, Shield, Clock, CheckCircle2 } from 'lucide-react';
+import { productos } from '../data/productos';
 
 export default function HomeSection({ setCategoria }) {
   const handleNavigation = (targetId, cat = 'Todos') => {
@@ -103,12 +103,11 @@ export default function HomeSection({ setCategoria }) {
               <div className="h-px w-20 bg-gray-800 mt-6" />
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
               {[
-                { title: 'SILLAS Y SOFÁS', img: '/catalogo/qatar.png', count: '12 Modelos', cat: 'Muebles' },
-                { title: 'CAMAS Y CABECERAS', img: '/catalogo/berna.png', count: '08 Modelos', cat: 'Camas' },
-                { title: 'COMEDORES', img: '/catalogo/paris.png', count: '06 Modelos', cat: 'Mesas' },
-                { title: 'DECORACIÓN', img: '/catalogo/doha.png', count: '24 Piezas', cat: 'Muebles' }
+                { title: 'SILLAS Y SOFÁS', img: '/catalogo/qatar.png', count: `${productos.filter(p => p.categoria === 'Sillas y Sofás').length} Modelos`, cat: 'Sillas y Sofás' },
+                { title: 'CAMAS Y CABECERAS', img: '/catalogo/berna.png', count: `${productos.filter(p => p.categoria === 'Camas y Cabeceras').length} Diseños`, cat: 'Camas y Cabeceras' },
+                { title: 'DECORACIÓN', img: '/mesas/luxemburgo.png', count: 'Mesas de noche y Vanity', cat: 'Decoración' }
               ].map(cat => (
                 <div key={cat.title} onClick={() => handleNavigation('catalogo', cat.cat)} className="group cursor-pointer relative overflow-hidden bg-[#FDFCFA] shadow-lg">
                   <div className="aspect-[4/5] overflow-hidden">

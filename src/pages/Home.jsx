@@ -53,7 +53,7 @@ export default function Home({
   }, [categoria, searchQuery]);
 
   const isCamasCategory =
-    categoria === 'Camas' ||
+    categoria === 'Camas y Cabeceras' ||
     ['Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].includes(categoria);
 
   return (
@@ -78,14 +78,13 @@ export default function Home({
           </div>
 
           {/* Filtros */}
-          <div className="flex flex-col items-center gap-4 mb-12">
             <div className="flex flex-wrap justify-center gap-2">
-              {['Todos', 'Muebles', 'Camas', 'Mesas'].map(c => (
+              {['Todos', 'Sillas y Sofás', 'Camas y Cabeceras', 'Decoración'].map(c => (
                 <button
                   key={c}
                   onClick={() => handleCategoryClick(c)}
                   className={`px-6 py-2.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-                    (categoria === c || (c === 'Camas' && isCamasCategory)) && !searchQuery
+                    (categoria === c || (c === 'Camas y Cabeceras' && isCamasCategory)) && !searchQuery
                       ? 'bg-black text-white shadow-lg shadow-black/20 scale-105'
                       : 'bg-[#FDFCFA] text-gray-400 hover:bg-[#eae6e1] border border-gray-200'
                   }`}
@@ -104,7 +103,7 @@ export default function Home({
             </div>
             {isCamasCategory && !searchQuery && (
               <div className="flex flex-wrap justify-center gap-2 mt-2">
-                {['Camas', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].map(subc => (
+                {['Camas y Cabeceras', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].map(subc => (
                   <button
                     key={subc}
                     onClick={() => handleCategoryClick(subc)}
@@ -114,46 +113,45 @@ export default function Home({
                         : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
                     }`}
                   >
-                    {subc === 'Camas' ? 'Todas las Camas' : subc}
+                    {subc === 'Camas y Cabeceras' ? 'Todas las Camas' : subc}
                   </button>
                 ))}
               </div>
             )}
-            <p className="text-[9px] uppercase tracking-[0.2em] text-gray-400 font-bold">
+            <p className="text-[9px] uppercase tracking-[0.2em] text-gray-400 font-bold mb-12">
               Mostrando {Math.min(visibleCount, filtrados.length)} de {filtrados.length} piezas exclusivas
             </p>
-          </div>
 
-          {/* Grid de productos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filtrados.slice(0, visibleCount).map((p, i) => (
-              <div
-                key={p.id}
-                className="transition-all duration-700"
-                style={{ transitionDelay: `${(i % 4) * 0.1}s` }}
-              >
-                <ProductCard
-                  product={p}
-                  onAdd={add}
-                  onQuickView={setQuickViewProduct}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Cargar más */}
-          {visibleCount < filtrados.length && (
-            <div className="text-center mt-12">
-              <button
-                onClick={() => setVisibleCount(prev => prev + 12)}
-                className="btn-primary bg-black text-white px-12 py-4 rounded-xl font-bold uppercase text-xs tracking-widest"
-              >
-                Cargar Más Productos
-              </button>
+            {/* Grid de productos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filtrados.slice(0, visibleCount).map((p, i) => (
+                <div
+                  key={p.id}
+                  className="transition-all duration-700"
+                  style={{ transitionDelay: `${(i % 4) * 0.1}s` }}
+                >
+                  <ProductCard
+                    product={p}
+                    onAdd={add}
+                    onQuickView={setQuickViewProduct}
+                  />
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-      </section>
+
+            {/* Cargar más */}
+            {visibleCount < filtrados.length && (
+              <div className="text-center mt-12">
+                <button
+                  onClick={() => setVisibleCount(prev => prev + 12)}
+                  className="btn-primary bg-black text-white px-12 py-4 rounded-xl font-bold uppercase text-xs tracking-widest"
+                >
+                  Cargar Más Productos
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
     </>
   );
 }
