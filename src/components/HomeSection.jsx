@@ -72,8 +72,8 @@ export default function HomeSection({ setCategoria }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 text-center">
             {[
-              { icon: Armchair, title: 'MOBILIARIO\nA MEDIDA', desc: 'Diseñamos y fabricamos muebles personalizados que se adaptan perfectamente a tu espacio.', target: 'catalogo', cat: 'Muebles' },
-              { icon: Lamp, title: 'DECORACIÓN', desc: 'Seleccionamos piezas decorativas que aportan estilo, personalidad y armonía a cada ambiente.', target: 'catalogo', cat: 'Muebles' },
+              { icon: Armchair, title: 'MOBILIARIO\nA MEDIDA', desc: 'Diseñamos y fabricamos muebles personalizados que se adaptan perfectamente a tu espacio.', target: 'catalogo', cat: 'Sillas y Sofás' },
+              { icon: Lamp, title: 'DECORACIÓN', desc: 'Seleccionamos piezas decorativas que aportan estilo, personalidad y armonía a cada ambiente.', target: 'catalogo', cat: 'Decoración' },
               { icon: Layers, title: 'ACABADOS Y\nTEXTURAS', desc: 'Elegimos materiales y acabados de alta calidad que elevan el diseño de tus espacios.', target: 'arquitectura', cat: 'Todos' },
               { icon: User, title: 'ASESORÍA\nPERSONALIZADA', desc: 'Te acompañamos en la elección de cada detalle para crear un espacio único y funcional.', target: 'contacto', cat: 'Todos' }
             ].map((item, i) => (

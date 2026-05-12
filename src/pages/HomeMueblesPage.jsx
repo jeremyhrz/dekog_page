@@ -32,7 +32,7 @@ export default function HomeMueblesPage({
   }, [categoria]);
 
   const isCamasCategory =
-    categoria === 'Camas' ||
+    categoria === 'Camas y Cabeceras' ||
     ['Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].includes(categoria);
 
   return (
@@ -42,7 +42,7 @@ export default function HomeMueblesPage({
         setCategoria={(cat) => {
           // Si el usuario hace clic en una categoría aquí, 
           // lo llevamos a la página de inicio (/) donde está el catálogo real
-          setCategoria(cat);
+          handleCategoryClick(cat); // Usamos handleCategoryClick que ya viene de props
           window.location.href = '/#catalogo';
         }}
       />
