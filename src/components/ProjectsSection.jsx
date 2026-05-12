@@ -75,8 +75,8 @@ const ProjectsSection = () => {
       {/* Grid */}
       <section className="projects-grid">
         {filteredProjects.map((project, index) => (
-          <motion.div 
-            key={project.id} 
+          <motion.div
+            key={project.id}
             className="project-card"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}

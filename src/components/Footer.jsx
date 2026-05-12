@@ -7,11 +7,11 @@ export default function Footer() {
       <div className="max-w-[1400px] mx-auto px-6 md:px-12">
         {/* Main Footer Grid */}
         <div className="flex flex-wrap lg:flex-nowrap justify-between gap-10 lg:gap-8 mb-16">
-          
+
           {/* Brand & Description */}
           <div className="w-full lg:w-[280px] shrink-0">
             <div className="flex flex-col mb-8">
-              <span className="whitespace-nowrap font-light text-3xl md:text-4xl tracking-[0.4em] uppercase" style={{fontFamily: 'system-ui, -apple-system, sans-serif'}}>
+              <span className="whitespace-nowrap font-light text-3xl md:text-4xl tracking-[0.4em] uppercase" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                 D E K O G
               </span>
               <span className="whitespace-nowrap text-[8px] md:text-[9px] font-bold uppercase tracking-[0.3em] mt-2 text-gray-500">
@@ -126,9 +126,9 @@ export default function Footer() {
                 <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest leading-tight">A NIVEL NACIONAL</span>
               </div>
             </div>
-            
+
             <div className="hidden lg:block w-px h-8 bg-gray-800"></div>
-            
+
             <div className="flex items-center gap-3">
               <Map size={24} className="text-[#a89076]" strokeWidth={1} />
               <div className="flex flex-col">

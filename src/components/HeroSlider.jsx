@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
   const [current, setCurrent] = useState(0);
@@ -33,18 +33,18 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
     // Logic based on slide name
     if (nombre.includes('MOBILIARIO')) {
       cat = 'Muebles';
-      targetId = 'catalogo';
     } else if (nombre.includes('DESCANSAR') || nombre.includes('INTERIORISMO')) {
       cat = 'Camas';
-      targetId = 'catalogo';
     } else if (nombre === 'PROYECTOS' || nombre === 'DEKOG') {
-      targetId = 'proyectos';
+      // Si es Proyectos o Dekog (Planos), lo mandamos a la página de Proyectos real
+      window.location.href = '/proyectos';
+      return;
     }
 
     // Apply category filter if it's a catalog target
     if (setCategoria) setCategoria(cat);
 
-    // Reliable scrolling
+    // Reliable scrolling to catalog
     setTimeout(() => {
       const el = document.getElementById(targetId);
       if (el) {
@@ -74,30 +74,28 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
           />
         </div>
       ))}
-
       {/* Content overlay */}
       <div className="absolute inset-0 z-20 flex items-center">
         <div className="max-w-7xl mx-auto px-6 md:px-12 w-full">
-          <div key={current} className="max-w-xl">
-            <p className="text-white/60 text-[10px] md:text-xs uppercase tracking-[0.3em] mb-4 animate-fade-in-up" style={{ animationDelay: '0.1s', opacity: 0 }}>
-              {slide.categoria ? `Colección Exclusiva — ${slide.categoria}` : 'Bienvenidos a Dekog Home'}
+          <div key={current} className="max-w-xl md:max-w-2xl lg:max-w-3xl">
+            <p className="text-white/60 text-[10px] md:text-xs uppercase tracking-[0.4em] mb-4 animate-fade-in-up" style={{ animationDelay: '0.1s', opacity: 0 }}>
             </p>
-            <h2 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-4 animate-fade-in-up" style={{ animationDelay: '0.2s', opacity: 0 }}>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in-up leading-[1.1] tracking-tight" style={{ animationDelay: '0.2s', opacity: 0 }}>
               {slide.nombre}
             </h2>
-            <p className="text-white/70 text-sm md:text-base mb-2 animate-fade-in-up" style={{ animationDelay: '0.3s', opacity: 0 }}>
+            <p className="text-white/80 text-sm md:text-lg lg:text-xl font-light tracking-wide mb-8 max-w-xl animate-fade-in-up leading-relaxed" style={{ animationDelay: '0.3s', opacity: 0 }}>
               {slide.desc}
             </p>
             {slide.precio && (
-              <p className="text-white text-2xl md:text-3xl font-bold mb-8 animate-fade-in-up" style={{ animationDelay: '0.35s', opacity: 0 }}>
+              <p className="text-white text-xl md:text-3xl font-bold mb-8 animate-fade-in-up" style={{ animationDelay: '0.35s', opacity: 0 }}>
                 <span className="font-light mr-2 text-[0.8em]">REF</span>{slide.precio}
               </p>
             )}
-            <div className={`flex gap-4 animate-fade-in-up ${!slide.precio ? 'mt-8' : ''}`} style={{ animationDelay: '0.4s', opacity: 0 }}>
+            <div className={`flex flex-col sm:flex-row gap-4 animate-fade-in-up ${!slide.precio ? 'mt-8' : ''}`} style={{ animationDelay: '0.4s', opacity: 0 }}>
               {slide.isProduct !== false ? (
                 <button
                   onClick={() => onAddToCart(slide)}
-                  className="btn-primary bg-white text-black px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-gray-100"
+                  className="btn-primary bg-white text-black px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 w-full sm:w-auto text-center shadow-lg"
                 >
                   Añadir al Carrito
                 </button>
@@ -105,14 +103,14 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
                 <a
                   href={`https://wa.me/584145847791?text=Hola, quiero más información sobre ${slide.nombre}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="btn-primary flex items-center justify-center bg-white text-black px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-gray-100"
+                  className="btn-primary flex items-center justify-center bg-white text-black px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 w-full sm:w-auto shadow-lg"
                 >
                   Consultar Proyecto
                 </a>
               )}
               <button
                 onClick={() => handleVerCatalogo(slide.nombre)}
-                className="btn-primary border border-white/30 text-white px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-white/10"
+                className="btn-primary border border-white/40 text-white px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-white/10 w-full sm:w-auto text-center"
               >
                 {(slide.nombre === 'PROYECTOS' || slide.nombre === 'DEKOG') ? 'Ver Proyecto' : 'Ver Catálogo'}
               </button>
@@ -121,29 +119,54 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
         </div>
       </div>
 
+      {/* Indicador de Scroll — Diseño Ultra-Premium & Luminoso */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center group cursor-pointer"
+        onClick={() => {
+          const el = document.getElementById('catalogo');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      >
+        {/* Flecha Chevron animada - Sutil pero visible */}
+        <div className="mb-2 transition-all duration-500 group-hover:translate-y-1">
+          <ChevronDown size={24} className="text-white/60 group-hover:text-white drop-shadow-md transition-all" strokeWidth={1.5} />
+        </div>
+
+        {/* Línea de scroll vertical estilizada */}
+        <div className="relative w-[1px] h-12 bg-white/20 overflow-hidden rounded-full">
+          <div className="absolute top-0 left-0 w-full h-full bg-white animate-scroll-down" />
+        </div>
+        
+        {/* Etiqueta minimalista */}
+        <div className="mt-4">
+          <span className="text-[10px] text-white/40 uppercase tracking-[0.5em] font-bold group-hover:text-white transition-all duration-700 ease-out">
+            Catálogo
+          </span>
+        </div>
+      </div>
+
       {/* Navigation arrows */}
       <button
         onClick={goPrev}
-        className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full transition-all"
+        className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full transition-all hidden md:flex"
         aria-label="Anterior"
       >
         <ChevronLeft size={24} />
       </button>
       <button
         onClick={goNext}
-        className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full transition-all"
+        className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-30 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full transition-all hidden md:flex"
         aria-label="Siguiente"
       >
         <ChevronRight size={24} />
       </button>
 
       {/* Slide indicators */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex gap-3">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-3">
         {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => setCurrent(i)}
-            className={`w-12 h-1 transition-all duration-500 ${i === current ? 'bg-white' : 'bg-white/20'}`}
+            className={`w-8 md:w-12 h-1 transition-all duration-500 ${i === current ? 'bg-white' : 'bg-white/20'}`}
             aria-label={`Slide ${i + 1}`}
           />
         ))}

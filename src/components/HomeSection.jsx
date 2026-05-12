@@ -9,7 +9,8 @@ export default function HomeSection({ setCategoria }) {
       const el = document.getElementById(targetId);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth' });
-        window.history.pushState(null, null, `#${targetId}`);
+        // Usar replaceState en lugar de pushState para no afectar la navegación de React Router
+        window.history.replaceState(null, null, window.location.pathname + `#${targetId}`);
       }
     }, 100);
   };

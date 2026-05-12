@@ -7,7 +7,7 @@ export default function ServiciosSection({ setCategoria }) {
   const steps = [
     { num: '01', title: 'Diseño arquitectónico', img: '/servicios/Diseño arquitectónico1.PNG', desc: 'Conceptualización y planificación detallada de tus espacios, integrando funcionalidad y estética desde el primer trazo.' },
     { num: '02', title: 'Modelado 3D', img: '/servicios/Modelado 3D2.jpeg', desc: 'Visualización hiperrealista para que experimentes y apruebes el diseño final antes de iniciar la construcción.' },
-    { num: '03', title: 'Ejecución de obra', img: '/servicios/Ejecucion de obra3.HEIC', desc: 'Llevamos el diseño a la realidad con los más altos estándares de construcción, respetando plazos y calidad.' },
+    { num: '03', title: 'Ejecución de obra', img: '/servicios/03.png', desc: 'Llevamos el diseño a la realidad con los más altos estándares de construcción, respetando plazos y calidad.' },
     { num: '04', title: 'Supervisión de obra', img: '/servicios/Supervisión de obra4.PNG', desc: 'Control riguroso de cada etapa del proyecto para garantizar fidelidad absoluta al diseño original.' },
     { num: '05', title: 'Mobiliario y decoración', img: '/servicios/mobiliario y decoracion5.PNG', desc: 'Selección e instalación de piezas exclusivas y mobiliario a medida que completan la experiencia del espacio.' },
   ];
