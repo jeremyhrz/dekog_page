@@ -47,12 +47,6 @@ export default function NosotrosPage() {
             Cuéntanos sobre tu proyecto y descubre cómo podemos transformar tu espacio.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/contacto"
-              className="bg-white text-black px-12 py-4 text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
-            >
-              Contactar <ArrowRight size={16} />
-            </Link>
             <a
               href="mailto:dekog.inf@gmail.com?subject=Postulación%20CV"
               className="border border-white/30 text-white px-12 py-4 text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"

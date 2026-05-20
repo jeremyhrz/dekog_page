@@ -129,7 +129,7 @@ export default function Navbar({ cartCount = 0, onCartOpen = () => {}, onSearch 
 
       {/* Mobile Menu — Immersive & Premium */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-[60] bg-[#f4f0ec] flex flex-col animate-in fade-in slide-in-from-right duration-500">
+        <div className="mobile-menu fixed inset-0 z-[60] bg-[#f4f0ec] flex flex-col animate-in fade-in slide-in-from-right duration-500">
           <div className="flex items-center justify-between p-6">
             <div className="flex flex-col">
               <span className="font-light text-2xl tracking-[0.3em] uppercase">DEKOG</span>

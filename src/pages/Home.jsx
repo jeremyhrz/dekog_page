@@ -103,7 +103,7 @@ export default function Home({
             </div>
             {isCamasCategory && !searchQuery && (
               <div className="flex flex-wrap justify-center gap-2 mt-2">
-                {['Camas y Cabeceras', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].map(subc => (
+                {['Camas', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'].map(subc => (
                   <button
                     key={subc}
                     onClick={() => handleCategoryClick(subc)}
@@ -113,7 +113,7 @@ export default function Home({
                         : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
                     }`}
                   >
-                    {subc === 'Camas y Cabeceras' ? 'Todas las Camas' : subc}
+                    {subc === 'Camas' ? 'Todas las Camas' : subc}
                   </button>
                 ))}
               </div>
