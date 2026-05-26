@@ -11,7 +11,7 @@ export const productos = [
   { id: 10, nombre: "Berlin", precio: 940, categoria: "Camas", subcategoria: "Camas Alta Gama", imagen: "/muebles/berlin.png", desc: "Diseño Exclusivo", tallas: [{ nombre: "Individual 1,00x1,90 M", precio: 940 }, { nombre: "Matrimonial 1,40x1,90 M", precio: 1050 }, { nombre: "Queen 1,60x1,90 M", precio: 1155 }, { nombre: "King 2,00x2,00 M", precio: 1230 }] },
   { id: 11, nombre: "Chicago", precio: 580, categoria: "Camas", subcategoria: "Camas Alta Gama", imagen: "/muebles/chicago-era.png", desc: "Diseño Exclusivo", tallas: [{ nombre: "Individual 1,00x1,90 M", precio: 580 }, { nombre: "Matrimonial 1,40x1,90 M", precio: 640 }, { nombre: "Queen 1,60x1,90 M", precio: 700 }, { nombre: "King 2,00x2,00 M", precio: 830 }] },
   { id: 12, nombre: "Puff COD-2000", precio: 480, categoria: "Sofás", imagen: "/muebles/cod-2000.png", desc: "Capitoneado Cuadrado", tallas: [{ nombre: "1 Puesto 60CM", precio: 480 }] },
-  { id: 13, nombre: "Puff COD-2001", precio: 280, categoria: "Sofás", imagen: "/muebles/cod-2001.png", desc: "Circular", tallas: [{ nombre: "1 Puesto 60CM", precio: 280 }] },
+  { id: 13, nombre: "Puff COD-2001", precio: 280, categoria: "Sofás", imagen: "/muebles/cod-2002.png", desc: "Circular", tallas: [{ nombre: "1 Puesto 60CM", precio: 280 }] },
   { id: 15, nombre: "Puff COD-2002", precio: 280, categoria: "Sofás", imagen: "/muebles/cod-2003.png", desc: "Minimalista", tallas: [{ nombre: "1 Puesto 80CM", precio: 280 }] },
   { id: 100, nombre: "Puff COD-2003", precio: 400, categoria: "Sofás", imagen: "/muebles/IMG_4353.JPG.jpeg", desc: "Minimalista", tallas: [{ nombre: "1 Puesto 80CM", precio: 400 }] },
   { id: 18, nombre: "Doha", precio: 1885, categoria: "Sofás", imagen: "/muebles/doha.png", desc: "Medida 2.70M" },
