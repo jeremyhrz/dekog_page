@@ -82,23 +82,50 @@ export default function Footer() {
           </div>
 
           {/* Contacto Column */}
-          <div className="w-[200px]">
+          <div className="w-full sm:w-[260px]">
             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-white mb-6">CONTACTO</h4>
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <MapPin size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-400">CC Vía Veneto</p>
-                  <p className="text-xs text-gray-400">Nivel Roma - Local R17</p>
-                </div>
+                <a href="https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&entry=ttu&g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" className="block">
+                  <p className="text-xs text-gray-400 hover:text-white transition-colors">Dekog Home</p>
+                  <p className="text-xs text-gray-400 hover:text-white transition-colors">CC Vía Veneto, Nivel Roma - Local R18</p>
+                </a>
               </div>
-              <div className="flex items-start gap-3">
-                <MapPin size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-400">Av. Carlos Sanda</p>
-                  <p className="text-xs text-gray-400">El Viñedo</p>
-                </div>
-              </div>
+              {/* Google Maps - Dekog Home */}
+              <a 
+                href="https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&entry=ttu&g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D"
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  width: '100%',
+                  aspectRatio: '16 / 9',
+                  borderRadius: '8px',
+                  display: 'block',
+                  filter: 'grayscale(1) invert(0.92) hue-rotate(180deg)',
+                }}
+              >
+                {/* Overlay to intercept clicks on the iframe */}
+                <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}></div>
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3925.9642436440263!2d-67.9994466!3d10.2337844!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e8067bc8767db79%3A0x17e49c019b1dfaea!2sDekog%20Home!5e0!3m2!1ses!2sve!4v1716733200000!5m2!1ses!2sve"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    pointerEvents: 'none'
+                  }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Ubicación Dekog Home"
+                />
+              </a>
               <div className="flex items-start gap-3">
                 <Phone size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
                 <a href="https://wa.me/584145847791" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors">
