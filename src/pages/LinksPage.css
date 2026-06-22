@@ -1,0 +1,297 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,700;1,300&family=Montserrat:wght@300;400;600&display=swap');
+
+/* ─── BASE ──────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.g-page {
+  font-family: 'Montserrat', sans-serif;
+  width: 100%;
+  /* Dynamic Viewport Height: evita corte de navegación nativa en Instagram/iOS/Android */
+  min-height: 100dvh;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+/* ─── FONDO OPULENTO ─────────────────────────────────────────────────── */
+.g-bg {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 30%, #16161a 0%, #0b0b0d 100%);
+  z-index: -1;
+}
+
+/* Grano fotográfico ultrasutil — no interfiere con el contenido */
+.g-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* ─── CONTENIDO ──────────────────────────────────────────────────────── */
+.g-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0 60px;
+  width: 100%;
+}
+
+/* ─── ENCABEZADO ─────────────────────────────────────────────────────── */
+.g-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.8rem, 6vw, 4.5rem);
+  font-weight: 300;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.g-subtitle {
+  font-size: clamp(0.6rem, 1.5vw, 0.7rem);
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-top: 14px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+/* ─── GRID WRAPPER ───────────────────────────────────────────────────── */
+.g-grid-wrapper {
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 48px;
+  padding: 0 24px;
+}
+
+/* ─── GRID CSS NATIVO — distribución fluida sin huecos ───────────────── */
+.g-grid {
+  display: grid;
+  /* 4 columnas base en desktop; cada tarjeta define cuántas ocupa via --col-span */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  padding: 20px 0;
+}
+
+/* La propiedad CSS custom --col-span inyectada desde JSX controla el ancho */
+.g-card {
+  grid-column: span var(--col-span, 1);
+  position: relative;
+  height: 330px;
+  background: transparent;
+  border-radius: 20px;
+  text-decoration: none;
+  display: block;
+  /* HOVER solo en dispositivos con puntero fino (mouse físico) —
+     evita el "sticky hover" en pantallas táctiles */
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Guarda de puntero: solo activa la animación con mouse físico */
+@media (hover: hover) and (pointer: fine) {
+  .g-card:hover {
+    transform: translateY(-4px) scale(1.01);
+  }
+
+  .g-card:hover .g-screen {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 28px 56px rgba(0, 0, 0, 0.45);
+  }
+
+  .g-socials a:hover {
+    color: rgba(255, 255, 255, 0.85);
+  }
+}
+
+/* ─── PANTALLA GLASSMORPHISM ─────────────────────────────────────────── */
+.g-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  background: rgba(15, 15, 18, 0.45);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+  /* Reduce trabajo de composición en móvil */
+  will-change: border-color, box-shadow;
+}
+
+/* ─── IMAGEN DE FONDO ─────────────────────────────────────────────────── */
+.g-card-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Suaviza la carga diferida de la imagen */
+  transition: opacity 0.4s ease;
+}
+
+/* ─── BADGE SUPERIOR ─────────────────────────────────────────────────── */
+.g-tag {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  padding: 5px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  letter-spacing: 0.18em;
+  z-index: 10;
+  white-space: nowrap;
+  text-transform: uppercase;
+  /* Badge como inline-block para semántica correcta */
+  display: inline-block;
+}
+
+/* ─── TEXTO INFERIOR ─────────────────────────────────────────────────── */
+.g-card-text {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 11, 13, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 13px 20px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  width: 88%;
+  max-width: 260px;
+  z-index: 5;
+}
+
+/* Título — Serif elegante, blanco puro */
+.g-card-t {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+/* Subtítulo — Sans-serif ultrafina, blanco puro */
+.g-card-s {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.6rem;
+  color: #ffffff;
+  margin-top: 5px;
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  opacity: 0.75;
+}
+
+/* ─── FOOTER ─────────────────────────────────────────────────────────── */
+.g-footer {
+  margin-top: 60px;
+  padding: 0 25px 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.g-socials {
+  display: flex;
+  gap: 20px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.g-socials a {
+  color: inherit;
+  transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.g-copy {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.22);
+  text-align: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* ─── RESPONSIVE — Grid matemáticamente perfecto ─────────────────────── */
+
+/* Laptop / tablet apaisada: 3 columnas */
+@media (max-width: 1100px) {
+  .g-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* span 2 en 3 cols = 2/3 del ancho — correcto */
+  /* span 1 permanece 1/3 */
+}
+
+/* Tablet retrato / móvil grande: 2 columnas */
+@media (max-width: 768px) {
+  .g-title { font-size: 2.8rem; }
+
+  .g-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .g-card {
+    /* En 2 cols, span 2 ocupa el 100% — cubre la tarjeta Web, catálogos y ubicaciones */
+    height: 280px;
+  }
+}
+
+/* Móvil pequeño (iPhone SE, Galaxy A-series): 1 columna */
+@media (max-width: 420px) {
+  .g-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* En 1 col, span N no tiene efecto — todo ocupa el ancho completo */
+  .g-card {
+    grid-column: span 1;
+    height: 260px;
+  }
+
+  .g-grid-wrapper {
+    padding: 0 16px;
+  }
+}
+
+/* Reducción de movimiento — accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  .g-card,
+  .g-screen,
+  .g-card-bg,
+  .g-socials a {
+    transition: none !important;
+  }
+}

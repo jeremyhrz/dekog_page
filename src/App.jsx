@@ -14,6 +14,7 @@ const Servicios       = lazy(() => import('./pages/Servicios'));
 const Contacto        = lazy(() => import('./pages/Contacto'));
 const NosotrosPage    = lazy(() => import('./pages/NosotrosPage'));
 const HomeMueblesPage = lazy(() => import('./pages/HomeMueblesPage'));
+const LinksPage       = lazy(() => import('./pages/LinksPage'));
 
 // ─── Componente Cargador Premium (Estilo Minimalista) ─────────────────────────
 const PageLoader = () => (
@@ -219,7 +220,17 @@ function AppContent() {
             } />
 
           </Route>
-        </Routes>
+
+            {/* ── /links (Link in Bio — sin Layout/Navbar/Footer) ──── */}
+            <Route path="/links" element={
+              <AnimatePresence {...animatePresenceConfig}>
+                <PageWrapper key="links">
+                  <LinksPage />
+                </PageWrapper>
+              </AnimatePresence>
+            } />
+
+          </Routes>
       </Suspense>
 
       {/* ── Drawer del carrito (persiste entre rutas) ─────────────────── */}
