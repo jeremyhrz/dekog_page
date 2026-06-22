@@ -12,9 +12,9 @@ const CARDS = [
     span: 2,
   },
   {
-    tag: 'CONTACTO',
-    title: 'Mañongo I',
-    subtitle: 'ASESORÍA Y VENTAS',
+    tag: 'PRINCIPAL',
+    title: 'Sede Mañongo',
+    subtitle: 'Sede Principal',
     href: 'https://wa.me/584145847791?text=Hola',
     image: '/links/manongo1.webp',
     type: 'whatsapp',
@@ -22,8 +22,8 @@ const CARDS = [
   },
   {
     tag: 'CONTACTO',
-    title: 'Mañongo II',
-    subtitle: 'ASESORÍA Y VENTAS',
+    title: 'Mañongo',
+    subtitle: 'Asesorías y Ventas',
     href: 'https://wa.me/584244006086?text=Hola',
     image: '/links/manongo2.webp',
     type: 'whatsapp',
@@ -32,7 +32,7 @@ const CARDS = [
   {
     tag: 'CONTACTO',
     title: 'El Viñedo',
-    subtitle: 'SEDE PRINCIPAL',
+    subtitle: 'Asesoría y Ventas',
     href: 'https://wa.me/584124423350?text=Hola',
     image: '/links/vinedo.webp',
     type: 'whatsapp',
@@ -85,53 +85,50 @@ export default function LinksPage() {
         <h1 className="g-title">DEKOG</h1>
         <p className="g-subtitle">DISEÑAMOS · CONSTRUIMOS · AMOBLAMOS</p>
 
-        <div className="g-grid-wrapper">
-          <div className="g-grid">
-            {CARDS.map((c, i) => {
-              const isMap = c.type === 'map';
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto mt-12 px-6">
+          {CARDS.map((c, i) => {
+            const isMap = c.type === 'map';
 
-              /* Overlay reforzado en tarjetas de ubicación para legibilidad
-                 bajo luz solar directa (stop 1: 0.55 → stop 2: 0.90) */
-              const bgStyle = isMap
-                ? {
-                    backgroundImage: `linear-gradient(
-                      to bottom,
-                      rgba(11,11,13,0.55) 0%,
-                      rgba(11,11,13,0.90) 100%
-                    ), url(${c.image})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                  }
-                : {
-                    backgroundImage: `url(${c.image})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                  };
+            /* Overlay reforzado en tarjetas de ubicación para legibilidad
+               bajo luz solar directa (stop 1: 0.55 → stop 2: 0.90) */
+            const bgStyle = isMap
+              ? {
+                  backgroundImage: `linear-gradient(
+                    to bottom,
+                    rgba(11,11,13,0.55) 0%,
+                    rgba(11,11,13,0.90) 100%
+                  ), url(${c.image})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }
+              : {
+                  backgroundImage: `url(${c.image})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                };
 
-              return (
-                <a
-                  key={i}
-                  href={c.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="g-card"
-                  style={{ '--col-span': c.span }}
-                  aria-label={`${c.title} — ${c.subtitle}`}
-                >
-                  <span className="g-tag" aria-hidden="true">{c.tag}</span>
-                  <div className="g-screen">
-                    <div className="g-card-bg" style={bgStyle} role="img" aria-label={c.title}></div>
-                    <div className="g-card-text">
-                      <div className="g-card-t">{c.title}</div>
-                      <div className="g-card-s">{c.subtitle}</div>
-                    </div>
+            return (
+              <a
+                key={i}
+                href={c.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`g-card ${c.span === 2 ? 'md:col-span-2' : ''}`}
+                aria-label={`${c.title} — ${c.subtitle}`}
+              >
+                <span className="g-tag" aria-hidden="true">{c.tag}</span>
+                <div className="g-screen">
+                  <div className="g-card-bg" style={bgStyle} role="img" aria-label={c.title}></div>
+                  <div className="g-card-text">
+                    <div className="g-card-t">{c.title}</div>
+                    <div className="g-card-s">{c.subtitle}</div>
                   </div>
-                </a>
-              );
-            })}
-          </div>
+                </div>
+              </a>
+            );
+          })}
         </div>
 
         <footer className="g-footer">

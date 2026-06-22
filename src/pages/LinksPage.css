@@ -69,26 +69,8 @@
   text-transform: uppercase;
 }
 
-/* ─── GRID WRAPPER ───────────────────────────────────────────────────── */
-.g-grid-wrapper {
-  width: 100%;
-  max-width: 1200px;
-  margin-top: 48px;
-  padding: 0 24px;
-}
-
-/* ─── GRID CSS NATIVO — distribución fluida sin huecos ───────────────── */
-.g-grid {
-  display: grid;
-  /* 4 columnas base en desktop; cada tarjeta define cuántas ocupa via --col-span */
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  padding: 20px 0;
-}
-
-/* La propiedad CSS custom --col-span inyectada desde JSX controla el ancho */
+/* La propiedad CSS custom se eliminó; ahora se controla con Tailwind via col-span-X */
 .g-card {
-  grid-column: span var(--col-span, 1);
   position: relative;
   height: 330px;
   background: transparent;
@@ -242,47 +224,21 @@
   margin: 0;
 }
 
-/* ─── RESPONSIVE — Grid matemáticamente perfecto ─────────────────────── */
+/* ─── RESPONSIVE ─────────────────────── */
 
-/* Laptop / tablet apaisada: 3 columnas */
-@media (max-width: 1100px) {
-  .g-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  /* span 2 en 3 cols = 2/3 del ancho — correcto */
-  /* span 1 permanece 1/3 */
-}
-
-/* Tablet retrato / móvil grande: 2 columnas */
+/* Tablet retrato / móvil grande */
 @media (max-width: 768px) {
   .g-title { font-size: 2.8rem; }
 
-  .g-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-  }
-
   .g-card {
-    /* En 2 cols, span 2 ocupa el 100% — cubre la tarjeta Web, catálogos y ubicaciones */
     height: 280px;
   }
 }
 
-/* Móvil pequeño (iPhone SE, Galaxy A-series): 1 columna */
+/* Móvil pequeño (iPhone SE, Galaxy A-series) */
 @media (max-width: 420px) {
-  .g-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  /* En 1 col, span N no tiene efecto — todo ocupa el ancho completo */
   .g-card {
-    grid-column: span 1;
     height: 260px;
-  }
-
-  .g-grid-wrapper {
-    padding: 0 16px;
   }
 }
 
