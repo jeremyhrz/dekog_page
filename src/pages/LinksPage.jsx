@@ -12,9 +12,9 @@ const CARDS = [
     span: 2,
   },
   {
-    tag: 'PRINCIPAL',
-    title: 'Sede Mañongo',
-    subtitle: 'Sede Principal',
+    tag: 'CONTACTO',
+    title: 'Línea 01',
+    subtitle: 'ASESORÍAS Y VENTAS',
     href: 'https://wa.me/584145847791?text=Hola',
     image: '/links/manongo1.webp',
     type: 'whatsapp',
@@ -22,8 +22,8 @@ const CARDS = [
   },
   {
     tag: 'CONTACTO',
-    title: 'Mañongo',
-    subtitle: 'Asesorías y Ventas',
+    title: 'Línea 02',
+    subtitle: 'ASESORÍAS Y VENTAS',
     href: 'https://wa.me/584244006086?text=Hola',
     image: '/links/manongo2.webp',
     type: 'whatsapp',
@@ -31,8 +31,8 @@ const CARDS = [
   },
   {
     tag: 'CONTACTO',
-    title: 'El Viñedo',
-    subtitle: 'Asesoría y Ventas',
+    title: 'Línea 03',
+    subtitle: 'ASESORÍAS Y VENTAS',
     href: 'https://wa.me/584124423350?text=Hola',
     image: '/links/vinedo.webp',
     type: 'whatsapp',
@@ -63,17 +63,8 @@ const CARDS = [
     href: 'https://www.google.com/maps/dir/Av.+168+Salvador+Feo+La+Cruz+Este+-+Oeste,+Naguanagua+2005,+Carabobo/Centro+Comercial+Via+Veneto,+local+V29,+Nivel+Venezia,+Avenida+168+Salvador+Feo+La+Cruz+Este+-+Oeste,+CC+V%C3%ADa+Veneto,+Naguanagua+2005,+Carabobo/@10.233883,-67.9997324,20z',
     image: '/links/manongo-ubicacion.webp',
     type: 'map',
-    span: 2,
-  },
-  {
-    tag: 'UBICACIÓN',
-    title: 'Sede El Viñedo',
-    subtitle: 'CÓMO LLEGAR',
-    href: 'https://www.google.com/maps/search/?api=1&query=Marvica+C.A.+Valencia',
-    image: '/links/vinedo-ubicacion.webp',
-    type: 'map',
-    span: 2,
-  },
+    span: 3,
+  }
 ];
 
 export default function LinksPage() {
@@ -115,7 +106,7 @@ export default function LinksPage() {
                 href={c.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`g-card ${c.span === 2 ? 'md:col-span-2' : ''}`}
+                className={`g-card ${c.span === 2 ? 'md:col-span-2' : ''} ${c.span === 3 ? 'md:col-span-2 lg:col-span-3' : ''}`}
                 aria-label={`${c.title} — ${c.subtitle}`}
               >
                 <span className="g-tag" aria-hidden="true">{c.tag}</span>

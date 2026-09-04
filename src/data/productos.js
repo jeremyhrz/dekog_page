@@ -74,8 +74,8 @@ export const productos = [
 ];
 
 export const heroSlides = [
-  { id: 'slide1', imagen: '/hero/02_6 - Foto.jpg.jpeg', nombre: 'PROYECTOS', isProduct: false, desc: 'convertimos ideas en espacios que transcienden', categoria: 'Fachada' },
-  { id: 'slide2', imagen: '/hero/IMG_3917.PNG', nombre: 'MOBILIARIO ARQUITECTÓNICO', isProduct: false, desc: 'Diseños para ser habitados, no solo admirados', categoria: 'Mueble' },
+  { id: 'slide1', imagen: '/hero/IMG_3917.PNG', nombre: 'MOBILIARIO ARQUITECTÓNICO', isProduct: false, desc: 'Diseños para ser habitados, no solo admirados', categoria: 'Mueble' },
+  { id: 'slide2', imagen: '/hero/02_6 - Foto.jpg.jpeg', nombre: 'PROYECTOS', isProduct: false, desc: 'convertimos ideas en espacios que transcienden', categoria: 'Fachada' },
   { id: 'slide3', imagen: '/hero/IMG_3918.PNG', nombre: 'DESCANSAR TAMBIÉN ES DISEÑO', isProduct: false, desc: 'Creamos piezas que elevan tu descanso', categoria: 'Cama' },
   { id: 'slide4', imagen: '/hero/04_2 - Foto.jpg.jpeg', nombre: 'INTERIORISMO', isProduct: false, desc: 'Diseño y ejecución de inicio a fin', categoria: 'Camas niñas' },
   { id: 'slide5', imagen: '/hero/IMG_3919.PNG', nombre: 'DEKOG', isProduct: false, desc: '2 líneas 1 solo resultado', categoria: 'Planos' },
