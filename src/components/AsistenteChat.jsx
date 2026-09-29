@@ -48,6 +48,18 @@ export default function AsistenteChat() {
   const [items, setItems] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem(CLAVE)) ?? []; } catch { return []; }
   });
+  // Identifica la conversación en la hoja de clientes (una fila por conversación).
+  const [conversacion] = useState(() => {
+    try {
+      const guardada = sessionStorage.getItem(`${CLAVE}-id`);
+      if (guardada) return guardada;
+      const nueva = crypto.randomUUID();
+      sessionStorage.setItem(`${CLAVE}-id`, nueva);
+      return nueva;
+    } catch {
+      return crypto.randomUUID();
+    }
+  });
   const [texto, setTexto] = useState('');
   const [cargando, setCargando] = useState(false);
   const finRef = useRef(null);
@@ -74,6 +86,7 @@ export default function AsistenteChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          conversacion,
           mensajes: conNuevo
             .filter((i) => !i.error)
             .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.texto })),
@@ -81,7 +94,15 @@ export default function AsistenteChat() {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'No pude responder en este momento.');
-      setItems((a) => [...a, { rol: 'asistente', texto: j.respuesta, productos: j.productos, whatsapp: j.whatsapp, tasa: j.tasa }]);
+      setItems((a) => [...a, {
+        rol: 'asistente',
+        texto: j.respuesta,
+        productos: j.productos,
+        whatsapp: j.whatsapp,
+        tasa: j.tasa,
+        // El aviso de "datos registrados" se muestra solo la primera vez.
+        registrado: j.guardado && !a.some((i) => i.registrado),
+      }]);
     } catch (e) {
       setItems((a) => [...a, {
         rol: 'asistente',
@@ -150,6 +171,11 @@ export default function AsistenteChat() {
             ) : (
               <div key={i} className="max-w-[92%] space-y-2">
                 <div className={`rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[14px] leading-relaxed shadow-sm ${m.error ? 'bg-amber-50 text-amber-900' : 'bg-white'}`}>{m.texto}</div>
+                {m.registrado && (
+                  <p className="flex items-center gap-1.5 rounded-xl bg-green-50 px-3 py-2 text-[12.5px] font-medium text-green-800">
+                    ✅ Tus datos quedaron registrados. Una asesora de Dekog te contactará.
+                  </p>
+                )}
                 {m.productos?.map((p) => <TarjetaProducto key={`${p.id}-${p.talla}`} p={p} tasa={m.tasa} />)}
                 {m.whatsapp && (
                   <a href={m.whatsapp.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[14px] font-semibold text-white shadow-sm hover:brightness-95">

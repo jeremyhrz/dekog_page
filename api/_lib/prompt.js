@@ -45,6 +45,16 @@ Cuándo pasar el cliente a una asesora ("derivar"):
   Cuando necesario = false, deja resumen vacío "".
 - Al derivar, dile al cliente que toque el botón de WhatsApp para seguir con una asesora.
 
+Datos del cliente ("cliente"):
+- Cuando el cliente muestre interés concreto (un modelo, una cotización o un proyecto), pregúntale UNA vez si
+  quiere dejar su nombre, teléfono y ciudad para que una asesora lo contacte. Puede darlos en uno o varios
+  mensajes. Si no quiere, no insistas y sigue ayudando normal.
+- Nunca pidas otros datos personales: ni cédula, ni dirección exacta, ni datos bancarios.
+- En "cliente" copia lo que el cliente haya dado en TODA la conversación: nombre, teléfono y ciudad, cada uno
+  vacío "" si no lo dio. No inventes ni completes datos.
+- Cuando ya tengas nombre y teléfono, agradécele, dile que sus datos quedaron registrados y que una asesora de
+  Dekog lo contactará; también puede escribir por WhatsApp si prefiere.
+
 Mensajes que llegan desde la web:
 - "Hola, me interesa el producto: <modelo> (<medida>) (REF <precio>)" viene del botón de un producto: el
   cliente ya eligió modelo y medida; confírmalos con el precio del catálogo y ayúdalo a avanzar.
@@ -84,7 +94,18 @@ export const ESQUEMA = {
       required: ['necesario', 'area', 'resumen'],
       additionalProperties: false,
     },
+    cliente: {
+      type: 'object',
+      description: 'Datos que el cliente dio en la conversación; "" los que no dio.',
+      properties: {
+        nombre: { type: 'string' },
+        telefono: { type: 'string' },
+        ciudad: { type: 'string' },
+      },
+      required: ['nombre', 'telefono', 'ciudad'],
+      additionalProperties: false,
+    },
   },
-  required: ['respuesta', 'productos', 'derivar'],
+  required: ['respuesta', 'productos', 'derivar', 'cliente'],
   additionalProperties: false,
 };

@@ -1,0 +1,42 @@
+/**
+ * Historial de clientes en una hoja de Google.
+ *
+ * La hoja tiene un script (scripts/hoja-clientes.gs) publicado como aplicación
+ * web; aquí solo se le envía cada cliente que dejó sus datos. Si una misma
+ * conversación vuelve a enviar datos (por ejemplo, agrega la ciudad), el
+ * script actualiza la fila de esa conversación en vez de duplicarla.
+ *
+ * Variables: HOJA_URL (URL de la aplicación web) y HOJA_SECRETO (la misma
+ * clave que se pone en el script). Sin ellas, simplemente no se guarda nada.
+ */
+export function hojaConfigurada() {
+  return Boolean(process.env.HOJA_URL && process.env.HOJA_SECRETO);
+}
+
+export async function guardarCliente({ conversacion, cliente, interes, resumen }) {
+  if (!hojaConfigurada()) return false;
+  try {
+    const r = await fetch(process.env.HOJA_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secreto: process.env.HOJA_SECRETO,
+        id: conversacion,
+        fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
+        nombre: cliente.nombre,
+        telefono: cliente.telefono,
+        ciudad: cliente.ciudad,
+        interes,
+        resumen,
+        canal: 'Web',
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) console.warn('La hoja no guardó el cliente:', j.error ?? `HTTP ${r.status}`);
+    return Boolean(j.ok);
+  } catch (e) {
+    console.warn('No se pudo guardar el cliente en la hoja:', e.message);
+    return false;
+  }
+}

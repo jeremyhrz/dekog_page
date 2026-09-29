@@ -1,8 +1,11 @@
 /**
  * POST /api/asistente — el chat del asistente de Dekog.
  *
- * Entrada:  { mensajes: [{ role: "user" | "assistant", content: string }, ...] }
- * Salida:   { respuesta, productos: [tarjetas], whatsapp: { url, linea } | null, tasa }
+ * Entrada:  { conversacion: id, mensajes: [{ role: "user" | "assistant", content: string }, ...] }
+ * Salida:   { respuesta, productos: [tarjetas], whatsapp: { url, linea } | null, tasa, guardado }
+ *
+ * Si el cliente dejó nombre y teléfono, se guardan en la hoja de clientes
+ * (una fila por conversación) y "guardado" vuelve en true.
  *
  * Los precios en bolívares y el enlace de WhatsApp los arma el servidor; la IA
  * solo decide qué decir, qué productos mostrar y cuándo pasar a una asesora.
@@ -11,6 +14,7 @@ import { responder, proveedorActivo, RechazoDelModelo } from './_lib/llm.js';
 import { tarjeta, montosInventados } from './_lib/catalogo.js';
 import { tasaBcv } from './_lib/bcv.js';
 import { lineas, lineaPorArea } from './_lib/negocio.js';
+import { guardarCliente } from './_lib/hoja.js';
 
 const MAX_MENSAJES = 16;
 const MAX_CARACTERES = 800;
@@ -41,6 +45,27 @@ function limpiarMensajes(entrada) {
   while (mensajes.length && mensajes[0].role !== 'user') mensajes.shift();
   if (!mensajes.length || mensajes.at(-1).role !== 'user') return null;
   return mensajes;
+}
+
+/**
+ * Datos del cliente listos para guardar, o null. El teléfono tiene que estar
+ * escrito por el cliente en la conversación: si la IA lo "completa" o lo
+ * inventa, no se guarda nada.
+ */
+function clienteParaGuardar(cliente, mensajes) {
+  const telefono = String(cliente?.telefono ?? '').trim();
+  const digitos = telefono.replace(/\D/g, '');
+  if (digitos.length < 7) return null;
+  const escritoPorCliente = mensajes
+    .filter((m) => m.role === 'user')
+    .map((m) => m.content.replace(/\D/g, ''))
+    .join(' ');
+  if (!escritoPorCliente.includes(digitos.slice(-7))) return null;
+  return {
+    nombre: String(cliente.nombre ?? '').trim().slice(0, 80),
+    telefono: telefono.slice(0, 30),
+    ciudad: String(cliente.ciudad ?? '').trim().slice(0, 60),
+  };
 }
 
 const RESPUESTA_DE_EMERGENCIA = {
@@ -95,5 +120,17 @@ export default async function handler(req, res) {
     ? enlaceWhatsapp(salida.derivar.area, salida.derivar.resumen)
     : null;
 
-  return res.status(200).json({ respuesta: salida.respuesta, productos, whatsapp, tasa });
+  let guardado = false;
+  const cliente = clienteParaGuardar(salida.cliente, mensajes);
+  const conversacion = String(req.body?.conversacion ?? '').replace(/[^\w-]/g, '').slice(0, 64);
+  if (cliente && conversacion) {
+    guardado = await guardarCliente({
+      conversacion,
+      cliente,
+      interes: productos.map((p) => [p.nombre, p.talla].filter(Boolean).join(' ')).join(', '),
+      resumen: salida.derivar?.resumen ?? '',
+    });
+  }
+
+  return res.status(200).json({ respuesta: salida.respuesta, productos, whatsapp, tasa, guardado });
 }
