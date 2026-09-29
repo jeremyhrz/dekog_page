@@ -2,6 +2,21 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import AsistenteChat from './AsistenteChat';
+
+// El asistente con IA solo aparece si el despliegue lo activa
+// (VITE_ASISTENTE=1) o si alguien entra con ?asistente en la URL, para
+// probarlo sin cambiar lo que ven los clientes en dekog.net.
+function asistenteActivo() {
+  if (import.meta.env.VITE_ASISTENTE === '1') return true;
+  try {
+    if (new URLSearchParams(window.location.search).has('asistente')) sessionStorage.setItem('dekog-asistente', '1');
+    return sessionStorage.getItem('dekog-asistente') === '1';
+  } catch {
+    return false;
+  }
+}
+const mostrarAsistente = asistenteActivo();
 
 /**
  * Layout — Armazón global de la app.
@@ -28,7 +43,8 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
   return (
     <div className="bg-[#f4f0ec] min-h-screen text-gray-900 overflow-x-hidden flex flex-col">
 
-      {/* ── Botón flotante WhatsApp ────────────────────────────────── */}
+      {/* ── Asistente con IA (si está activo) o botón flotante WhatsApp ── */}
+      {mostrarAsistente ? <AsistenteChat /> : (
       <a
         href="https://wa.me/584145847791?text=Hola,%20tengo%20una%20consulta%20sobre%20sus%20servicios."
         target="_blank"
@@ -44,6 +60,7 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
           ¿Necesitas ayuda?
         </span>
       </a>
+      )}
 
       {/* ── Navbar ────────────────────────────────────────────────── */}
       <Navbar
