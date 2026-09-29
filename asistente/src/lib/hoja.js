@@ -24,7 +24,7 @@ export function comoTexto(valor) {
   return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 }
 
-export async function guardarCliente({ conversacion, cliente, interes, resumen }) {
+export async function guardarCliente({ conversacion, cliente, interes, resumen, canal = 'Web' }) {
   if (!hojaConfigurada()) return false;
   const t = comoTexto;
   try {
@@ -40,7 +40,7 @@ export async function guardarCliente({ conversacion, cliente, interes, resumen }
         ciudad: t(cliente.ciudad),
         interes: t(interes),
         resumen: t(resumen),
-        canal: 'Web',
+        canal,
       }),
       signal: AbortSignal.timeout(8000),
     });

@@ -1,8 +1,11 @@
 # Worker de Cloudflare del asistente de Dekog (plan gratuito, uso comercial permitido).
 #   Desarrollo local:  npm run asistente:dev   (usa asistente/.dev.vars)
 #   Publicar:          npm run asistente:deploy
-# Los secretos (GEMINI_API_KEY o ANTHROPIC_API_KEY, HOJA_URL, HOJA_SECRETO) se cargan con
-#   npx wrangler secret put NOMBRE --config asistente/wrangler.toml
+# Los secretos se cargan con  npx wrangler secret put NOMBRE --config asistente/wrangler.toml
+#   IA:         GEMINI_API_KEY (o ANTHROPIC_API_KEY)
+#   Hoja:       HOJA_URL, HOJA_SECRETO
+#   WhatsApp:   WA_TOKEN, WA_APP_SECRET, WA_VERIFY_TOKEN
+#   Instagram:  IG_TOKEN, IG_APP_SECRET, IG_VERIFY_TOKEN
 name = "dekog-asistente"
 main = "src/worker.js"
 compatibility_date = "2026-09-01"
@@ -10,3 +13,12 @@ compatibility_flags = ["nodejs_compat"]
 
 [observability]
 enabled = true
+
+# Memoria de las conversaciones de WhatsApp e Instagram (plan gratuito).
+[[kv_namespaces]]
+binding = "CONVERSACIONES"
+id = "bd27d81ccb854efb9e0886d9f7fbae20"
+
+# Cada lunes 9:00 UTC renueva el token de 60 días de Instagram.
+[triggers]
+crons = ["0 9 * * 1"]

@@ -4,12 +4,13 @@
  *   ANTHROPIC_API_KEY → Claude    (modelo: ASISTENTE_MODELO_CLAUDE, por defecto claude-opus-5)
  *   GEMINI_API_KEY    → Gemini    (modelo: ASISTENTE_MODELO_GEMINI, por defecto gemini-3.5-flash-lite)
  *   ASISTENTE_PROVEEDOR=prueba → respuestas fijas, solo para probar la pantalla sin gastar.
- * Devuelve siempre { respuesta, productos, derivar } ya parseado.
+ * Devuelve siempre { respuesta, productos, derivar, ofrecer_formulario } ya parseado.
+ * `canal` (web, whatsapp o instagram) agrega las instrucciones propias de ese canal.
  */
 import { config } from './config.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
-import { SYSTEM, ESQUEMA } from './prompt.js';
+import { sistemaPara, ESQUEMA } from './prompt.js';
 
 export function proveedorActivo() {
   if (config.ASISTENTE_PROVEEDOR === 'prueba') return 'prueba';
@@ -21,14 +22,14 @@ export function proveedorActivo() {
 export class RechazoDelModelo extends Error {}
 
 let anthropic;
-async function conClaude(mensajes) {
+async function conClaude(mensajes, sistema) {
   anthropic ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
   const modelo = config.ASISTENTE_MODELO_CLAUDE || 'claude-opus-5';
   const esHaiku = modelo.startsWith('claude-haiku');
   const pedido = {
     model: modelo,
     max_tokens: 4000,
-    system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: sistema, cache_control: { type: 'ephemeral' } }],
     messages: mensajes,
     output_config: {
       // Haiku 4.5 no acepta "effort"; en los demás, "low" basta para un chat de ventas.
@@ -61,13 +62,13 @@ function sinAdditionalProperties(nodo) {
 }
 
 let gemini;
-async function conGemini(mensajes) {
+async function conGemini(mensajes, sistema) {
   gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
   const r = await gemini.models.generateContent({
     model: config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite',
     contents: mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
     config: {
-      systemInstruction: SYSTEM,
+      systemInstruction: sistema,
       responseMimeType: 'application/json',
       responseJsonSchema: sinAdditionalProperties(ESQUEMA),
     },
@@ -84,6 +85,7 @@ function dePrueba(mensajes) {
       respuesta: '¡Qué bueno! Para orientarte mejor: ¿qué espacio quieres transformar y en qué ciudad está?',
       productos: [],
       derivar: { necesario: false, area: 'arquitectura', resumen: '' },
+      ofrecer_formulario: false,
     };
   }
   if (ultimo.includes('comprar') || ultimo.includes('envío') || ultimo.includes('envio')) {
@@ -91,19 +93,21 @@ function dePrueba(mensajes) {
       respuesta: '¡Perfecto! Una asesora te confirma el envío y las formas de pago. Toca el botón de WhatsApp y te atiende con tu pedido ya escrito.',
       productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }],
       derivar: { necesario: true, area: 'home', resumen: 'Cama Toronto · Queen 1,60x1,90 M · box liso · REF 550 · pregunta por envío' },
+      ofrecer_formulario: false,
     };
   }
   return {
     respuesta: 'La Toronto Queen (1,60 x 1,90 m) está en REF 550, con el box liso incluido. Abajo te muestro el precio en bolívares a la tasa BCV de hoy.',
     productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }],
     derivar: { necesario: false, area: 'home', resumen: '' },
+    ofrecer_formulario: false,
   };
 }
 
-export async function responder(mensajes) {
+export async function responder(mensajes, canal = 'web') {
   const p = proveedorActivo();
-  if (p === 'claude') return conClaude(mensajes);
-  if (p === 'gemini') return conGemini(mensajes);
+  if (p === 'claude') return conClaude(mensajes, sistemaPara(canal));
+  if (p === 'gemini') return conGemini(mensajes, sistemaPara(canal));
   if (p === 'prueba') return dePrueba(mensajes);
   throw new Error('No hay clave de IA configurada (ANTHROPIC_API_KEY o GEMINI_API_KEY).');
 }

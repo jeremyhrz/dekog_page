@@ -35,10 +35,12 @@ function excedeLimite(ip) {
   return recientes.length > LIMITE_POR_IP.pedidos;
 }
 
-function enlaceWhatsapp(area, resumen) {
+const ORIGEN = { web: 'de la web', whatsapp: 'de WhatsApp', instagram: 'de Instagram' };
+
+function enlaceWhatsapp(area, resumen, canal = 'web') {
   const codigo = lineaPorArea[area] ?? '01';
   const linea = lineas[codigo];
-  const texto = `Hola Dekog, vengo del asistente de la web 👋\n${resumen}`.trim();
+  const texto = `Hola Dekog, vengo del asistente ${ORIGEN[canal] ?? ORIGEN.web} 👋\n${resumen}`.trim();
   return { url: `https://wa.me/${linea.numero}?text=${encodeURIComponent(texto)}`, linea: linea.nombre };
 }
 
@@ -83,10 +85,20 @@ export async function atenderChat(cuerpo, ip) {
     return { status: 503, datos: { error: 'El asistente todavía no tiene clave de IA configurada.' } };
   }
 
+  return { status: 200, datos: await pensar(mensajes, 'web') };
+}
+
+/**
+ * El cerebro compartido por la web, WhatsApp e Instagram. Recibe la
+ * conversación YA SIN datos personales y devuelve lo que hay que mostrar:
+ * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
+ * ofrecer que lo contacten.
+ */
+export async function pensar(mensajes, canal = 'web') {
   const tasaPromesa = tasaBcv();
   let salida;
   try {
-    salida = await responder(mensajes);
+    salida = await responder(mensajes, canal);
     const inventados = montosInventados(salida.respuesta);
     if (inventados.length) {
       // Un precio que no está en el catálogo: se pide una sola corrección.
@@ -95,7 +107,7 @@ export async function atenderChat(cuerpo, ip) {
         ...mensajes,
         { role: 'assistant', content: salida.respuesta },
         { role: 'user', content: `(Nota del sistema: ${inventados.join(', ')} no existe en el catálogo. Reescribe tu respuesta anterior usando solo precios exactos del catálogo.)` },
-      ]);
+      ], canal);
       if (montosInventados(salida.respuesta).length) {
         salida = { ...salida, respuesta: 'Te muestro abajo los precios exactos del catálogo.' };
       }
@@ -111,22 +123,19 @@ export async function atenderChat(cuerpo, ip) {
     .map((p) => tarjeta(p.id, p.talla, tasa))
     .filter(Boolean);
   const whatsapp = salida.derivar?.necesario
-    ? enlaceWhatsapp(salida.derivar.area, salida.derivar.resumen)
+    ? enlaceWhatsapp(salida.derivar.area, salida.derivar.resumen, canal)
     : null;
 
   return {
-    status: 200,
-    datos: {
-      respuesta: salida.respuesta,
-      productos,
-      whatsapp,
-      tasa,
-      // El formulario de contacto se ofrece cuando la IA ve interés o cuando pasa al cliente a una asesora.
-      formulario: Boolean(salida.ofrecer_formulario || whatsapp),
-      // Lo que el formulario enviará a la hoja como "le interesa" y "resumen".
-      interes: productos.map((p) => [p.nombre, p.talla].filter(Boolean).join(' ')).join(', '),
-      resumen: salida.derivar?.resumen ?? '',
-    },
+    respuesta: salida.respuesta,
+    productos,
+    whatsapp,
+    tasa,
+    // El formulario de contacto se ofrece cuando la IA ve interés o cuando pasa al cliente a una asesora.
+    formulario: Boolean(salida.ofrecer_formulario || whatsapp),
+    // Lo que se guarda en la hoja como "le interesa" y "resumen".
+    interes: productos.map((p) => [p.nombre, p.talla].filter(Boolean).join(' ')).join(', '),
+    resumen: salida.derivar?.resumen ?? '',
   };
 }
 
@@ -146,6 +155,7 @@ export async function atenderDatos(cuerpo, ip) {
     cliente: { nombre, telefono, ciudad: texto(cuerpo?.ciudad, 60) },
     interes: texto(cuerpo?.interes, 200),
     resumen: texto(cuerpo?.resumen, 300),
+    canal: 'Web',
   });
   if (!guardado) {
     return { status: 503, datos: { error: 'No pudimos guardar tus datos en este momento. Escríbenos por WhatsApp.' } };

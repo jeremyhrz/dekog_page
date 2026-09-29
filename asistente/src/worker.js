@@ -3,15 +3,20 @@
  *
  *   POST /chat    → el chat de la web (ver chat.js)
  *   POST /datos   → formulario de contacto, directo a la hoja de clientes
+ *   GET|POST /whatsapp   → webhook de WhatsApp (ver canales/whatsapp.js)
+ *   GET|POST /instagram  → webhook de Instagram (ver canales/instagram.js)
  *   GET  /salud   → comprobación rápida de que está vivo y configurado
  *
- * Solo acepta llamadas desde dekog.net, sus links de prueba de Vercel y la
- * web en desarrollo local (CORS).
+ * /chat y /datos solo aceptan llamadas desde dekog.net, sus links de prueba de
+ * Vercel y la web en desarrollo local (CORS). Los webhooks se validan con la
+ * firma de Meta. Una tarea semanal renueva el token de Instagram.
  */
 import { configurar } from './lib/config.js';
 import { atenderChat, atenderDatos } from './chat.js';
 import { proveedorActivo } from './lib/llm.js';
 import { hojaConfigurada } from './lib/hoja.js';
+import { whatsappGet, whatsappPost } from './canales/whatsapp.js';
+import { instagramGet, instagramPost, renovarTokenInstagram } from './canales/instagram.js';
 
 const ORIGENES_PERMITIDOS = [
   /^https:\/\/(www\.)?dekog\.net$/,
@@ -40,16 +45,31 @@ function json(datos, status, cors) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     configurar(env);
     const url = new URL(request.url);
+
+    const webhooks = {
+      '/whatsapp': { GET: () => whatsappGet(url), POST: () => whatsappPost(request, env, ctx) },
+      '/instagram': { GET: () => instagramGet(url), POST: () => instagramPost(request, env, ctx) },
+    };
+    const webhook = webhooks[url.pathname]?.[request.method];
+    if (webhook) return webhook();
+
     const origen = request.headers.get('Origin');
     const cors = cabecerasCors(origen);
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     if (url.pathname === '/salud' && request.method === 'GET') {
-      return json({ ok: true, proveedor: proveedorActivo(), hoja: hojaConfigurada() }, 200, cors);
+      return json({
+        ok: true,
+        proveedor: proveedorActivo(),
+        hoja: hojaConfigurada(),
+        memoria: Boolean(env.CONVERSACIONES),
+        whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
+        instagram: Boolean(env.IG_TOKEN && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
+      }, 200, cors);
     }
 
     const rutas = { '/chat': atenderChat, '/datos': atenderDatos };
@@ -69,5 +89,10 @@ export default {
     }
 
     return json({ error: 'No encontrado' }, 404, cors);
+  },
+
+  async scheduled(evento, env, ctx) {
+    configurar(env);
+    ctx.waitUntil(renovarTokenInstagram(env));
   },
 };
