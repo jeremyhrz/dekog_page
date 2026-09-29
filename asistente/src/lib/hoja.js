@@ -14,8 +14,19 @@ export function hojaConfigurada() {
   return Boolean(config.HOJA_URL && config.HOJA_SECRETO);
 }
 
+/**
+ * Un texto que empieza con = + - @ Google Sheets lo interpreta como fórmula:
+ * un "nombre" como =IMPORTXML(...) se ejecutaría dentro de la hoja de Dekog.
+ * Se antepone un apóstrofo para que quede como texto.
+ */
+export function comoTexto(valor) {
+  const s = String(valor ?? '');
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 export async function guardarCliente({ conversacion, cliente, interes, resumen }) {
   if (!hojaConfigurada()) return false;
+  const t = comoTexto;
   try {
     const r = await fetch(config.HOJA_URL, {
       method: 'POST',
@@ -24,11 +35,11 @@ export async function guardarCliente({ conversacion, cliente, interes, resumen }
         secreto: config.HOJA_SECRETO,
         id: conversacion,
         fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
-        nombre: cliente.nombre,
+        nombre: t(cliente.nombre),
         telefono: cliente.telefono,
-        ciudad: cliente.ciudad,
-        interes,
-        resumen,
+        ciudad: t(cliente.ciudad),
+        interes: t(interes),
+        resumen: t(resumen),
         canal: 'Web',
       }),
       signal: AbortSignal.timeout(8000),

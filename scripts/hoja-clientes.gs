@@ -25,14 +25,14 @@ function doPost(e) {
   try {
     const hoja = obtenerHoja();
     const fila = [
-      datos.id || '',
-      datos.fecha || new Date(),
-      datos.nombre || '',
-      datos.telefono ? "'" + datos.telefono : '',
-      datos.ciudad || '',
-      datos.interes || '',
-      datos.resumen || '',
-      datos.canal || '',
+      texto(datos.id),
+      texto(datos.fecha) || new Date(),
+      texto(datos.nombre),
+      telefono(datos.telefono),
+      texto(datos.ciudad),
+      texto(datos.interes),
+      texto(datos.resumen),
+      texto(datos.canal),
     ];
     const ultima = hoja.getLastRow();
     const ids = ultima > 1 ? hoja.getRange(2, 1, ultima - 1, 1).getValues().map(function (f) { return f[0]; }) : [];
@@ -41,7 +41,7 @@ function doPost(e) {
       const numero = posicion + 2;
       const anterior = hoja.getRange(numero, 1, 1, ENCABEZADOS.length).getValues()[0];
       fila[1] = anterior[1]; // se conserva la fecha del primer contacto
-      for (let i = 2; i < fila.length; i++) if (!fila[i]) fila[i] = anterior[i];
+      for (let i = 2; i < fila.length; i++) if (!fila[i]) fila[i] = i === 3 ? telefono(anterior[i]) : texto(anterior[i]);
       hoja.getRange(numero, 1, 1, fila.length).setValues([fila]);
     } else {
       hoja.appendRow(fila);
@@ -50,6 +50,19 @@ function doPost(e) {
   } finally {
     candado.releaseLock();
   }
+}
+
+// Un texto que empieza con = + - @ Google Sheets lo ejecutaría como fórmula:
+// se antepone un apóstrofo para que quede como texto.
+function texto(valor) {
+  const s = valor === undefined || valor === null ? '' : String(valor);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
+// El teléfono siempre como texto, para no perder el 0 inicial.
+function telefono(valor) {
+  const s = valor === undefined || valor === null ? '' : String(valor).replace(/^'/, '');
+  return s ? "'" + s : '';
 }
 
 function obtenerHoja() {
