@@ -208,7 +208,7 @@ export default function AsistenteChat() {
       const r = await fetch(`${API}/datos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(30000), // el Worker puede reintentar la hoja (2 × 10 s)
         body: JSON.stringify({ conversacion, ...datos, interes, resumen }),
       });
       const j = await r.json().catch(() => ({}));

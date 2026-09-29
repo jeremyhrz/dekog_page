@@ -27,28 +27,35 @@ export function comoTexto(valor) {
 export async function guardarCliente({ conversacion, cliente, interes, resumen, canal = 'Web' }) {
   if (!hojaConfigurada()) return false;
   const t = comoTexto;
-  try {
-    const r = await fetch(config.HOJA_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        secreto: config.HOJA_SECRETO,
-        id: conversacion,
-        fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
-        nombre: t(cliente.nombre),
-        telefono: cliente.telefono,
-        ciudad: t(cliente.ciudad),
-        interes: t(interes),
-        resumen: t(resumen),
-        canal,
-      }),
-      signal: AbortSignal.timeout(8000),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!j.ok) console.warn('La hoja no guardó el cliente:', j.error ?? `HTTP ${r.status}`);
-    return Boolean(j.ok);
-  } catch (e) {
-    console.warn('No se pudo guardar el cliente en la hoja:', e.message);
-    return false;
+  const cuerpo = JSON.stringify({
+    secreto: config.HOJA_SECRETO,
+    id: conversacion,
+    fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
+    nombre: t(cliente.nombre),
+    telefono: cliente.telefono,
+    ciudad: t(cliente.ciudad),
+    interes: t(interes),
+    resumen: t(resumen),
+    canal,
+  });
+  // Google tarda varios segundos en "despertar" el script si llevaba rato sin uso
+  // (la primera prueba en vivo falló así). Un segundo intento no duplica la fila:
+  // el script actualiza por id de conversación.
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const r = await fetch(config.HOJA_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: cuerpo,
+        signal: AbortSignal.timeout(10000),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j.ok) return true;
+      console.warn(`La hoja no guardó el cliente (intento ${intento}):`, j.error ?? `HTTP ${r.status}`);
+      if (j.error === 'no autorizado') return false; // clave mal puesta: reintentar no sirve
+    } catch (e) {
+      console.warn(`No se pudo guardar el cliente en la hoja (intento ${intento}):`, e.message);
+    }
   }
+  return false;
 }
