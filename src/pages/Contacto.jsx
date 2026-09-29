@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Phone, MapPin, Clock, MessageCircle, Send, CheckCircle, Instagram, Facebook } from 'lucide-react';
+import { Mail, Phone, MapPin, Clock, MessageCircle, Send, CheckCircle, Instagram, Facebook, ArrowRight } from 'lucide-react';
 
 export default function Contacto() {
   const [formData, setFormData] = useState({
@@ -11,7 +11,6 @@ export default function Contacto() {
     mensaje: ''
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleChange = (e) => {
@@ -22,27 +21,28 @@ export default function Contacto() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  // El formulario se envía por WhatsApp a la Línea 01, con los datos ya escritos:
+  // el cliente solo toca "enviar" en su WhatsApp y el mensaje llega a Dekog.
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    
-    // Simular envío del formulario
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSubmitted(true);
-      setFormData({
-        nombre: '',
-        email: '',
-        telefono: '',
-        tipoProyecto: '',
-        mensaje: ''
-      });
-      
-      // Resetear mensaje de éxito después de 5 segundos
-      setTimeout(() => {
-        setIsSubmitted(false);
-      }, 5000);
-    }, 1500);
+    const texto = [
+      'Hola Dekog, les escribo desde el formulario de contacto de la web.',
+      `Nombre: ${formData.nombre}`,
+      `Email: ${formData.email}`,
+      `Teléfono: ${formData.telefono}`,
+      `Tipo de proyecto: ${formData.tipoProyecto}`,
+      `Mensaje: ${formData.mensaje}`,
+    ].join('\n');
+    window.open(`https://wa.me/584145847791?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
+    setIsSubmitted(true);
+    setFormData({
+      nombre: '',
+      email: '',
+      telefono: '',
+      tipoProyecto: '',
+      mensaje: ''
+    });
+    setTimeout(() => setIsSubmitted(false), 8000);
   };
 
   const contactInfo = [
@@ -125,7 +125,7 @@ export default function Contacto() {
             >
               <div className="mb-8">
                 <h2 className="text-2xl font-black uppercase tracking-tight mb-2">Envíanos un mensaje</h2>
-                <p className="text-gray-600">Completa el formulario y nos pondremos en contacto contigo en menos de 24 horas.</p>
+                <p className="text-gray-600">Completa el formulario y te lo enviamos por WhatsApp con tus datos ya escritos.</p>
               </div>
 
               {isSubmitted ? (
@@ -135,8 +135,8 @@ export default function Contacto() {
                   className="bg-green-50 border border-green-200 rounded-xl p-6 text-center"
                 >
                   <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-green-800 mb-2">¡Mensaje enviado con éxito!</h3>
-                  <p className="text-green-600">Te contactaremos en breve para coordinar tu consulta.</p>
+                  <h3 className="text-xl font-bold text-green-800 mb-2">¡Tu mensaje está listo en WhatsApp!</h3>
+                  <p className="text-green-600">Toca «enviar» en WhatsApp para que nos llegue. Te respondemos por ahí mismo.</p>
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -221,22 +221,10 @@ export default function Contacto() {
 
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className={`w-full btn-primary bg-black text-white py-4 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 ${
-                      isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
-                    }`}
+                    className="w-full btn-primary bg-black text-white py-4 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
                   >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Enviando...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        Enviar mensaje
-                      </>
-                    )}
+                    <Send size={16} />
+                    Enviar por WhatsApp
                   </button>
                 </form>
               )}
