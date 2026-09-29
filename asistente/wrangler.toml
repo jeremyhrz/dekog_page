@@ -1,0 +1,12 @@
+# Worker de Cloudflare del asistente de Dekog (plan gratuito, uso comercial permitido).
+#   Desarrollo local:  npm run asistente:dev   (usa asistente/.dev.vars)
+#   Publicar:          npm run asistente:deploy
+# Los secretos (GEMINI_API_KEY o ANTHROPIC_API_KEY, HOJA_URL, HOJA_SECRETO) se cargan con
+#   npx wrangler secret put NOMBRE --config asistente/wrangler.toml
+name = "dekog-asistente"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true

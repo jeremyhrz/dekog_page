@@ -3,7 +3,7 @@
  * (src/data/productos.js), así que un precio cambiado en la web cambia
  * también aquí sin tocar nada más.
  */
-import { productos } from '../../src/data/productos.js';
+import { productos } from '../../../src/data/productos.js';
 import { recargosValidos } from './negocio.js';
 
 const SITIO = 'https://www.dekog.net';

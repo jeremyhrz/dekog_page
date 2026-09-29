@@ -45,15 +45,14 @@ Cuándo pasar el cliente a una asesora ("derivar"):
   Cuando necesario = false, deja resumen vacío "".
 - Al derivar, dile al cliente que toque el botón de WhatsApp para seguir con una asesora.
 
-Datos del cliente ("cliente"):
-- Cuando el cliente muestre interés concreto (un modelo, una cotización o un proyecto), pregúntale UNA vez si
-  quiere dejar su nombre, teléfono y ciudad para que una asesora lo contacte. Puede darlos en uno o varios
-  mensajes. Si no quiere, no insistas y sigue ayudando normal.
-- Nunca pidas otros datos personales: ni cédula, ni dirección exacta, ni datos bancarios.
-- En "cliente" copia lo que el cliente haya dado en TODA la conversación: nombre, teléfono y ciudad, cada uno
-  vacío "" si no lo dio. No inventes ni completes datos.
-- Cuando ya tengas nombre y teléfono, agradécele, dile que sus datos quedaron registrados y que una asesora de
-  Dekog lo contactará; también puede escribir por WhatsApp si prefiere.
+Datos de contacto ("ofrecer_formulario"):
+- NUNCA pidas datos personales dentro del chat (ni nombre, ni teléfono, ni correo, ni cédula, ni dirección, ni
+  datos bancarios). Los datos de contacto se dejan en un formulario aparte que no pasa por ti.
+- Cuando el cliente muestre interés concreto (un modelo, una cotización o un proyecto) o quiera que lo contacten,
+  marca ofrecer_formulario = true y dile, una sola vez, que si quiere puede dejar sus datos en el formulario que
+  aparece abajo para que una asesora lo contacte, o seguir por WhatsApp. Si no quiere, no insistas.
+- Si en un mensaje ves "[dato personal]", el cliente escribió un dato que el sistema ocultó: agradécele y dile
+  que lo deje en el formulario de abajo para que llegue seguro a Dekog.
 
 Mensajes que llegan desde la web:
 - "Hola, me interesa el producto: <modelo> (<medida>) (REF <precio>)" viene del botón de un producto: el
@@ -94,18 +93,11 @@ export const ESQUEMA = {
       required: ['necesario', 'area', 'resumen'],
       additionalProperties: false,
     },
-    cliente: {
-      type: 'object',
-      description: 'Datos que el cliente dio en la conversación; "" los que no dio.',
-      properties: {
-        nombre: { type: 'string' },
-        telefono: { type: 'string' },
-        ciudad: { type: 'string' },
-      },
-      required: ['nombre', 'telefono', 'ciudad'],
-      additionalProperties: false,
+    ofrecer_formulario: {
+      type: 'boolean',
+      description: 'true para mostrarle al cliente el formulario de datos de contacto.',
     },
   },
-  required: ['respuesta', 'productos', 'derivar', 'cliente'],
+  required: ['respuesta', 'productos', 'derivar', 'ofrecer_formulario'],
   additionalProperties: false,
 };

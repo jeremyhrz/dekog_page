@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "asistente:dev": "wrangler dev --config asistente/wrangler.toml",
+    "asistente:deploy": "wrangler deploy --config asistente/wrangler.toml"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
@@ -32,6 +34,7 @@
     "globals": "^16.5.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^4.143.1"
   }
 }

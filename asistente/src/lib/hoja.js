@@ -9,18 +9,19 @@
  * Variables: HOJA_URL (URL de la aplicación web) y HOJA_SECRETO (la misma
  * clave que se pone en el script). Sin ellas, simplemente no se guarda nada.
  */
+import { config } from './config.js';
 export function hojaConfigurada() {
-  return Boolean(process.env.HOJA_URL && process.env.HOJA_SECRETO);
+  return Boolean(config.HOJA_URL && config.HOJA_SECRETO);
 }
 
 export async function guardarCliente({ conversacion, cliente, interes, resumen }) {
   if (!hojaConfigurada()) return false;
   try {
-    const r = await fetch(process.env.HOJA_URL, {
+    const r = await fetch(config.HOJA_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        secreto: process.env.HOJA_SECRETO,
+        secreto: config.HOJA_SECRETO,
         id: conversacion,
         fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
         nombre: cliente.nombre,

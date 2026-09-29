@@ -1,18 +1,20 @@
 /**
- * Conexión con el proveedor de IA. Se elige solo según la clave configurada:
+ * Conexión con el proveedor de IA. Se elige solo según la clave configurada
+ * (secretos del Worker de Cloudflare, ver config.js):
  *   ANTHROPIC_API_KEY → Claude    (modelo: ASISTENTE_MODELO_CLAUDE, por defecto claude-opus-5)
  *   GEMINI_API_KEY    → Gemini    (modelo: ASISTENTE_MODELO_GEMINI, por defecto gemini-3.5-flash-lite)
  *   ASISTENTE_PROVEEDOR=prueba → respuestas fijas, solo para probar la pantalla sin gastar.
  * Devuelve siempre { respuesta, productos, derivar } ya parseado.
  */
+import { config } from './config.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 import { SYSTEM, ESQUEMA } from './prompt.js';
 
 export function proveedorActivo() {
-  if (process.env.ASISTENTE_PROVEEDOR === 'prueba') return 'prueba';
-  if (process.env.ANTHROPIC_API_KEY) return 'claude';
-  if (process.env.GEMINI_API_KEY) return 'gemini';
+  if (config.ASISTENTE_PROVEEDOR === 'prueba') return 'prueba';
+  if (config.ANTHROPIC_API_KEY) return 'claude';
+  if (config.GEMINI_API_KEY) return 'gemini';
   return null;
 }
 
@@ -20,8 +22,8 @@ export class RechazoDelModelo extends Error {}
 
 let anthropic;
 async function conClaude(mensajes) {
-  anthropic ??= new Anthropic();
-  const modelo = process.env.ASISTENTE_MODELO_CLAUDE || 'claude-opus-5';
+  anthropic ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const modelo = config.ASISTENTE_MODELO_CLAUDE || 'claude-opus-5';
   const esHaiku = modelo.startsWith('claude-haiku');
   const pedido = {
     model: modelo,
@@ -60,9 +62,9 @@ function sinAdditionalProperties(nodo) {
 
 let gemini;
 async function conGemini(mensajes) {
-  gemini ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
   const r = await gemini.models.generateContent({
-    model: process.env.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite',
+    model: config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite',
     contents: mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
     config: {
       systemInstruction: SYSTEM,
@@ -70,6 +72,7 @@ async function conGemini(mensajes) {
       responseJsonSchema: sinAdditionalProperties(ESQUEMA),
     },
   });
+  if (!r.text) throw new Error('Gemini devolvió una respuesta vacía');
   return JSON.parse(r.text);
 }
 

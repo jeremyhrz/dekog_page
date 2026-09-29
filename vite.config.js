@@ -5,8 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Solo en desarrollo: /api lo atiende scripts/api-dev.mjs.
-    // En Vercel, /api lo sirven las funciones de la carpeta api/.
-    proxy: { '/api': 'http://localhost:3001' },
+    // Solo en desarrollo: el chat del asistente habla con el Worker local
+    // (npm run asistente:dev, puerto 8787). En producción usa VITE_ASISTENTE_API.
+    proxy: {
+      '/asistente-api': {
+        target: 'http://localhost:8787',
+        rewrite: (ruta) => ruta.replace(/^\/asistente-api/, ''),
+      },
+    },
   },
 })
