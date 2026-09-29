@@ -1,12 +1,14 @@
 /**
  * Script de la hoja "Clientes Dekog" (Google Sheets → Extensiones → Apps Script).
- * Recibe los clientes que dejan sus datos en el asistente de dekog.net y los
- * guarda, una fila por conversación.
+ * Recibe los clientes que dejan sus datos en el asistente (web, WhatsApp e
+ * Instagram) y los guarda, una fila por conversación.
  *
- * 1. Cambia SECRETO por la misma clave que se pone en Vercel como HOJA_SECRETO.
+ * 1. Cambia SECRETO por la misma clave que se guarda en el Worker de Cloudflare:
+ *      npx wrangler secret put HOJA_SECRETO --config asistente/wrangler.toml
  * 2. Implementar → Nueva implementación → Aplicación web,
  *    Ejecutar como: Yo · Quién tiene acceso: Cualquier persona.
- * 3. La URL que te da es HOJA_URL en Vercel.
+ * 3. La URL que te da (termina en /exec) va al Worker:
+ *      npx wrangler secret put HOJA_URL --config asistente/wrangler.toml
  */
 const SECRETO = 'PEGA_AQUI_EL_SECRETO';
 const ENCABEZADOS = ['Conversación', 'Fecha', 'Nombre', 'Teléfono', 'Ciudad', 'Le interesa', 'Resumen para la asesora', 'Canal'];

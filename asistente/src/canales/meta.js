@@ -38,9 +38,14 @@ export async function firmaValida(cuerpoCrudo, cabecera, ...secretos) {
   return false;
 }
 
-/** "• Toronto · Queen 1,60x1,90 M: REF 550 = Bs 536.093,10 (tasa BCV euro 29/09/2026)" */
+/**
+ * "• Toronto · Queen 1,60x1,90 M · box nube: REF 670 = Bs 653.058,87 (tasa BCV euro 29/09/2026)"
+ * "• Mesa Kenia · 2 × REF 170: REF 340 = Bs …"
+ */
 export function lineaPrecio(p, tasa) {
-  const cual = [p.nombre, p.talla].filter(Boolean).join(' · ');
+  const partes = [p.nombre, p.talla, p.box];
+  if (p.cantidad > 1) partes.push(`${p.cantidad} × REF ${p.unitario.toLocaleString('es-VE')}`);
+  const cual = partes.filter(Boolean).join(' · ');
   const ref = `${p.desde ? 'desde ' : ''}REF ${p.ref.toLocaleString('es-VE')}`;
   const bs = p.bs ? ` = Bs ${p.bs} (${tasa?.etiqueta ?? 'tasa BCV'} ${tasa?.fecha ?? ''})` : '';
   return `• ${cual}: ${ref}${bs}`;

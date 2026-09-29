@@ -19,7 +19,8 @@ let cache = null;
 export async function tasaBcv() {
   if (cache && Date.now() - cache.leida < VIGENCIA_MS) return cache.tasa;
   try {
-    const r = await fetch(FUENTES[monedaTasa], { signal: AbortSignal.timeout(4000) });
+    // Corre en paralelo con la IA (que tarda más), así que esperar hasta 8 s no demora la respuesta.
+    const r = await fetch(FUENTES[monedaTasa], { signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
     const valor = Number(j.promedio);

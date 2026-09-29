@@ -20,7 +20,9 @@ import { instagramGet, instagramPost, renovarTokenInstagram } from './canales/in
 
 const ORIGENES_PERMITIDOS = [
   /^https:\/\/(www\.)?dekog\.net$/,
-  /^https:\/\/dekog-page(-[a-z0-9-]+)?\.vercel\.app$/,
+  // Solo los links de prueba del equipo de Vercel de Jeremy, no los de otras cuentas.
+  /^https:\/\/dekog-page(-[a-z0-9]+)*-jeremy9070-1151s-projects\.vercel\.app$/,
+  /^https:\/\/dekog-page\.vercel\.app$/,
   /^http:\/\/localhost:\d+$/,
 ];
 
@@ -64,7 +66,7 @@ export default {
     if (url.pathname === '/salud' && request.method === 'GET') {
       return json({
         ok: true,
-        proveedor: proveedorActivo(),
+        ia: Boolean(proveedorActivo()),
         hoja: hojaConfigurada(),
         memoria: Boolean(env.CONVERSACIONES),
         whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
@@ -84,7 +86,15 @@ export default {
         return json({ error: 'JSON inválido' }, 400, cors);
       }
       const ip = request.headers.get('CF-Connecting-IP') ?? '';
-      const { status, datos } = await atender(cuerpo, ip);
+      let resultado;
+      try {
+        resultado = await atender(cuerpo, ip);
+      } catch (e) {
+        // Siempre con CORS: si no, el navegador solo ve "Failed to fetch".
+        console.error('Error inesperado en', url.pathname, e?.name ?? 'error');
+        return json({ error: 'No pude responder en este momento. Intenta de nuevo o escríbenos por WhatsApp.' }, 500, cors);
+      }
+      const { status, datos } = resultado;
       return json(datos, status, cors);
     }
 

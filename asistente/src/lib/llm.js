@@ -23,7 +23,8 @@ export class RechazoDelModelo extends Error {}
 
 let anthropic;
 async function conClaude(mensajes, sistema) {
-  anthropic ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  // Máximo 20 s por intento: un cliente no debe quedarse viendo "escribiendo…".
+  anthropic ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
   const modelo = config.ASISTENTE_MODELO_CLAUDE || 'claude-opus-5';
   const esHaiku = modelo.startsWith('claude-haiku');
   const pedido = {
@@ -63,7 +64,8 @@ function sinAdditionalProperties(nodo) {
 
 let gemini;
 async function conGemini(mensajes, sistema) {
-  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+  // Máximo 15 s: si Gemini tarda más, el chat responde con el paso a una asesora.
+  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY, httpOptions: { timeout: 15000 } });
   const r = await gemini.models.generateContent({
     model: config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite',
     contents: mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),

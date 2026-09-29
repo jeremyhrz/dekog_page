@@ -62,5 +62,11 @@ export const pendientes = [
   'disponibilidad exacta de un modelo',
 ];
 
-// Recargos que pueden aparecer en una respuesta además de los precios del catálogo.
-export const recargosValidos = [80, 120];
+// Recargo del box en Camas Clásicas y Kids (el liso va incluido).
+export const recargosBox = { alta_gama: 80, nube: 120 };
+export const nombresBox = { alta_gama: 'box alta gama', nube: 'box nube' };
+export const recargosValidos = Object.values(recargosBox);
+
+// Porcentajes que el asistente puede mencionar (anticipo, descuentos...). Vacío
+// hasta que Dekog los confirme: cualquier "%" en una respuesta se trata como inventado.
+export const porcentajesValidos = [];

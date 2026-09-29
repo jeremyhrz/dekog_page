@@ -36,14 +36,15 @@ function IconoWhatsapp({ size = 18 }) {
   );
 }
 
-function FormularioContacto({ onEnviar }) {
+function FormularioContacto({ onEnviar, onDescartar }) {
   const [datos, setDatos] = useState({ nombre: '', telefono: '', ciudad: '' });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const campo = (nombre) => ({
     value: datos[nombre],
     onChange: (e) => setDatos((d) => ({ ...d, [nombre]: e.target.value })),
-    className: 'w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-[13.5px] outline-none focus:border-black',
+    // 16 px en teléfono: con menos, Safari de iPhone hace zoom al tocar el campo.
+    className: 'w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-[16px] sm:text-[13.5px] outline-none focus:border-black',
   });
   async function enviar(e) {
     e.preventDefault();
@@ -59,11 +60,16 @@ function FormularioContacto({ onEnviar }) {
       <input {...campo('nombre')} placeholder="Tu nombre" required maxLength={80} autoComplete="name" aria-label="Tu nombre" />
       <input {...campo('telefono')} placeholder="Tu teléfono (WhatsApp)" required maxLength={30} inputMode="tel" autoComplete="tel" aria-label="Tu teléfono" />
       <input {...campo('ciudad')} placeholder="Tu ciudad (opcional)" maxLength={60} aria-label="Tu ciudad" />
-      {error && <p className="text-[12px] text-red-700">{error}</p>}
-      <button type="submit" disabled={enviando} className="w-full rounded-lg bg-black py-2 text-[13px] font-semibold text-white disabled:opacity-50">
-        {enviando ? 'Enviando…' : 'Enviar mis datos'}
-      </button>
-      <p className="text-center text-[10.5px] text-gray-400">Solo los usa Dekog para contactarte.</p>
+      {error && <p role="alert" className="text-[12px] text-red-700">{error}</p>}
+      <div className="flex gap-2">
+        <button type="button" onClick={onDescartar} className="rounded-lg border border-black/15 px-3 py-2 text-[13px] text-gray-700 hover:border-black">
+          Ahora no
+        </button>
+        <button type="submit" disabled={enviando} className="flex-1 rounded-lg bg-black py-2 text-[13px] font-semibold text-white disabled:opacity-50">
+          {enviando ? 'Enviando…' : 'Enviar mis datos'}
+        </button>
+      </div>
+      <p className="text-center text-[11px] text-gray-600">Solo los usa Dekog para contactarte.</p>
     </form>
   );
 }
@@ -74,7 +80,10 @@ function TarjetaProducto({ p, tasa }) {
       <img src={p.imagen} alt={p.nombre} loading="lazy" className="h-16 w-16 shrink-0 rounded-lg bg-[#f4f0ec] object-contain" />
       <div className="min-w-0 text-[13px] leading-snug">
         <p className="font-semibold text-black">{p.nombre}</p>
-        <p className="text-[11px] text-gray-500">{p.talla ?? p.tipo}</p>
+        <p className="text-[11px] text-gray-600">{[p.talla ?? p.tipo, p.box].filter(Boolean).join(' · ')}</p>
+        {p.cantidad > 1 && (
+          <p className="text-[11px] text-gray-600">{p.cantidad} × REF {p.unitario.toLocaleString('es-VE')}</p>
+        )}
         <p className="mt-1 font-semibold">{p.desde ? 'Desde ' : ''}REF {p.ref.toLocaleString('es-VE')}</p>
         {p.bs && (
           <p className="text-[11px] text-gray-600">Bs {p.bs} · {tasa?.etiqueta ?? 'tasa BCV'} {tasa?.fecha}</p>
@@ -105,10 +114,34 @@ export default function AsistenteChat() {
     try { return sessionStorage.getItem(`${CLAVE}-registrado`) === '1'; } catch { return false; }
   });
   const [formularioAbierto, setFormularioAbierto] = useState(false);
+  // "Ahora no": el formulario no vuelve a aparecer solo en esta visita (el enlace del pie sigue ahí).
+  const [formularioDescartado, setFormularioDescartado] = useState(() => {
+    try { return sessionStorage.getItem(`${CLAVE}-descartado`) === '1'; } catch { return false; }
+  });
   const [texto, setTexto] = useState('');
   const [cargando, setCargando] = useState(false);
   const finRef = useRef(null);
   const entradaRef = useRef(null);
+  const lanzadorRef = useRef(null);
+
+  function cerrar() {
+    setAbierto(false);
+    setTimeout(() => lanzadorRef.current?.focus(), 0);
+  }
+
+  // Escape cierra el chat y devuelve el foco al botón que lo abrió.
+  useEffect(() => {
+    if (!abierto) return undefined;
+    const alPulsar = (e) => { if (e.key === 'Escape') cerrar(); };
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+  }, [abierto]);
+
+  function descartarFormulario() {
+    setFormularioAbierto(false);
+    setFormularioDescartado(true);
+    try { sessionStorage.setItem(`${CLAVE}-descartado`, '1'); } catch { /* modo privado */ }
+  }
 
   useEffect(() => {
     try { sessionStorage.setItem(CLAVE, JSON.stringify(items)); } catch { /* modo privado: no se guarda */ }
@@ -130,9 +163,11 @@ export default function AsistenteChat() {
       const r = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(40000),
         body: JSON.stringify({
+          // Ni los errores ni la confirmación del formulario viajan a la IA.
           mensajes: conNuevo
-            .filter((i) => !i.error)
+            .filter((i) => !i.error && !i.registrado)
             .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.texto })),
         }),
       });
@@ -145,14 +180,17 @@ export default function AsistenteChat() {
         whatsapp: j.whatsapp,
         tasa: j.tasa,
         formulario: j.formulario,
+        emergencia: j.emergencia,
         interes: j.interes,
         resumen: j.resumen,
       }]);
     } catch (e) {
+      // Errores de red o de tiempo: nunca el texto técnico del navegador ("Failed to fetch").
+      const tecnico = e instanceof TypeError || e?.name === 'AbortError' || e?.name === 'TimeoutError';
       setItems((a) => [...a, {
         rol: 'asistente',
         error: true,
-        texto: `${e.message} Si prefieres, escríbenos directo por WhatsApp.`,
+        texto: `${tecnico ? 'Se cortó la conexión con el asistente.' : e.message} Intenta de nuevo o escríbenos directo por WhatsApp.`,
         whatsapp: { url: WHATSAPP_DIRECTO, linea: 'Línea 01' },
       }]);
     } finally {
@@ -162,12 +200,16 @@ export default function AsistenteChat() {
 
   // Envía el formulario de contacto. Devuelve un texto de error, o null si se guardó.
   async function enviarDatos(datos) {
-    const contexto = [...items].reverse().find((i) => i.rol === 'asistente' && (i.interes || i.resumen)) ?? {};
+    // Lo último que mostró interés, por separado, sin contar respuestas de emergencia.
+    const utiles = [...items].reverse().filter((i) => i.rol === 'asistente' && !i.emergencia && !i.error);
+    const interes = utiles.find((i) => i.interes)?.interes ?? '';
+    const resumen = utiles.find((i) => i.resumen)?.resumen ?? '';
     try {
       const r = await fetch(`${API}/datos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversacion, ...datos, interes: contexto.interes ?? '', resumen: contexto.resumen ?? '' }),
+        signal: AbortSignal.timeout(20000),
+        body: JSON.stringify({ conversacion, ...datos, interes, resumen }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) return j.error || 'No pudimos guardar tus datos. Escríbenos por WhatsApp.';
@@ -177,19 +219,21 @@ export default function AsistenteChat() {
     setRegistrado(true);
     setFormularioAbierto(false);
     try { sessionStorage.setItem(`${CLAVE}-registrado`, '1'); } catch { /* modo privado */ }
-    const nombre = datos.nombre.trim().split(' ')[0];
-    setItems((a) => [...a, { rol: 'asistente', registrado: true, texto: `¡Listo, ${nombre}! Tus datos quedaron registrados. Una asesora de Dekog te contactará pronto.` }]);
+    setItems((a) => [...a, { rol: 'asistente', registrado: true, texto: '¡Listo! Tus datos quedaron registrados. Una asesora de Dekog te contactará pronto.' }]);
     return null;
   }
 
+  // El formulario se ofrece si la IA ve interés (y el cliente no dijo "Ahora no") o si lo pidió en el pie.
+  // Sigue montado mientras el asistente responde, para no perder lo que el cliente ya escribió.
   const ultimoAsistente = items.findLastIndex((i) => i.rol === 'asistente');
-  const mostrarFormulario = !registrado && !cargando
-    && (formularioAbierto || Boolean(items[ultimoAsistente]?.formulario));
+  const mostrarFormulario = !registrado
+    && (formularioAbierto || (!formularioDescartado && Boolean(items[ultimoAsistente]?.formulario)));
 
   return (
     <>
       {!abierto && (
         <button
+          ref={lanzadorRef}
           type="button"
           onClick={() => setAbierto(true)}
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-black py-3 pl-3 pr-5 text-white shadow-2xl transition-transform duration-300 hover:scale-105"
@@ -218,13 +262,13 @@ export default function AsistenteChat() {
             <a href={WHATSAPP_DIRECTO} target="_blank" rel="noopener noreferrer" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white" aria-label="Hablar con una asesora por WhatsApp" title="Hablar con una asesora">
               <IconoWhatsapp />
             </a>
-            <button type="button" onClick={() => setAbierto(false)} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white" aria-label="Cerrar el asistente">
+            <button type="button" onClick={cerrar} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white" aria-label="Cerrar el asistente">
               <X size={20} />
             </button>
           </div>
 
           {/* Conversación */}
-          <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+          <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4" role="log" aria-live="polite" aria-label="Conversación con el asistente">
             <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-white px-3.5 py-2.5 text-[14px] leading-relaxed shadow-sm">{BIENVENIDA}</div>
 
             {items.length === 0 && (
@@ -244,7 +288,7 @@ export default function AsistenteChat() {
                 <div className={`rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[14px] leading-relaxed shadow-sm ${m.error ? 'bg-amber-50 text-amber-900' : m.registrado ? 'bg-green-50 text-green-900' : 'bg-white'}`}>{m.texto}</div>
                 {m.productos?.map((p) => <TarjetaProducto key={`${p.id}-${p.talla}`} p={p} tasa={m.tasa} />)}
                 {m.whatsapp && (
-                  <a href={m.whatsapp.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[14px] font-semibold text-white shadow-sm hover:brightness-95">
+                  <a href={m.whatsapp.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-xl bg-[#0e7a3e] px-4 py-2.5 text-[14px] font-semibold text-white shadow-sm hover:brightness-110">
                     <IconoWhatsapp />
                     Seguir por WhatsApp con una asesora
                   </a>
@@ -252,10 +296,10 @@ export default function AsistenteChat() {
               </div>
             )))}
 
-            {mostrarFormulario && <FormularioContacto onEnviar={enviarDatos} />}
+            {mostrarFormulario && <FormularioContacto onEnviar={enviarDatos} onDescartar={descartarFormulario} />}
 
             {cargando && (
-              <div className="flex w-16 items-center justify-center gap-1 rounded-2xl rounded-tl-md bg-white px-3.5 py-3 shadow-sm" aria-label="Escribiendo">
+              <div role="status" className="flex w-16 items-center justify-center gap-1 rounded-2xl rounded-tl-md bg-white px-3.5 py-3 shadow-sm" aria-label="Escribiendo">
                 {[0, 150, 300].map((d) => (
                   <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: `${d}ms` }} />
                 ))}
@@ -275,19 +319,19 @@ export default function AsistenteChat() {
               onChange={(e) => setTexto(e.target.value)}
               maxLength={800}
               placeholder="Escribe tu pregunta…"
-              className="min-w-0 flex-1 rounded-full bg-[#f4f0ec] px-4 py-2.5 text-[14px] outline-none focus:ring-2 focus:ring-black/20"
+              className="min-w-0 flex-1 rounded-full bg-[#f4f0ec] px-4 py-2.5 text-[16px] sm:text-[14px] outline-none focus:ring-2 focus:ring-black/20"
               aria-label="Tu mensaje"
             />
             <button type="submit" disabled={cargando || !texto.trim()} className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white disabled:opacity-30" aria-label="Enviar">
               <Send size={17} />
             </button>
           </form>
-          <p className="bg-white pb-2 text-center text-[10.5px] text-gray-400">
-            Asistente con IA · una asesora confirma tu pedido
-            {!registrado && !mostrarFormulario && (
+          <p className="bg-white px-3 pb-2 text-center text-[11px] leading-snug text-gray-600">
+            Asistente con IA · una asesora confirma tu pedido.
+            {!registrado && (
               <>
-                {' · '}
-                <button type="button" onClick={() => setFormularioAbierto(true)} className="underline hover:text-gray-600">Dejar mis datos</button>
+                {' '}No escribas aquí tu teléfono ni tu dirección:{' '}
+                <button type="button" onClick={() => setFormularioAbierto(true)} className="font-semibold underline hover:text-black">déjalos en el formulario</button>.
               </>
             )}
           </p>

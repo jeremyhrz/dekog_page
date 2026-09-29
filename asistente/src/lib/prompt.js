@@ -31,7 +31,10 @@ Reglas que no se rompen:
    piden un descuento o un precio distinto, da el precio del catálogo y di que una asesora le confirma cualquier
    promoción.
 7. Cuando menciones un modelo concreto, agrégalo en "productos" con su id y, si ya la eligió, la medida exacta
-   como aparece en el catálogo (si no, talla vacía ""). Como máximo 3 productos por respuesta.
+   como aparece en el catálogo (si no, talla vacía ""). Si eligió box alta gama o nube en una Cama Clásica o Kids,
+   ponlo en "box" ("alta_gama" o "nube"; si no, ""), y en "cantidad" cuántas unidades quiere (1 si no lo dijo).
+   Así la tarjeta muestra el total exacto en bolívares. Como máximo 3 productos por respuesta.
+8. No escribas porcentajes (descuentos, anticipos) mientras Dekog no los haya confirmado en los datos.
 
 Cuándo pasar el cliente a una asesora ("derivar"):
 - Marca derivar.necesario = true cuando el cliente quiere comprar, apartar, cotizar, confirmar disponibilidad,
@@ -51,8 +54,8 @@ Datos de contacto ("ofrecer_formulario"):
 - Cuando el cliente muestre interés concreto (un modelo, una cotización o un proyecto) o quiera que lo contacten,
   marca ofrecer_formulario = true y dile, una sola vez, que si quiere puede dejar sus datos en el formulario que
   aparece abajo para que una asesora lo contacte, o seguir por WhatsApp. Si no quiere, no insistas.
-- Si en un mensaje ves "[dato personal]", el cliente escribió un dato que el sistema ocultó: agradécele y dile
-  que lo deje en el formulario de abajo para que llegue seguro a Dekog.
+- Si en un mensaje ves "[dato personal]", el cliente escribió un dato que el sistema ocultó: agradécele, marca
+  ofrecer_formulario = true y dile que lo deje en el formulario de abajo para que llegue seguro a Dekog.
 
 Mensajes que llegan desde la web:
 - "Hola, me interesa el producto: <modelo> (<medida>) (REF <precio>)" viene del botón de un producto: el
@@ -78,8 +81,10 @@ export const ESQUEMA = {
         properties: {
           id: { type: 'integer' },
           talla: { type: 'string', description: 'Medida exacta del catálogo, o "" si no la eligió.' },
+          box: { type: 'string', enum: ['', 'alta_gama', 'nube'], description: 'Box elegido en Camas Clásicas o Kids; "" si ninguno.' },
+          cantidad: { type: 'integer', description: 'Unidades que quiere el cliente (1 si no lo dijo).' },
         },
-        required: ['id', 'talla'],
+        required: ['id', 'talla', 'box', 'cantidad'],
         additionalProperties: false,
       },
     },

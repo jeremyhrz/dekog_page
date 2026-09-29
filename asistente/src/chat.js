@@ -7,31 +7,40 @@
  *      →  { respuesta, productos: [tarjetas], whatsapp: { url, linea } | null, tasa, formulario, interes, resumen }
  * Datos:  { conversacion, nombre, telefono, ciudad, interes, resumen } → { guardado }
  *
- * Privacidad: la IA nunca recibe datos personales. Antes de enviarle la
- * conversación se ocultan teléfonos, correos y cédulas, y los datos de
- * contacto se dejan en un formulario aparte que va directo a la hoja.
+ * Privacidad: la IA no debe recibir datos personales. Antes de enviarle la
+ * conversación se ocultan teléfonos, correos, cédulas y usuarios, y los datos
+ * de contacto se dejan en un formulario aparte que va directo a la hoja.
+ * (Nombres y direcciones escritos a mano no se pueden detectar con seguridad:
+ * el widget le pide al cliente que no los escriba en el chat.)
  *
  * Los precios en bolívares y el enlace de WhatsApp los arma el servidor; la IA
  * solo decide qué decir, qué productos mostrar y cuándo pasar a una asesora.
  */
 import { responder, proveedorActivo, RechazoDelModelo } from './lib/llm.js';
-import { tarjeta, montosInventados } from './lib/catalogo.js';
+import { tarjeta, montosInventados, numerosDelCliente } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { lineas, lineaPorArea } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 
 const MAX_MENSAJES = 16;
 const MAX_CARACTERES = 800;
-const LIMITE_POR_IP = { pedidos: 20, ventanaMs: 5 * 60 * 1000 };
+const LIMITE_POR_IP = { pedidos: 20, ventanaMs: 5 * 60 * 1000, maxIps: 5000 };
 const pedidosPorIp = new Map();
 
-// Límite por IP en memoria: frena abusos dentro de una misma instancia; no es global.
+// Límite por IP en memoria: frena abusos dentro de una misma instancia (no es global).
 function excedeLimite(ip) {
   const ahora = Date.now();
   const recientes = (pedidosPorIp.get(ip) ?? []).filter((t) => ahora - t < LIMITE_POR_IP.ventanaMs);
   recientes.push(ahora);
-  pedidosPorIp.set(ip, recientes);
-  if (pedidosPorIp.size > 5000) pedidosPorIp.clear();
+  pedidosPorIp.delete(ip);
+  pedidosPorIp.set(ip, recientes); // al final: el Map queda ordenado del menos al más reciente
+  if (pedidosPorIp.size > LIMITE_POR_IP.maxIps) {
+    // Se descartan solo las IP más antiguas; nunca se reinician todos los contadores.
+    for (const vieja of pedidosPorIp.keys()) {
+      if (pedidosPorIp.size <= LIMITE_POR_IP.maxIps * 0.8) break;
+      pedidosPorIp.delete(vieja);
+    }
+  }
   return recientes.length > LIMITE_POR_IP.pedidos;
 }
 
@@ -55,37 +64,74 @@ function limpiarMensajes(entrada) {
   return mensajes;
 }
 
+const OCULTO = '[dato personal]';
+const MONEDA_ANTES = /(?:\bref\.?|\bbs\.?|\$|\busd|€)\s*$/i;
+const MONEDA_DESPUES = /^\s*(?:ref\b|bs\b|bol[ií]vares|\$|usd\b|€|d[oó]lares)/i;
+const FECHA = /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/;
+
 /**
- * Oculta datos personales antes de enviar el texto a la IA: correos y
- * cualquier número de 7 dígitos o más (teléfonos, cédulas, cuentas).
- * Los precios del catálogo tienen 4 dígitos como mucho, así que no se tocan.
+ * Oculta datos personales antes de enviar el texto a la IA:
+ *   - correos (también "maria arroba gmail punto com" o con espacios);
+ *   - usuarios de redes (@usuario) y cédulas (V-12.345.678, "cédula 987654");
+ *   - números de 7 dígitos o más (teléfonos, cuentas), con cualquier separador.
+ * NO toca montos junto a una moneda (REF 1.290, Bs 1.003.955, 8.000.000 $) ni
+ * fechas: los precios del catálogo y del cliente siguen siendo legibles.
  */
-export function ocultarDatosPersonales(texto) {
-  return texto
-    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[dato personal]')
-    .replace(/\+?\d[\d\s().\-]{5,}\d/g, (m) => (m.replace(/\D/g, '').length >= 7 ? '[dato personal]' : m));
+export function ocultarDatosPersonales(entrada) {
+  let s = String(entrada).normalize('NFKC');
+  s = s.replace(/[\p{L}\p{N}._%+-]+\s?(?:@|\barroba\b|\(at\))\s?[\p{L}\p{N}-]+(?:(?:\.(?=[\p{L}\p{N}])|\s+punto\s+)[\p{L}\p{N}-]+)*/giu, OCULTO);
+  s = s.replace(/(^|[\s:(])@[\w.]{3,30}/g, `$1${OCULTO}`);
+  // Cédula / RIF: letra en mayúscula y al menos 6 dígitos ("tipo P 1.200" no es una cédula).
+  s = s.replace(/\b[VEJGP]\s*[-:.]?\s*\d[\d.\s]{3,}\d\b/g, (m) => (m.replace(/\D/g, '').length >= 6 ? OCULTO : m));
+  s = s.replace(/\bc[eé]dula(?:\s+(?:es|n[uú]mero|nro\.?))?\s*[-:.]?\s*(?:[VEJGP]\s*-?\s*)?\d[\d.\s]{3,}\d/giu, OCULTO);
+  s = s.replace(/\+?\d[\d\s().\-/_·*‐‑‒–—―−]{5,}\d/g, (m, desde, todo) => {
+    if (m.replace(/\D/g, '').length < 7) return m;
+    if (FECHA.test(m.trim())) return m;
+    if (MONEDA_ANTES.test(todo.slice(Math.max(0, desde - 8), desde))) return m;
+    if (MONEDA_DESPUES.test(todo.slice(desde + m.length, desde + m.length + 12))) return m;
+    return OCULTO;
+  });
+  return s;
 }
 
 const texto = (valor, max) => String(valor ?? '').trim().slice(0, max);
 
-const RESPUESTA_DE_EMERGENCIA = {
-  respuesta: 'Disculpa, en este momento no puedo responder. Toca el botón de WhatsApp y una asesora de Dekog te atiende.',
-  productos: [],
-  derivar: { necesario: true, area: 'home', resumen: 'Cliente desde el asistente de la web' },
+const AVISO_EMERGENCIA = {
+  web: 'Disculpa, en este momento no puedo responder. Toca el botón de WhatsApp y una asesora de Dekog te atiende.',
+  whatsapp: 'Disculpa, en este momento no puedo responder. Toca «Hablar con asesora» y te atiende una persona de Dekog.',
+  instagram: 'Disculpa, en este momento no puedo responder. Escríbele a una asesora de Dekog por WhatsApp:',
 };
+
+function respuestaDeEmergencia(canal) {
+  return {
+    respuesta: AVISO_EMERGENCIA[canal] ?? AVISO_EMERGENCIA.web,
+    productos: [],
+    derivar: { necesario: true, area: 'home', resumen: '' },
+    ofrecer_formulario: false,
+    emergencia: true,
+  };
+}
+
+/** Motivo breve para el registro: nunca el contenido de la conversación. */
+function motivo(e) {
+  if (e instanceof SyntaxError) return 'el modelo devolvió JSON inválido';
+  return e?.status ? `HTTP ${e.status}` : (e?.name ?? 'error');
+}
 
 export async function atenderChat(cuerpo, ip) {
   if (excedeLimite(ip)) {
-    return { status: 429, datos: { error: 'Demasiados mensajes seguidos. Espera un momento e intenta de nuevo.' } };
+    return { status: 429, datos: { error: 'Estás escribiendo muy rápido. Espera un momento e intenta de nuevo.' } };
   }
   const limpios = limpiarMensajes(cuerpo?.mensajes);
-  if (!limpios) return { status: 400, datos: { error: 'Mensaje vacío o inválido' } };
-  const mensajes = limpios.map((m) => ({ ...m, content: ocultarDatosPersonales(m.content) }));
+  if (!limpios) return { status: 400, datos: { error: 'No recibí tu mensaje. Intenta de nuevo.' } };
   if (!proveedorActivo()) {
-    return { status: 503, datos: { error: 'El asistente todavía no tiene clave de IA configurada.' } };
+    return { status: 503, datos: { error: 'El asistente no está disponible en este momento.' } };
   }
-
-  return { status: 200, datos: await pensar(mensajes, 'web') };
+  const mensajes = limpios.map((m) => ({ ...m, content: ocultarDatosPersonales(m.content) }));
+  const datos = await pensar(mensajes, 'web');
+  // Si el cliente escribió un dato personal en el chat, se le ofrece el formulario.
+  if (mensajes.at(-1).content !== limpios.at(-1).content) datos.formulario = true;
+  return { status: 200, datos };
 }
 
 /**
@@ -96,46 +142,72 @@ export async function atenderChat(cuerpo, ip) {
  */
 export async function pensar(mensajes, canal = 'web') {
   const tasaPromesa = tasaBcv();
+  const delCliente = numerosDelCliente(mensajes);
+  const revisar = (s, texto) => montosInventados(texto ?? '', { ids: (s.productos ?? []).map((p) => p.id), delCliente });
+
   let salida;
   try {
     salida = await responder(mensajes, canal);
-    const inventados = montosInventados(salida.respuesta);
+    const inventados = revisar(salida, salida.respuesta);
     if (inventados.length) {
-      // Un precio que no está en el catálogo: se pide una sola corrección.
+      // Un monto que no corresponde al catálogo: se pide una sola corrección.
       console.warn('Montos fuera del catálogo:', inventados);
-      salida = await responder([
-        ...mensajes,
-        { role: 'assistant', content: salida.respuesta },
-        { role: 'user', content: `(Nota del sistema: ${inventados.join(', ')} no existe en el catálogo. Reescribe tu respuesta anterior usando solo precios exactos del catálogo.)` },
-      ], canal);
-      if (montosInventados(salida.respuesta).length) {
-        salida = { ...salida, respuesta: 'Te muestro abajo los precios exactos del catálogo.' };
+      const primera = salida;
+      try {
+        salida = await responder([
+          ...mensajes,
+          { role: 'assistant', content: primera.respuesta },
+          { role: 'user', content: `(Nota del sistema: ${inventados.join(', ')} no corresponde al catálogo o a un dato confirmado. Reescribe tu respuesta anterior usando solo precios exactos del catálogo en REF, sin montos en bolívares ni porcentajes.)` },
+        ], canal);
+      } catch (e) {
+        console.warn('Falló la corrección; se conserva la primera respuesta sin el texto dudoso:', motivo(e));
+        salida = primera;
+      }
+      if (revisar(salida, salida.respuesta).length) {
+        salida = {
+          ...salida,
+          respuesta: salida.productos?.length
+            ? 'Te muestro abajo los precios exactos del catálogo.'
+            : 'Disculpa, ese precio te lo confirma una asesora de Dekog.',
+        };
       }
     }
   } catch (e) {
-    if (!(e instanceof RechazoDelModelo)) console.error('Error del asistente:', e);
-    salida = RESPUESTA_DE_EMERGENCIA;
+    if (!(e instanceof RechazoDelModelo)) console.error('Error del asistente:', motivo(e));
+    salida = respuestaDeEmergencia(canal);
   }
 
   const tasa = await tasaPromesa;
   const productos = (salida.productos ?? [])
     .slice(0, 3)
-    .map((p) => tarjeta(p.id, p.talla, tasa))
+    .map((p) => tarjeta(p.id, p.talla, tasa, { box: p.box, cantidad: p.cantidad }))
     .filter(Boolean);
-  const whatsapp = salida.derivar?.necesario
-    ? enlaceWhatsapp(salida.derivar.area, salida.derivar.resumen, canal)
-    : null;
+
+  // El resumen para la asesora tampoco puede llevar montos inventados: si los
+  // trae, se arma con los datos verificados de las tarjetas.
+  let resumen = salida.derivar?.resumen ?? '';
+  if (resumen && revisar(salida, resumen).length) {
+    resumen = productos
+      .map((p) => [p.nombre, p.talla, p.box, p.cantidad > 1 ? `${p.cantidad} unidades` : '', `REF ${p.ref}`].filter(Boolean).join(' · '))
+      .join(' | ') || 'Consulta desde el asistente';
+  }
+
+  let respuesta = salida.respuesta;
+  if (productos.length && !tasa) {
+    respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
+  }
+  const whatsapp = salida.derivar?.necesario ? enlaceWhatsapp(salida.derivar.area, resumen, canal) : null;
 
   return {
-    respuesta: salida.respuesta,
+    respuesta,
     productos,
     whatsapp,
     tasa,
-    // El formulario de contacto se ofrece cuando la IA ve interés o cuando pasa al cliente a una asesora.
-    formulario: Boolean(salida.ofrecer_formulario || whatsapp),
+    formulario: Boolean(salida.ofrecer_formulario),
+    emergencia: Boolean(salida.emergencia),
     // Lo que se guarda en la hoja como "le interesa" y "resumen".
-    interes: productos.map((p) => [p.nombre, p.talla].filter(Boolean).join(' ')).join(', '),
-    resumen: salida.derivar?.resumen ?? '',
+    interes: productos.map((p) => [p.nombre, p.talla, p.box].filter(Boolean).join(' ')).join(', '),
+    resumen,
   };
 }
 
