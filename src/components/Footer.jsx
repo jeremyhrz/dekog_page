@@ -202,7 +202,9 @@ export default function Footer() {
             © 2026 DEKOG. Todos los derechos reservados.
           </p>
           <div className="flex items-center gap-6">
-            <a href="#" className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">Privacidad</a>
+            <a href="/privacidad.html" className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">Privacidad</a>
+            <span className="text-gray-700">|</span>
+            <a href="/eliminacion-datos.html" className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">Eliminar mis datos</a>
             <span className="text-gray-700">|</span>
             <a href="#" className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">Términos y condiciones</a>
           </div>
