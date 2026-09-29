@@ -36,7 +36,7 @@ function TarjetaProducto({ p, tasa }) {
         <p className="text-[11px] text-gray-500">{p.talla ?? p.tipo}</p>
         <p className="mt-1 font-semibold">{p.desde ? 'Desde ' : ''}REF {p.ref.toLocaleString('es-VE')}</p>
         {p.bs && (
-          <p className="text-[11px] text-gray-600">Bs {p.bs} · tasa BCV {tasa?.fecha}</p>
+          <p className="text-[11px] text-gray-600">Bs {p.bs} · {tasa?.etiqueta ?? 'tasa BCV'} {tasa?.fecha}</p>
         )}
       </div>
     </div>

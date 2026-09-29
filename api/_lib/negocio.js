@@ -14,6 +14,9 @@ export const lineas = {
   '03': { numero: '584124423350', nombre: 'Línea 03 · El Viñedo' },
 };
 
+// Dekog convierte sus precios REF a bolívares con la tasa oficial del BCV del euro.
+export const monedaTasa = 'EUR';
+
 // Qué línea recibe cada tipo de cliente. Por confirmar con Dekog.
 export const lineaPorArea = {
   home: '01',
@@ -45,7 +48,8 @@ Camas:
 - Box de las Camas Kids: liso de 6 a 7 cm incluido; alta gama de 8 a 10 cm +REF 80; nube +REF 120.
 - Camas Alta Gama: vienen con box alta gama (7 a 10 cm) o nube (10 a 15 cm). El precio de cada
   box en esta línea lo confirma una asesora.
-- Los precios del catálogo están en REF (dólares de referencia).
+- Los precios del catálogo están en REF. Si el cliente paga en bolívares, se calculan a la tasa oficial del BCV
+  del EURO del día del pago.
 `.trim();
 
 export const pendientes = [
