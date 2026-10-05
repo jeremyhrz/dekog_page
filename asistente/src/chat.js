@@ -17,7 +17,7 @@
  * solo decide qué decir, qué productos mostrar y cuándo pasar a una asesora.
  */
 import { responder, proveedorActivo, RechazoDelModelo } from './lib/llm.js';
-import { tarjeta, montosInventados, numerosDelCliente } from './lib/catalogo.js';
+import { tarjeta, montosInventados, numerosDelCliente, categoriaPedida, fueraDeCategoria } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { lineas, lineaPorArea } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
@@ -144,20 +144,34 @@ export async function pensar(mensajes, canal = 'web') {
   const tasaPromesa = tasaBcv();
   const delCliente = numerosDelCliente(mensajes);
   const revisar = (s, texto) => montosInventados(texto ?? '', { ids: (s.productos ?? []).map((p) => p.id), delCliente });
+  // Si el cliente pidió una categoría ("quiero ver camas"), los modelos sugeridos deben ser de ella.
+  const ultimo = mensajes.at(-1)?.content ?? '';
+  const categoria = categoriaPedida(ultimo);
+  const ajenos = (s) => (categoria ? fueraDeCategoria(s.productos, categoria, ultimo) : []);
 
   let salida;
   try {
     salida = await responder(mensajes, canal);
     const inventados = revisar(salida, salida.respuesta);
-    if (inventados.length) {
-      // Un monto que no corresponde al catálogo: se pide una sola corrección.
-      console.warn('Montos fuera del catálogo:', inventados);
+    const deOtraCategoria = ajenos(salida);
+    if (inventados.length || deOtraCategoria.length) {
+      // Un monto que no está en el catálogo o un modelo de otra categoría: se pide UNA corrección.
+      if (inventados.length) console.warn('Montos fuera del catálogo:', inventados);
+      if (deOtraCategoria.length) console.warn('Modelos de otra categoría:', deOtraCategoria.map((p) => p.nombre));
+      const notas = [];
+      if (inventados.length) {
+        notas.push(`${inventados.join(', ')} no corresponde al catálogo o a un dato confirmado: usa solo precios exactos del catálogo en REF, sin montos en bolívares ni porcentajes`);
+      }
+      if (deOtraCategoria.length) {
+        const nombres = deOtraCategoria.map((p) => `${p.nombre} (${p.categoria.toLowerCase()})`).join(', ');
+        notas.push(`el cliente pidió ${categoria.toLowerCase()} y ${nombres} no es de esa categoría: menciona y muestra solo modelos de la sección ${categoria.toUpperCase()} del catálogo`);
+      }
       const primera = salida;
       try {
         salida = await responder([
           ...mensajes,
           { role: 'assistant', content: primera.respuesta },
-          { role: 'user', content: `(Nota del sistema: ${inventados.join(', ')} no corresponde al catálogo o a un dato confirmado. Reescribe tu respuesta anterior usando solo precios exactos del catálogo en REF, sin montos en bolívares ni porcentajes.)` },
+          { role: 'user', content: `(Nota del sistema: ${notas.join('; ')}. Reescribe tu respuesta anterior.)` },
         ], canal);
       } catch (e) {
         console.warn('Falló la corrección; se conserva la primera respuesta sin el texto dudoso:', motivo(e));
@@ -171,6 +185,9 @@ export async function pensar(mensajes, canal = 'web') {
             : 'Disculpa, ese precio te lo confirma una asesora de Dekog.',
         };
       }
+      // Si aún sugiere modelos de otra categoría, al menos no se muestran sus tarjetas.
+      const quedan = new Set(ajenos(salida).map((p) => p.id));
+      if (quedan.size) salida = { ...salida, productos: salida.productos.filter((p) => !quedan.has(p.id)) };
     }
   } catch (e) {
     if (!(e instanceof RechazoDelModelo)) console.error('Error del asistente:', motivo(e));
