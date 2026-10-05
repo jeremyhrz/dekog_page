@@ -15,8 +15,8 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { cargarEstado, guardarEstado } from './memoria.js';
-import { verificarSuscripcion, firmaValida, lineaPrecio, recortar } from './meta.js';
+import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja } from './memoria.js';
+import { verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse } from './meta.js';
 
 const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${config.WA_API_VERSION || 'v25.0'}`;
 
@@ -89,8 +89,9 @@ async function procesar(valor, mensaje, env) {
 
   estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
   const r = await pensar(estado.mensajes, 'whatsapp');
+  const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   const [principal] = r.productos;
-  const cuerpo = [r.respuesta, r.productos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  const cuerpo = [respuesta, r.productos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
 
   let enviado = false;
   if (r.whatsapp) {
@@ -111,20 +112,23 @@ async function procesar(valor, mensaje, env) {
     const conEnlace = r.whatsapp ? `${cuerpo}\n\nHabla con una asesora: ${r.whatsapp.url}` : cuerpo;
     await enviar(phoneId, { ...base, type: 'text', text: { body: recortar(conEnlace, 4096), preview_url: false } });
   }
-  estado.mensajes.push({ role: 'assistant', content: r.respuesta });
+  estado.mensajes.push({ role: 'assistant', content: respuesta });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;
-  // Mostró interés: queda en la hoja con su número de WhatsApp, para que la asesora le escriba.
-  if (r.formulario && !estado.guardado && mensaje.from) {
+  // Mostró interés o pidió una asesora: queda en la hoja con su número de WhatsApp, para que
+  // la asesora le escriba. Si después pide otra cosa, se actualiza su misma fila.
+  const interesado = r.formulario || Boolean(r.whatsapp);
+  if (mensaje.from && hayNovedadParaHoja(estado, { interesado })) {
     const nombre = valor.contacts?.find((c) => c.wa_id === mensaje.from)?.profile?.name ?? '';
-    estado.guardado = await guardarCliente({
+    const ok = await guardarCliente({
       conversacion: `wa-${mensaje.from}`,
       cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },
       interes: estado.interes,
       resumen: estado.resumen,
       canal: 'WhatsApp',
     });
+    if (ok) marcarEnHoja(estado);
   }
   await guardarEstado(env.CONVERSACIONES, clave, estado);
 }

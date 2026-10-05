@@ -51,6 +51,16 @@ export function lineaPrecio(p, tasa) {
   return `• ${cual}: ${ref}${bs}`;
 }
 
+/**
+ * En el primer mensaje de la conversación el cliente tiene que saber que le responde un
+ * asistente virtual. La IA lo hace casi siempre; esto lo garantiza cuando se le olvida.
+ */
+export function presentarse(texto, esPrimero) {
+  if (!esPrimero || /asistente/i.test(texto)) return texto;
+  const resto = texto.replace(/^¡?\s*hola\s*!?[,.]?\s*/i, '');
+  return `¡Hola! Soy el asistente virtual de Dekog 👋 ${resto.charAt(0).toUpperCase()}${resto.slice(1)}`;
+}
+
 export function recortar(texto, maximo) {
   return texto.length > maximo ? `${texto.slice(0, maximo - 1)}…` : texto;
 }

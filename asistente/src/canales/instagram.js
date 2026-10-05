@@ -10,13 +10,14 @@
  * (v25.0), IG_API_BASE (pruebas).
  *
  * Si el cliente escribe su número de WhatsApp, lo captura el servidor y va a
- * la hoja; la IA solo ve "[dato personal]".
+ * la hoja; la IA solo ve "[dato personal]". Si muestra interés sin dar número,
+ * queda en la hoja igual, con su @usuario.
  */
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { cargarEstado, guardarEstado } from './memoria.js';
-import { verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono } from './meta.js';
+import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja } from './memoria.js';
+import { verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse } from './meta.js';
 
 const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
 const graph = () => `${RAIZ()}/${config.IG_API_VERSION || 'v25.0'}`;
@@ -49,6 +50,9 @@ export function partirPorBytes(texto, maximo = MAX_BYTES) {
     while (codificador.encode(resto.slice(0, corte)).length > maximo) corte = Math.floor(corte * 0.9);
     const espacio = resto.lastIndexOf(' ', corte);
     if (espacio > corte * 0.6) corte = espacio;
+    // No partir un emoji (par sustituto UTF-16) por la mitad: saldría "�".
+    const previo = resto.charCodeAt(corte - 1);
+    if (previo >= 0xd800 && previo <= 0xdbff) corte -= 1;
     trozos.push(resto.slice(0, corte).trim());
     resto = resto.slice(corte).trim();
   }
@@ -110,24 +114,35 @@ async function procesar(evento, env) {
   const telefono = extraerTelefono(texto); // se guarda en la hoja; la IA no lo ve
   estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
   const r = await pensar(estado.mensajes, 'instagram');
+  const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
 
   const [principal] = r.productos;
-  if (principal) await enviar(env, igsid, { attachment: { type: 'image', payload: { url: principal.imagen } } });
-  let cuerpo = [r.respuesta, r.productos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  if (principal) {
+    // La doc de Instagram Login usa "attachments" para imágenes; la de Messenger, "attachment".
+    // Se envía la forma oficial y, si Instagram la rechaza, la otra.
+    const imagen = { type: 'image', payload: { url: principal.imagen } };
+    if (!(await enviar(env, igsid, { attachments: imagen }))) await enviar(env, igsid, { attachment: imagen });
+  }
+  let cuerpo = [respuesta, r.productos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
   if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp: ${r.whatsapp.url}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
-  estado.mensajes.push({ role: 'assistant', content: r.respuesta });
+  estado.mensajes.push({ role: 'assistant', content: respuesta });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;
-  if (telefono && !estado.guardado) {
-    estado.guardado = await guardarCliente({
+  // Dio su teléfono, mostró interés o pidió una asesora: queda en la hoja con su @usuario (la
+  // asesora puede escribirle por Instagram) y con su teléfono si lo dio; la misma fila se completa
+  // cuando lo da más tarde o cambia lo que pide.
+  const interesado = Boolean(telefono) || r.formulario || Boolean(r.whatsapp);
+  if (hayNovedadParaHoja(estado, { interesado, telefono })) {
+    const ok = await guardarCliente({
       conversacion: `ig-${igsid}`,
       cliente: { nombre: await nombreDeUsuario(env, igsid), telefono, ciudad: '' },
       interes: estado.interes,
       resumen: estado.resumen,
       canal: 'Instagram',
     });
+    if (ok) marcarEnHoja(estado, telefono);
   }
   await guardarEstado(env.CONVERSACIONES, clave, estado);
 }
