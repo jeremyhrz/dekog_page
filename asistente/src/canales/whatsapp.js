@@ -15,12 +15,54 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja } from './memoria.js';
+import { lineas } from '../lib/negocio.js';
+import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido } from './memoria.js';
 import { verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse } from './meta.js';
 
 const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${config.WA_API_VERSION || 'v25.0'}`;
 
-async function enviar(phoneId, carga) {
+/*
+ * Cupo gratis de Meta (desde el 1-oct-2026): 1.000 mensajes de servicio entregados al mes POR
+ * NÚMERO. Sin método de pago, desde el 1.001 Meta deja de entregarlos —sin avisar— hasta el mes
+ * siguiente. Aquí se cuentan los envíos aceptados para:
+ *   - dejar un aviso en la hoja de clientes al llegar al 80 %;
+ *   - al acercarse al tope, dejar de usar la IA y pasar a cada cliente nuevo, con UN mensaje,
+ *     directo a la Línea 01 (y anotarlo en la hoja), en vez de que el asistente quede mudo.
+ * WA_CUPO_MENSUAL cambia el tope; 0 lo desactiva (cuando Dekog cargue un método de pago en Meta).
+ */
+const CUARENTA_DIAS = 60 * 60 * 24 * 40;
+
+function cupoMensual() {
+  const n = Number(config.WA_CUPO_MENSUAL ?? 1000);
+  const cupo = Number.isFinite(n) && n >= 0 ? Math.floor(n) : 1000;
+  const reserva = Math.max(1, Math.min(30, Math.floor(cupo * 0.03))); // para los avisos del final
+  return { cupo, tope: cupo - reserva, aviso: Math.floor(cupo * 0.8) };
+}
+
+const mesActual = () => new Date().toISOString().slice(0, 7); // "2026-10" (UTC)
+const claveCupo = (phoneId) => `wa:cupo:${phoneId}:${mesActual()}`;
+
+async function enviadosEsteMes(env, phoneId) {
+  return Number(await env.CONVERSACIONES?.get(claveCupo(phoneId))) || 0;
+}
+
+async function contarEnvio(env, phoneId) {
+  if (!env.CONVERSACIONES) return;
+  const n = (await enviadosEsteMes(env, phoneId)) + 1;
+  await env.CONVERSACIONES.put(claveCupo(phoneId), String(n), { expirationTtl: CUARENTA_DIAS });
+  const { cupo, tope, aviso } = cupoMensual();
+  if (cupo > 0 && n === aviso) {
+    await guardarCliente({
+      conversacion: `aviso-cupo-whatsapp-${mesActual()}`,
+      cliente: { nombre: '⚠️ AVISO DEL ASISTENTE', telefono: '', ciudad: '' },
+      interes: `WhatsApp: ${n} de ${cupo} respuestas gratis usadas este mes`,
+      resumen: `Al llegar a ${tope}, el asistente de WhatsApp pasará a los clientes nuevos directo a la Línea 01 hasta el día 1 del próximo mes. Para no tener tope, carguen un método de pago en Meta.`,
+      canal: 'Sistema',
+    });
+  }
+}
+
+async function enviar(env, phoneId, carga) {
   const r = await fetch(`${graph()}/${phoneId}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${config.WA_TOKEN}`, 'Content-Type': 'application/json' },
@@ -29,6 +71,9 @@ async function enviar(phoneId, carga) {
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     console.warn('WhatsApp rechazó el envío:', r.status, j?.error?.code, j?.error?.message);
+  } else if (carga.type) {
+    // Solo los mensajes cuentan para el cupo; "leído" y "escribiendo…" no son mensajes entregados.
+    await contarEnvio(env, phoneId).catch((e) => console.warn('No se pudo contar el envío:', e?.message));
   }
   return r.ok;
 }
@@ -67,22 +112,54 @@ function textoDe(mensaje) {
 }
 
 async function procesar(valor, mensaje, env) {
-  const usuario = mensaje.from ?? mensaje.from_user_id;
+  // Clave estable de la conversación: el BSUID (from_user_id) llega siempre; el número (from)
+  // puede faltar si el cliente usa nombre de usuario en WhatsApp.
+  const usuario = mensaje.from_user_id ?? mensaje.from;
   const phoneId = valor.metadata?.phone_number_id;
   if (!usuario || !phoneId) return;
+  if (await yaAtendido(env.CONVERSACIONES, mensaje.id)) return; // aviso repetido de Meta
   const clave = `wa:${phoneId}:${usuario}`;
   const estado = await cargarEstado(env.CONVERSACIONES, clave);
   if (estado.procesados.includes(mensaje.id)) return; // aviso duplicado de Meta
   estado.procesados.push(mensaje.id);
 
   // "Leído" y "escribiendo…" mientras piensa (no consume cupo).
-  await enviar(phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
+  await enviar(env, phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
   const destino = mensaje.from ? { to: mensaje.from } : { recipient: mensaje.from_user_id };
   const base = { recipient_type: 'individual', ...destino };
+  const contacto = valor.contacts?.find((c) => (mensaje.from && c.wa_id === mensaje.from)
+    || (mensaje.from_user_id && c.user_id === mensaje.from_user_id));
+  const nombre = contacto?.profile?.name ?? '';
+
+  // Cupo del mes casi agotado: sin IA, UN mensaje con el enlace a la asesora (una vez al mes por
+  // cliente) y el cliente queda en la hoja para que lo llamen.
+  const { cupo, tope } = cupoMensual();
+  if (cupo > 0 && (await enviadosEsteMes(env, phoneId)) >= tope) {
+    if (estado.avisoCupo !== mesActual()) {
+      estado.avisoCupo = mesActual();
+      const asesora = `https://wa.me/${lineas['01'].numero}`;
+      await enviar(env, phoneId, {
+        ...base,
+        type: 'text',
+        text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a nuestra asesora: ${asesora}`, preview_url: false },
+      });
+      if (mensaje.from) {
+        await guardarCliente({
+          conversacion: `wa-${mensaje.from}`,
+          cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },
+          interes: estado.interes,
+          resumen: 'Escribió al WhatsApp del asistente cuando ya no le quedaban respuestas gratis este mes: escríbele tú.',
+          canal: 'WhatsApp',
+        });
+      }
+    }
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
 
   const texto = textoDe(mensaje).trim().slice(0, 800);
   if (!texto) {
-    await enviar(phoneId, { ...base, type: 'text', text: { body: 'Por ahora solo puedo leer mensajes de texto 🙂 Escríbeme tu pregunta y te ayudo.' } });
+    await enviar(env, phoneId, { ...base, type: 'text', text: { body: 'Por ahora solo puedo leer mensajes de texto 🙂 Escríbeme tu pregunta y te ayudo.' } });
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
@@ -95,7 +172,7 @@ async function procesar(valor, mensaje, env) {
 
   let enviado = false;
   if (r.whatsapp) {
-    enviado = await enviar(phoneId, {
+    enviado = await enviar(env, phoneId, {
       ...base,
       type: 'interactive',
       interactive: {
@@ -106,11 +183,11 @@ async function procesar(valor, mensaje, env) {
       },
     });
   } else if (principal) {
-    enviado = await enviar(phoneId, { ...base, type: 'image', image: { link: principal.imagen, caption: recortar(cuerpo, 1024) } });
+    enviado = await enviar(env, phoneId, { ...base, type: 'image', image: { link: principal.imagen, caption: recortar(cuerpo, 1024) } });
   }
   if (!enviado) {
     const conEnlace = r.whatsapp ? `${cuerpo}\n\nHabla con una asesora: ${r.whatsapp.url}` : cuerpo;
-    await enviar(phoneId, { ...base, type: 'text', text: { body: recortar(conEnlace, 4096), preview_url: false } });
+    await enviar(env, phoneId, { ...base, type: 'text', text: { body: recortar(conEnlace, 4096), preview_url: false } });
   }
   estado.mensajes.push({ role: 'assistant', content: respuesta });
 
@@ -120,7 +197,6 @@ async function procesar(valor, mensaje, env) {
   // la asesora le escriba. Si después pide otra cosa, se actualiza su misma fila.
   const interesado = r.formulario || Boolean(r.whatsapp);
   if (mensaje.from && hayNovedadParaHoja(estado, { interesado })) {
-    const nombre = valor.contacts?.find((c) => c.wa_id === mensaje.from)?.profile?.name ?? '';
     const ok = await guardarCliente({
       conversacion: `wa-${mensaje.from}`,
       cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },

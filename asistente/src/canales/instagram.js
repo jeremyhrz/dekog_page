@@ -16,7 +16,7 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja } from './memoria.js';
+import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido } from './memoria.js';
 import { verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse } from './meta.js';
 
 const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
@@ -99,6 +99,7 @@ async function nombreDeUsuario(env, igsid) {
 async function procesar(evento, env) {
   const igsid = evento.sender?.id;
   if (!igsid) return;
+  if (await yaAtendido(env.CONVERSACIONES, evento.message.mid)) return; // aviso repetido de Meta
   const clave = `ig:${igsid}`;
   const estado = await cargarEstado(env.CONVERSACIONES, clave);
   if (estado.procesados.includes(evento.message.mid)) return;
