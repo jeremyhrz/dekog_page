@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secretos del Worker del asistente (desarrollo local)
+.dev.vars
+.wrangler

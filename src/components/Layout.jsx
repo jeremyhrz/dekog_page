@@ -2,6 +2,12 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import AsistenteChat from './AsistenteChat';
+
+// El asistente con IA está activo (aprobado por Dekog el 2026-10-05).
+// Interruptor de emergencia: la variable VITE_ASISTENTE=0 en Vercel (y volver
+// a desplegar) lo apaga y deja el botón de WhatsApp de siempre, sin tocar código.
+const mostrarAsistente = import.meta.env.VITE_ASISTENTE !== '0';
 
 /**
  * Layout — Armazón global de la app.
@@ -28,7 +34,8 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
   return (
     <div className="bg-[#f4f0ec] min-h-screen text-gray-900 overflow-x-hidden flex flex-col">
 
-      {/* ── Botón flotante WhatsApp ────────────────────────────────── */}
+      {/* ── Asistente con IA (si está activo) o botón flotante WhatsApp ── */}
+      {mostrarAsistente ? <AsistenteChat /> : (
       <a
         href="https://wa.me/584145847791?text=Hola,%20tengo%20una%20consulta%20sobre%20sus%20servicios."
         target="_blank"
@@ -44,6 +51,7 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
           ¿Necesitas ayuda?
         </span>
       </a>
+      )}
 
       {/* ── Navbar ────────────────────────────────────────────────── */}
       <Navbar
