@@ -4,19 +4,10 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import AsistenteChat from './AsistenteChat';
 
-// El asistente con IA solo aparece si el despliegue lo activa
-// (VITE_ASISTENTE=1) o si alguien entra con ?asistente en la URL, para
-// probarlo sin cambiar lo que ven los clientes en dekog.net.
-function asistenteActivo() {
-  if (import.meta.env.VITE_ASISTENTE === '1') return true;
-  try {
-    if (new URLSearchParams(window.location.search).has('asistente')) sessionStorage.setItem('dekog-asistente', '1');
-    return sessionStorage.getItem('dekog-asistente') === '1';
-  } catch {
-    return false;
-  }
-}
-const mostrarAsistente = asistenteActivo();
+// El asistente con IA está activo (aprobado por Dekog el 2026-10-05).
+// Interruptor de emergencia: la variable VITE_ASISTENTE=0 en Vercel (y volver
+// a desplegar) lo apaga y deja el botón de WhatsApp de siempre, sin tocar código.
+const mostrarAsistente = import.meta.env.VITE_ASISTENTE !== '0';
 
 /**
  * Layout — Armazón global de la app.
