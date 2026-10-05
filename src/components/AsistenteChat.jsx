@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Send } from 'lucide-react';
+import { X, Send, RotateCcw } from 'lucide-react';
 
 /**
  * AsistenteChat — chat con IA de Dekog (esquina inferior derecha).
@@ -36,10 +36,20 @@ function IconoWhatsapp({ size = 18 }) {
   );
 }
 
-function FormularioContacto({ onEnviar, onDescartar }) {
+/**
+ * Formulario de contacto. Cuando lo ofrece la IA aparece primero compacto (pregunta +
+ * "Sí, dejar mis datos" / "Ahora no") para no tapar el chat; los campos se abren solo si el
+ * cliente dice que sí, o directamente si lo pidió desde el enlace del pie (`expandido`).
+ */
+function FormularioContacto({ onEnviar, onDescartar, expandido: expandidoInicial = false }) {
+  const [expandido, setExpandido] = useState(expandidoInicial);
   const [datos, setDatos] = useState({ nombre: '', telefono: '', ciudad: '' });
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
+  const formRef = useRef(null);
+  useEffect(() => {
+    if (expandido) formRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [expandido]);
   const campo = (nombre) => ({
     value: datos[nombre],
     onChange: (e) => setDatos((d) => ({ ...d, [nombre]: e.target.value })),
@@ -54,21 +64,37 @@ function FormularioContacto({ onEnviar, onDescartar }) {
     if (problema) setError(problema);
     setEnviando(false);
   }
+  if (!expandido) {
+    return (
+      <div className="rounded-xl border border-black/10 bg-white p-3 shadow-sm">
+        <p className="text-[13px] font-semibold">¿Quieres que una asesora te contacte?</p>
+        <p className="mt-0.5 text-[12px] text-gray-600">Te escribe por WhatsApp para ayudarte con tu pedido.</p>
+        <div className="mt-2.5 flex gap-2">
+          <button type="button" onClick={onDescartar} className="rounded-lg border border-black/15 px-3 py-2 text-[13px] text-gray-700 hover:border-black">
+            Ahora no
+          </button>
+          <button type="button" onClick={() => setExpandido(true)} className="flex-1 rounded-lg bg-black py-2 text-[13px] font-semibold text-white hover:bg-black/85">
+            Sí, dejar mis datos
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
-    <form onSubmit={enviar} className="space-y-2 rounded-xl border border-black/10 bg-white p-3 shadow-sm">
-      <p className="text-[13px] font-semibold">¿Quieres que una asesora te contacte?</p>
-      <input {...campo('nombre')} placeholder="Tu nombre" required maxLength={80} autoComplete="name" aria-label="Tu nombre" />
+    <form ref={formRef} onSubmit={enviar} className="space-y-2 rounded-xl border border-black/10 bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[13px] font-semibold">Tus datos para que una asesora te contacte</p>
+        <button type="button" onClick={onDescartar} aria-label="Cerrar el formulario" title="Cerrar" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-gray-500 hover:bg-black/5 hover:text-black">
+          <X size={16} />
+        </button>
+      </div>
+      <input {...campo('nombre')} placeholder="Tu nombre" required maxLength={80} autoComplete="name" aria-label="Tu nombre" autoFocus />
       <input {...campo('telefono')} placeholder="Tu teléfono (WhatsApp)" required maxLength={30} inputMode="tel" autoComplete="tel" aria-label="Tu teléfono" />
       <input {...campo('ciudad')} placeholder="Tu ciudad (opcional)" maxLength={60} aria-label="Tu ciudad" />
       {error && <p role="alert" className="text-[12px] text-red-700">{error}</p>}
-      <div className="flex gap-2">
-        <button type="button" onClick={onDescartar} className="rounded-lg border border-black/15 px-3 py-2 text-[13px] text-gray-700 hover:border-black">
-          Ahora no
-        </button>
-        <button type="submit" disabled={enviando} className="flex-1 rounded-lg bg-black py-2 text-[13px] font-semibold text-white disabled:opacity-50">
-          {enviando ? 'Enviando…' : 'Enviar mis datos'}
-        </button>
-      </div>
+      <button type="submit" disabled={enviando} className="w-full rounded-lg bg-black py-2 text-[13px] font-semibold text-white disabled:opacity-50">
+        {enviando ? 'Enviando…' : 'Enviar mis datos'}
+      </button>
       <p className="text-center text-[11px] text-gray-600">Solo los usa Dekog para contactarte.</p>
     </form>
   );
@@ -99,7 +125,7 @@ export default function AsistenteChat() {
     try { return JSON.parse(sessionStorage.getItem(CLAVE)) ?? []; } catch { return []; }
   });
   // Identifica la conversación en la hoja de clientes (una fila por conversación).
-  const [conversacion] = useState(() => {
+  const [conversacion, setConversacion] = useState(() => {
     try {
       const guardada = sessionStorage.getItem(`${CLAVE}-id`);
       if (guardada) return guardada;
@@ -141,6 +167,24 @@ export default function AsistenteChat() {
     setFormularioAbierto(false);
     setFormularioDescartado(true);
     try { sessionStorage.setItem(`${CLAVE}-descartado`, '1'); } catch { /* modo privado */ }
+  }
+
+  /** "Nueva conversación": vuelve al saludo y a las preguntas sugeridas, con otro id para la hoja. */
+  function reiniciar() {
+    if (cargando) return;
+    const nueva = crypto.randomUUID();
+    setItems([]);
+    setConversacion(nueva);
+    setRegistrado(false);
+    setFormularioAbierto(false);
+    setFormularioDescartado(false);
+    setTexto('');
+    try {
+      sessionStorage.setItem(`${CLAVE}-id`, nueva);
+      sessionStorage.removeItem(`${CLAVE}-registrado`);
+      sessionStorage.removeItem(`${CLAVE}-descartado`);
+    } catch { /* modo privado */ }
+    entradaRef.current?.focus();
   }
 
   useEffect(() => {
@@ -254,11 +298,16 @@ export default function AsistenteChat() {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white font-display text-lg font-bold text-black">D</span>
             <div className="min-w-0 flex-1 leading-tight">
               <p className="text-[15px] font-semibold tracking-wide">Dekog Home</p>
-              <p className="flex items-center gap-1.5 text-[11px] text-white/70">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#25D366]" />
-                Asistente · responde al instante
+              <p className="flex items-center gap-1.5 whitespace-nowrap text-[11px] text-white/70">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#25D366]" />
+                Responde al instante
               </p>
             </div>
+            {items.length > 0 && (
+              <button type="button" onClick={reiniciar} disabled={cargando} className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40" aria-label="Nueva conversación" title="Nueva conversación">
+                <RotateCcw size={18} />
+              </button>
+            )}
             <a href={WHATSAPP_DIRECTO} target="_blank" rel="noopener noreferrer" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white" aria-label="Hablar con una asesora por WhatsApp" title="Hablar con una asesora">
               <IconoWhatsapp />
             </a>
@@ -296,7 +345,14 @@ export default function AsistenteChat() {
               </div>
             )))}
 
-            {mostrarFormulario && <FormularioContacto onEnviar={enviarDatos} onDescartar={descartarFormulario} />}
+            {mostrarFormulario && (
+              <FormularioContacto
+                key={formularioAbierto ? 'pedido' : 'ofrecido'} // el enlace del pie lo abre expandido aunque ya se viera compacto
+                onEnviar={enviarDatos}
+                onDescartar={descartarFormulario}
+                expandido={formularioAbierto}
+              />
+            )}
 
             {cargando && (
               <div role="status" className="flex w-16 items-center justify-center gap-1 rounded-2xl rounded-tl-md bg-white px-3.5 py-3 shadow-sm" aria-label="Escribiendo">

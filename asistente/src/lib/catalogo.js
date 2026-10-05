@@ -16,18 +16,47 @@ export function buscarProducto(id) {
   return porId.get(Number(id)) ?? null;
 }
 
-/** Texto del catálogo para el prompt: una línea por producto, precios exactos. */
+/**
+ * Texto del catálogo para el prompt: una línea por producto, precios exactos, agrupado por
+ * categoría (CAMAS, SOFÁS, MESAS) para que la IA no mezcle, por ejemplo, el sofá Dubai entre
+ * las camas (pasó el 2026-10-05).
+ */
 export function catalogoParaPrompt() {
-  return productos
-    .map((p) => {
-      const tipo = p.subcategoria ?? p.categoria;
-      const precios = p.tallas?.length
-        ? p.tallas.map((t) => `${t.nombre}: REF ${t.precio}`).join(' | ')
-        : `REF ${p.precio}`;
-      const extra = p.descripcion ? ` — ${p.descripcion}` : '';
-      return `[${p.id}] ${p.nombre} — ${tipo} — ${p.desc ?? ''} — ${precios}${extra}`;
-    })
-    .join('\n');
+  const grupos = new Map();
+  for (const p of productos) {
+    const tipo = p.subcategoria ?? p.categoria;
+    const precios = p.tallas?.length
+      ? p.tallas.map((t) => `${t.nombre}: REF ${t.precio}`).join(' | ')
+      : `REF ${p.precio}`;
+    const extra = p.descripcion ? ` — ${p.descripcion}` : '';
+    const grupo = p.categoria ?? 'Otros';
+    if (!grupos.has(grupo)) grupos.set(grupo, []);
+    grupos.get(grupo).push(`[${p.id}] ${p.nombre} — ${tipo} — ${p.desc ?? ''} — ${precios}${extra}`);
+  }
+  return [...grupos]
+    .map(([grupo, lineas]) => `== ${grupo.toUpperCase()} (${lineas.length} modelos) ==\n${lineas.join('\n')}`)
+    .join('\n\n');
+}
+
+const plano = (texto) => String(texto ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const CATEGORIAS = [['Camas', /\bcamas?\b/], ['Sofás', /\bsofas?\b/], ['Mesas', /\bmesas?\b/]];
+
+/** Categoría que pide el cliente ("quiero ver camas" → "Camas"); null si no nombra ninguna o nombra varias. */
+export function categoriaPedida(texto) {
+  const halladas = CATEGORIAS.filter(([, patron]) => patron.test(plano(texto))).map(([categoria]) => categoria);
+  return halladas.length === 1 ? halladas[0] : null;
+}
+
+/**
+ * Modelos sugeridos por la IA que NO son de la categoría pedida, salvo los que el
+ * cliente nombró él mismo ("¿la Dubai también viene en cama?").
+ */
+export function fueraDeCategoria(sugeridos, categoria, textoCliente) {
+  const dicho = plano(textoCliente);
+  const nombrado = (nombre) => new RegExp(`(^|[^a-z0-9])${plano(nombre).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(dicho);
+  return (sugeridos ?? [])
+    .map((s) => buscarProducto(s.id))
+    .filter((p) => p && p.categoria !== categoria && !nombrado(p.nombre));
 }
 
 /** "Queen 1,60x1,90 M" → "queen160x190m", para comparar sin importar mayúsculas, espacios ni signos. */
