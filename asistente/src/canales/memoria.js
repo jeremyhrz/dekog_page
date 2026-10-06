@@ -31,7 +31,7 @@ export async function cargarEstado(kv, clave) {
   const guardado = kv ? await kv.get(clave, 'json') : null;
   const estado = {
     mensajes: [], procesados: [], guardado: false, interes: '', resumen: '',
-    resumenEnHoja: null, telefonoEnHoja: false, avisoCupo: '',
+    resumenEnHoja: null, telefonoEnHoja: false, avisoCupo: '', ultimaTarjeta: '',
     ...(guardado ?? {}),
   };
   estado.desde = estado.mensajes.length; // lo que se agregue después es de esta vuelta (no se guarda)
@@ -46,6 +46,18 @@ export async function cargarEstado(kv, clave) {
 export function hayNovedadParaHoja(estado, { interesado, telefono = '' }) {
   if (!interesado) return false;
   return !estado.guardado || estado.resumen !== estado.resumenEnHoja || Boolean(telefono && !estado.telefonoEnHoja);
+}
+
+/**
+ * Las tarjetas (foto + precio) que vale la pena mostrar: si son exactamente las mismas que la última
+ * vez —mismo modelo, medida, box, cantidad y precio— no se repiten. Recuerda lo que se mostró.
+ */
+export function productosNuevos(estado, productos = []) {
+  if (!productos.length) return [];
+  const clave = productos.map((p) => [p.id, p.talla, p.box, p.cantidad, p.ref].join('|')).join(';');
+  if (clave === estado.ultimaTarjeta) return [];
+  estado.ultimaTarjeta = clave;
+  return productos;
 }
 
 export function marcarEnHoja(estado, telefono = '') {
@@ -73,6 +85,7 @@ export function fusionar(actual, estado) {
     resumenEnHoja: estado.resumenEnHoja ?? actual.resumenEnHoja,
     telefonoEnHoja: Boolean(actual.telefonoEnHoja || estado.telefonoEnHoja),
     avisoCupo: estado.avisoCupo || actual.avisoCupo, // mes en que ya se le avisó del cupo agotado
+    ultimaTarjeta: estado.ultimaTarjeta || actual.ultimaTarjeta, // última foto/precio mostrados
   };
 }
 
