@@ -16,7 +16,7 @@ import { atenderChat, atenderDatos } from './chat.js';
 import { proveedorActivo } from './lib/llm.js';
 import { hojaConfigurada } from './lib/hoja.js';
 import { whatsappGet, whatsappPost } from './canales/whatsapp.js';
-import { instagramGet, instagramPost, renovarTokenInstagram } from './canales/instagram.js';
+import { instagramGet, instagramPost, instagramConectar, renovarTokenInstagram } from './canales/instagram.js';
 
 const ORIGENES_PERMITIDOS = [
   /^https:\/\/(www\.)?dekog\.net$/,
@@ -54,6 +54,8 @@ export default {
     const webhooks = {
       '/whatsapp': { GET: () => whatsappGet(url), POST: () => whatsappPost(request, env, ctx) },
       '/instagram': { GET: () => instagramGet(url), POST: () => instagramPost(request, env, ctx) },
+      // La dueña de la cuenta da permiso desde su teléfono; nadie comparte la contraseña.
+      '/instagram/conectar': { GET: () => instagramConectar(url, env) },
     };
     const webhook = webhooks[url.pathname]?.[request.method];
     if (webhook) return webhook();
@@ -70,7 +72,8 @@ export default {
         hoja: hojaConfigurada(),
         memoria: Boolean(env.CONVERSACIONES),
         whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
-        instagram: Boolean(env.IG_TOKEN && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
+        instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
+          && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
       }, 200, cors);
     }
 
