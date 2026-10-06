@@ -82,6 +82,29 @@ export function whatsappGet(url) {
   return verificarSuscripcion(url, config.WA_VERIFY_TOKEN);
 }
 
+/*
+ * Avisos de Meta sobre la CUENTA (desbloqueo, restricción, verificación del negocio, calidad o
+ * nombre del número). Quedan en la hoja de clientes como una fila «📣 AVISO DE META», para
+ * enterarse sin tener que mandar mensajes de prueba. No traen datos de clientes.
+ */
+const CAMPOS_DE_CUENTA = new Set([
+  'account_update', 'account_review_update', 'account_alerts',
+  'business_capability_update', 'phone_number_quality_update', 'phone_number_name_update',
+]);
+
+async function avisarCambioDeCuenta(cambio, idCuenta) {
+  const valor = cambio.value ?? {};
+  const detalle = JSON.stringify(valor).slice(0, 280);
+  console.warn('Aviso de Meta sobre la cuenta:', cambio.field, detalle);
+  await guardarCliente({
+    conversacion: `aviso-meta-${cambio.field}-${idCuenta ?? ''}-${Date.now()}`,
+    cliente: { nombre: '📣 AVISO DE META', telefono: '', ciudad: '' },
+    interes: [cambio.field, valor.event, valor.decision].filter(Boolean).join(' · '),
+    resumen: detalle,
+    canal: 'Sistema',
+  });
+}
+
 export async function whatsappPost(request, env, ctx) {
   const crudo = await request.arrayBuffer();
   if (!(await firmaValida(crudo, request.headers.get('X-Hub-Signature-256'), config.WA_APP_SECRET))) {
@@ -96,6 +119,10 @@ export async function whatsappPost(request, env, ctx) {
   for (const entrada of aviso.entry ?? []) {
     for (const cambio of entrada.changes ?? []) {
       const valor = cambio.value ?? {};
+      if (CAMPOS_DE_CUENTA.has(cambio.field)) {
+        ctx.waitUntil(avisarCambioDeCuenta(cambio, entrada.id).catch((e) => console.error('No se pudo anotar el aviso de Meta:', e?.message)));
+        continue;
+      }
       for (const mensaje of valor.messages ?? []) {
         ctx.waitUntil(procesar(valor, mensaje, env).catch((e) => console.error('Error con un mensaje de WhatsApp:', e)));
       }
