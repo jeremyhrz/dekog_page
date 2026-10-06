@@ -16,7 +16,7 @@ import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
 import { lineas } from '../lib/negocio.js';
-import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido } from './memoria.js';
+import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import { verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse } from './meta.js';
 
 const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${config.WA_API_VERSION || 'v25.0'}`;
@@ -203,8 +203,11 @@ async function procesar(valor, mensaje, env) {
   estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
   const r = await pensar(estado.mensajes, 'whatsapp');
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
-  const [principal] = r.productos;
-  const cuerpo = [respuesta, r.productos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  // La foto y el precio solo van cuando cambian: si el cliente pregunta por el pago o el envío del
+  // mismo producto, repetir la misma foto se siente robótico.
+  const nuevos = productosNuevos(estado, r.productos);
+  const [principal] = nuevos;
+  const cuerpo = [respuesta, nuevos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
 
   let enviado = false;
   if (r.whatsapp) {

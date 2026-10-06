@@ -16,7 +16,7 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido } from './memoria.js';
+import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import { verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse } from './meta.js';
 
 const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
@@ -117,14 +117,16 @@ async function procesar(evento, env) {
   const r = await pensar(estado.mensajes, 'instagram');
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
 
-  const [principal] = r.productos;
+  // La foto y el precio solo van cuando cambian (no repetir la misma foto en cada respuesta).
+  const nuevos = productosNuevos(estado, r.productos);
+  const [principal] = nuevos;
   if (principal) {
     // La doc de Instagram Login usa "attachments" para imágenes; la de Messenger, "attachment".
     // Se envía la forma oficial y, si Instagram la rechaza, la otra.
     const imagen = { type: 'image', payload: { url: principal.imagen } };
     if (!(await enviar(env, igsid, { attachments: imagen }))) await enviar(env, igsid, { attachment: imagen });
   }
-  let cuerpo = [respuesta, r.productos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  let cuerpo = [respuesta, nuevos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
   if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp: ${r.whatsapp.url}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
   estado.mensajes.push({ role: 'assistant', content: respuesta });

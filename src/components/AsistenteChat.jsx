@@ -217,10 +217,15 @@ export default function AsistenteChat() {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'No pude responder en este momento.');
+      // Si son exactamente las mismas tarjetas que la última vez (mismo modelo, medida, box y precio),
+      // no se repiten: el cliente ya las tiene a la vista y repetirlas se siente robótico.
+      const clave = (j.productos ?? []).map((p) => [p.id, p.talla, p.box, p.cantidad, p.ref].join('|')).join(';');
       setItems((a) => [...a, {
         rol: 'asistente',
         texto: j.respuesta,
-        productos: j.productos,
+        ...(clave && clave === [...a].reverse().find((i) => i.claveTarjeta)?.claveTarjeta
+          ? { productos: [] }
+          : { productos: j.productos, claveTarjeta: clave || undefined }),
         whatsapp: j.whatsapp,
         tasa: j.tasa,
         formulario: j.formulario,
