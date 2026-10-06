@@ -99,6 +99,15 @@ export async function whatsappPost(request, env, ctx) {
       for (const mensaje of valor.messages ?? []) {
         ctx.waitUntil(procesar(valor, mensaje, env).catch((e) => console.error('Error con un mensaje de WhatsApp:', e)));
       }
+      // Meta acepta el envío y, si luego no puede entregarlo, avisa aquí con el código del error.
+      // Solo se registra el código (nunca el teléfono ni el texto) para poder diagnosticar.
+      for (const estado of valor.statuses ?? []) {
+        if (estado.status === 'failed') {
+          for (const error of estado.errors ?? [{}]) {
+            console.warn('WhatsApp no entregó un mensaje:', error.code, error.title, error.error_data?.details ?? '');
+          }
+        }
+      }
     }
   }
   return new Response('ok');
