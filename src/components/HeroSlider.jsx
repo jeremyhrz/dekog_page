@@ -6,27 +6,38 @@ import { anchosDe, recorteMovil, variante } from '../utils/imagenes';
 // nítido y liviano. En lo demás, el ancho que cubre la pantalla (object-cover sobre 85–90vh de alto).
 const MOVIL_VERTICAL = '(max-width: 640px) and (orientation: portrait)';
 
-function FotoHero({ src, alt, prioridad, onLoad, className, style }) {
+function FotoHero({ src, alt, prioridad, indice, alCargar, className, style }) {
+  // Sin variante WebP (foto nueva sin procesar): la original.
+  const [original, setOriginal] = useState(false);
+  const cargada = useCallback(() => alCargar(indice), [alCargar, indice]);
+  // La foto empieza a bajar mientras React todavía arma la página, y así llega antes. Pero si termina (o
+  // falla) en ese rato, React no llama a onLoad ni a onError: aún no montó el <img>. Por eso, al montar,
+  // se mira cómo quedó.
+  const revisar = useCallback((img) => {
+    if (!img?.complete || !img.currentSrc) return; // sigue bajando: ya avisarán onLoad u onError
+    if (img.naturalWidth) cargada();
+    else setOriginal(true);
+  }, [cargada]);
+  // Las dos opciones van en <source> y el <img> no lleva src ni srcset: React le pone los atributos antes
+  // de meterlo en el <picture>, y Safari (también el navegador interno de Instagram en iPhone) empezaba a
+  // bajar ahí la foto de escritorio y, al insertarlo, además el recorte móvil. Así elige una sola vez.
   return (
     <picture className="block h-full w-full">
-      <source media={MOVIL_VERTICAL} srcSet={recorteMovil(src)} />
+      {!original && <source media={MOVIL_VERTICAL} srcSet={recorteMovil(src)} />}
+      {!original && (
+        <source
+          srcSet={anchosDe(src).map((a) => `${variante(src, a)} ${a}w`).join(', ')}
+          sizes="(max-aspect-ratio: 16/9) 160vh, 100vw"
+        />
+      )}
       <img
-        srcSet={anchosDe(src).map((a) => `${variante(src, a)} ${a}w`).join(', ')}
-        sizes="(max-aspect-ratio: 16/9) 160vh, 100vw"
+        ref={revisar}
         alt={alt}
+        src={original ? src : undefined}
         fetchPriority={prioridad ? 'high' : undefined}
         decoding={prioridad ? undefined : 'async'}
-        src={variante(src, 1280)}
-        onLoad={onLoad}
-        onError={(e) => {
-          // Sin variante (foto nueva sin procesar): la original.
-          const img = e.currentTarget;
-          if (img.dataset.original) return;
-          img.dataset.original = '1';
-          img.parentElement.querySelectorAll('source').forEach((fuente) => fuente.remove());
-          img.removeAttribute('srcset');
-          img.src = src;
-        }}
+        onLoad={cargada}
+        onError={() => setOriginal(true)}
         className={className}
         style={style}
       />
@@ -41,6 +52,7 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
   // que así no compite con las otras cuatro); cada una pide la siguiente al terminar de cargar.
   const [conFoto, setConFoto] = useState(() => new Set([0]));
   const pedirFoto = useCallback((i) => setConFoto((s) => (s.has(i) ? s : new Set(s).add(i))), []);
+  const pedirSiguiente = useCallback((i) => pedirFoto((i + 1) % slides.length), [pedirFoto, slides.length]);
   useEffect(() => { pedirFoto(current); }, [current, pedirFoto]);
 
   useEffect(() => {
@@ -109,7 +121,8 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
               src={s.imagen}
               alt={s.nombre}
               prioridad={i === 0}
-              onLoad={() => pedirFoto((i + 1) % slides.length)}
+              indice={i}
+              alCargar={pedirSiguiente}
               className="w-full h-full object-cover object-center"
               style={{ transform: i === current ? 'scale(1.05)' : 'scale(1)', transition: 'transform 8s ease-out' }}
             />
