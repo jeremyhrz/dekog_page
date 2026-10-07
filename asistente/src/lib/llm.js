@@ -8,9 +8,12 @@
  * `canal` (web, whatsapp o instagram) agrega las instrucciones propias de ese canal.
  */
 import { config } from './config.js';
-import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenAI } from '@google/genai';
 import { sistemaPara, ESQUEMA } from './prompt.js';
+
+// Plan gratis de Cloudflare: 10 ms de CPU por petición (si se pasa de forma sostenida, Cloudflare corta con el
+// error 1102, que llega al navegador SIN cabeceras CORS: «Se cortó la conexión»). Por eso Gemini va por su
+// API REST con un solo fetch (la librería @google/genai pesaba ~875 KB y compilarla costaba ~5 ms en el
+// primer pedido de cada instancia) y la librería de Claude solo se carga si se usa (en producción no hay clave).
 
 export function proveedorActivo() {
   if (config.ASISTENTE_PROVEEDOR === 'prueba') return 'prueba';
@@ -24,7 +27,10 @@ export class RechazoDelModelo extends Error {}
 let anthropic;
 async function conClaude(mensajes, sistema) {
   // Máximo 20 s por intento: un cliente no debe quedarse viendo "escribiendo…".
-  anthropic ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
+  if (!anthropic) {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    anthropic = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
+  }
   const modelo = config.ASISTENTE_MODELO_CLAUDE || 'claude-opus-5';
   const esHaiku = modelo.startsWith('claude-haiku');
   const pedido = {
@@ -137,27 +143,69 @@ export function escalonar(modelos, pedir, { hasta = Date.now() + TOPE_MS, escalo
   });
 }
 
-let gemini;
-function conGemini(mensajes, sistema, hasta) {
-  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+// ── Gemini por su API REST ───────────────────────────────────────────────────
+// El mismo pedido que armaba @google/genai 2.24 (comprobado byte a byte con llamadas reales): POST a
+// v1beta/models/<modelo>:generateContent con la clave en la cabecera x-goog-api-key, sin reintentos y sin
+// X-Server-Timeout (el tope lo pone `hasta`, cancelando del lado del Worker).
+const RAIZ_GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/';
+const ESQUEMA_GEMINI = sinAdditionalProperties(ESQUEMA);
+
+// La parte fija del cuerpo (el prompt de ~36 KB y el esquema) se serializa una vez por canal y se reutiliza.
+const partesFijas = new Map();
+function parteFija(canal) {
+  if (!partesFijas.has(canal)) {
+    partesFijas.set(canal, JSON.stringify({
+      systemInstruction: { parts: [{ text: sistemaPara(canal) }], role: 'user' },
+      generationConfig: { responseMimeType: 'application/json', responseJsonSchema: ESQUEMA_GEMINI },
+    }).slice(1, -1)); // sin las llaves externas: va pegada dentro del cuerpo
+  }
+  return partesFijas.get(canal);
+}
+// Se preparan al cargar el Worker (eso tiene su propio presupuesto de 1 s), no en el primer pedido.
+for (const canal of ['web', 'whatsapp', 'instagram']) parteFija(canal);
+
+function cuerpoGemini(mensajes, canal) {
+  const contents = mensajes.map((m) => ({ parts: [{ text: m.content }], role: m.role === 'assistant' ? 'model' : 'user' }));
+  return `{"contents":${JSON.stringify(contents)},${parteFija(canal)}}`;
+}
+
+/** Una petición a un modelo. Devuelve el JSON del asistente o lanza un Error con .status (HTTP) o .reintentable. */
+async function pedirGemini(modelo, cuerpo, signal) {
+  const r = await fetch(`${RAIZ_GEMINI}${encodeURIComponent(modelo)}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': config.GEMINI_API_KEY },
+    body: cuerpo,
+    signal,
+  });
+  if (!r.ok) {
+    let detalle = '';
+    try { detalle = (await r.text()).slice(0, 300); } catch { /* sin cuerpo legible */ }
+    const e = new Error(`Gemini respondió HTTP ${r.status}: ${detalle}`);
+    e.name = 'ApiError';
+    e.status = r.status;
+    throw e;
+  }
+  const datos = await r.json();
+  // Como el .text de la librería: las partes de texto del primer candidato que no son «pensamiento».
+  const partes = datos?.candidates?.[0]?.content?.parts ?? [];
+  const texto = partes.filter((p) => typeof p.text === 'string' && p.thought !== true).map((p) => p.text).join('');
+  try {
+    if (!texto) {
+      const motivo = datos?.promptFeedback?.blockReason ?? datos?.candidates?.[0]?.finishReason ?? 'sin candidatos';
+      throw new Error(`Gemini devolvió una respuesta vacía (${motivo})`);
+    }
+    return JSON.parse(texto);
+  } catch (e) {
+    e.reintentable = true; // vacía o JSON roto: otro modelo puede responder bien
+    throw e;
+  }
+}
+
+function conGemini(mensajes, canal, hasta) {
   const principal = config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite';
   const modelos = [principal, ...MODELOS_RESPALDO.filter((m) => m !== principal)];
-  const contents = mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-  const responseJsonSchema = sinAdditionalProperties(ESQUEMA);
-  return escalonar(modelos, async (modelo, signal) => {
-    const r = await gemini.models.generateContent({
-      model: modelo,
-      contents,
-      config: { systemInstruction: sistema, responseMimeType: 'application/json', responseJsonSchema, abortSignal: signal },
-    });
-    try {
-      if (!r.text) throw new Error('Gemini devolvió una respuesta vacía');
-      return JSON.parse(r.text);
-    } catch (e) {
-      e.reintentable = true; // vacía o JSON roto: otro modelo puede responder bien
-      throw e;
-    }
-  }, { hasta });
+  const cuerpo = cuerpoGemini(mensajes, canal); // uno solo para todos los modelos del escalonado
+  return escalonar(modelos, (modelo, signal) => pedirGemini(modelo, cuerpo, signal), { hasta });
 }
 
 /** Respuestas fijas para revisar la pantalla sin clave ni costo. */
@@ -191,7 +239,7 @@ function dePrueba(mensajes) {
 export async function responder(mensajes, canal = 'web', { hasta } = {}) {
   const p = proveedorActivo();
   if (p === 'claude') return conClaude(mensajes, sistemaPara(canal));
-  if (p === 'gemini') return conGemini(mensajes, sistemaPara(canal), hasta);
+  if (p === 'gemini') return conGemini(mensajes, canal, hasta);
   if (p === 'prueba') return dePrueba(mensajes);
   throw new Error('No hay clave de IA configurada (ANTHROPIC_API_KEY o GEMINI_API_KEY).');
 }

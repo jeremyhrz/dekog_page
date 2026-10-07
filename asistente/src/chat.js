@@ -85,8 +85,11 @@ const FECHA = /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/;
  */
 export function ocultarDatosPersonales(entrada) {
   let s = String(entrada).normalize('NFKC');
-  s = s.replace(/[\p{L}\p{N}._%+-]+\s?(?:@|\barroba\b|\(at\))\s?[\p{L}\p{N}-]+(?:(?:\.(?=[\p{L}\p{N}])|\s+punto\s+)[\p{L}\p{N}-]+)*/giu, OCULTO);
-  s = s.replace(/(^|[\s:(])@[\w.]{3,30}/g, `$1${OCULTO}`);
+  // Atajos: cada expresión corre solo si el texto tiene lo mínimo que ella exige. Las Unicode costaban ~8 ms
+  // de CPU la primera vez en cada instancia aunque el mensaje no trajera datos (plan gratis: 10 ms por pedido).
+  if (/@|arroba|\(at\)/i.test(s)) s = s.replace(/[\p{L}\p{N}._%+-]+\s?(?:@|\barroba\b|\(at\))\s?[\p{L}\p{N}-]+(?:(?:\.(?=[\p{L}\p{N}])|\s+punto\s+)[\p{L}\p{N}-]+)*/giu, OCULTO);
+  if (s.includes('@')) s = s.replace(/(^|[\s:(])@[\w.]{3,30}/g, `$1${OCULTO}`);
+  if (!/\d/.test(s)) return s; // lo que sigue (cédulas y teléfonos) exige dígitos
   // Cédula / RIF: letra en mayúscula y al menos 6 dígitos ("tipo P 1.200" no es una cédula).
   s = s.replace(/\b[VEJGP]\s*[-:.]?\s*\d[\d.\s]{3,}\d\b/g, (m) => (m.replace(/\D/g, '').length >= 6 ? OCULTO : m));
   s = s.replace(/\bc[eé]dula(?:\s+(?:es|n[uú]mero|nro\.?))?\s*[-:.]?\s*(?:[VEJGP]\s*-?\s*)?\d[\d.\s]{3,}\d/giu, OCULTO);
@@ -287,3 +290,24 @@ export async function atenderDatos(cuerpo, ip) {
   }
   return { status: 200, datos: { guardado: true } };
 }
+
+// Precalentado al cargar el Worker. Cloudflare da 1 s de CPU para el arranque, aparte de los 10 ms por pedido
+// del plan gratis: aquí se compilan las funciones y expresiones regulares que el primer pedido de cada instancia
+// usaría por primera vez. Cada texto va una vez sin emoji y otra con emoji, porque V8 compila aparte las dos
+// variantes de cada expresión (y el saludo y las respuestas traen emoji). Sin red, y nunca lanza.
+try {
+  for (const extra of ['', ' 👋✨']) {
+    const muestra = `Quiero ver camas${extra}. Correo maria arroba gmail punto com, @maria.vzla, cédula V-12.345.678, `
+      + 'tlf 0414-555-1234, el 07/10/2026, REF 1.290 o Bs 1.003.955';
+    limpiarMensajes([{ role: 'user', content: muestra }]);
+    ocultarDatosPersonales(muestra);
+    numerosDelCliente([{ role: 'user', content: muestra }]);
+    categoriaPedida(muestra);
+    fueraDeCategoria([{ id: 48 }, { id: 18 }], 'Camas', muestra);
+    montosInventados(`REF 550, 999 $, 10 USD, 5 dólares, Bs 100, 10%${extra}`, { ids: [48], delCliente: [] });
+    totalesIncoherentes(`total REF 670${extra}`, [tarjeta(48, 'Queen', null, { box: 'nube' })]);
+    recargoDeBoxEnAltaGama(`el box nube tiene un recargo de REF 120${extra}`, [{ id: 52 }]);
+  }
+  tarjeta(48, 'Queen 1,60x1,90 M', { valor: 984.26 }, { box: 'nube', cantidad: 2, telaPremium: true });
+  enlaceWhatsapp('home', 'Cama Toronto · Queen', 'web');
+} catch { /* solo es una optimización */ }

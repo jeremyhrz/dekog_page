@@ -42,66 +42,72 @@ function cabecerasCors(origen) {
 function json(datos, status, cors) {
   return new Response(JSON.stringify(datos), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
+    // no-store: ningún intermediario guarda una respuesta del chat.
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors },
   });
+}
+
+async function atender(request, env, ctx, url, origen, cors) {
+  const webhooks = {
+    '/whatsapp': { GET: () => whatsappGet(url), POST: () => whatsappPost(request, env, ctx) },
+    '/instagram': { GET: () => instagramGet(url), POST: () => instagramPost(request, env, ctx) },
+    // La dueña de la cuenta da permiso desde su teléfono; nadie comparte la contraseña.
+    '/instagram/conectar': { GET: () => instagramConectar(url, env) },
+  };
+  const webhook = webhooks[url.pathname]?.[request.method];
+  if (webhook) return webhook();
+
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+  if (url.pathname === '/salud' && request.method === 'GET') {
+    return json({
+      ok: true,
+      ia: Boolean(proveedorActivo()),
+      hoja: hojaConfigurada(),
+      memoria: Boolean(env.CONVERSACIONES),
+      whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
+      instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
+        && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
+    }, 200, cors);
+  }
+
+  const rutas = { '/chat': atenderChat, '/datos': atenderDatos };
+  const ruta = rutas[url.pathname];
+  if (!ruta) return json({ error: 'No encontrado' }, 404, cors);
+  if (request.method !== 'POST') return json({ error: 'Usa POST' }, 405, cors);
+  if (origen && !cors['Access-Control-Allow-Origin']) {
+    // Sin CORS a propósito (origen ajeno), pero que quede registrado: en el navegador parece un corte de red.
+    console.warn('Origen no permitido:', origen, url.pathname);
+    return json({ error: 'Origen no permitido' }, 403, cors);
+  }
+  let cuerpo;
+  try {
+    // Vale con Content-Type application/json o text/plain (la web lo manda así para ahorrarse la consulta
+    // OPTIONS de CORS): request.json() no mira el tipo.
+    cuerpo = await request.json();
+  } catch {
+    return json({ error: 'JSON inválido' }, 400, cors);
+  }
+  const { status, datos } = await ruta(cuerpo, request.headers.get('CF-Connecting-IP') ?? '');
+  return json(datos, status, cors);
 }
 
 export default {
   async fetch(request, env, ctx) {
-    configurar(env);
-    const url = new URL(request.url);
-
-    const webhooks = {
-      '/whatsapp': { GET: () => whatsappGet(url), POST: () => whatsappPost(request, env, ctx) },
-      '/instagram': { GET: () => instagramGet(url), POST: () => instagramPost(request, env, ctx) },
-      // La dueña de la cuenta da permiso desde su teléfono; nadie comparte la contraseña.
-      '/instagram/conectar': { GET: () => instagramConectar(url, env) },
-    };
-    const webhook = webhooks[url.pathname]?.[request.method];
-    if (webhook) return webhook();
-
+    // El CORS se calcula antes que nada: hasta la respuesta de un error inesperado lo lleva. Sin él, el
+    // navegador solo ve «Load failed» y el chat no puede decir qué pasó.
     const origen = request.headers.get('Origin');
     const cors = cabecerasCors(origen);
-
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-
-    if (url.pathname === '/salud' && request.method === 'GET') {
-      return json({
-        ok: true,
-        ia: Boolean(proveedorActivo()),
-        hoja: hojaConfigurada(),
-        memoria: Boolean(env.CONVERSACIONES),
-        whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
-        instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
-          && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
-      }, 200, cors);
+    let url;
+    try {
+      configurar(env);
+      url = new URL(request.url);
+      return await atender(request, env, ctx, url, origen, cors);
+    } catch (e) {
+      // Nunca el contenido de la conversación en el registro: solo dónde y qué tipo de error.
+      console.error('Error inesperado en', url?.pathname ?? '?', e?.name ?? 'error', e?.message ?? '');
+      return json({ error: 'No pude responder en este momento. Intenta de nuevo o escríbenos por WhatsApp.' }, 500, cors);
     }
-
-    const rutas = { '/chat': atenderChat, '/datos': atenderDatos };
-    const atender = rutas[url.pathname];
-    if (atender) {
-      if (request.method !== 'POST') return json({ error: 'Usa POST' }, 405, cors);
-      if (origen && !cors['Access-Control-Allow-Origin']) return json({ error: 'Origen no permitido' }, 403, cors);
-      let cuerpo;
-      try {
-        cuerpo = await request.json();
-      } catch {
-        return json({ error: 'JSON inválido' }, 400, cors);
-      }
-      const ip = request.headers.get('CF-Connecting-IP') ?? '';
-      let resultado;
-      try {
-        resultado = await atender(cuerpo, ip);
-      } catch (e) {
-        // Siempre con CORS: si no, el navegador solo ve "Failed to fetch".
-        console.error('Error inesperado en', url.pathname, e?.name ?? 'error');
-        return json({ error: 'No pude responder en este momento. Intenta de nuevo o escríbenos por WhatsApp.' }, 500, cors);
-      }
-      const { status, datos } = resultado;
-      return json(datos, status, cors);
-    }
-
-    return json({ error: 'No encontrado' }, 404, cors);
   },
 
   async scheduled(evento, env, ctx) {

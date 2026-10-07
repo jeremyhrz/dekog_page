@@ -26,7 +26,9 @@ export const lineaPorArea = {
 export const datos = `
 DEKOG — "Diseñamos, Construimos, Amoblamos". Un solo equipo de arquitectos, ingenieros y diseñadores
 con dos líneas de servicio:
-- DEKOG HOME: mobiliario (camas, sofás, puffs, mesas) de fabricación propia.
+- DEKOG HOME: mobiliario (camas, sofás, puffs, mesas). Dekog es fabricante (confirmado por la dueña el 7-oct):
+  hace cualquier modelo, también fuera del catálogo, a la medida y con el diseño que el cliente quiera.
+  El precio y el tiempo de un modelo personalizado los cotiza una asesora con una foto de referencia y las medidas.
 - DEKOG ARQUITECTURA: diseño arquitectónico, modelado 3D, planos, ejecución y supervisión de obra,
   interiorismo y proyectos llave en mano. Tipos: residencial, comercial, oficinas, remodelaciones,
   interiorismo. Más de 120 proyectos realizados (ejemplos: un área médica, oficinas corporativas,
@@ -54,7 +56,6 @@ export const pendientes = [
   'si las camas incluyen colchón',
   'plazo de la garantía estructural',
   'recargo de las telas premium en sofás, puffs y otros muebles (en camas sí está confirmado)',
-  'medidas o diseños personalizados',
   'descuentos, promociones o apartados',
 ];
 

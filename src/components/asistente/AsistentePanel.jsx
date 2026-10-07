@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowUp, Banknote, BedDouble, ChevronLeft, ChevronRight, MapPin, Ruler, X } from 'lucide-react';
+import { ArrowUp, Banknote, BedDouble, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_DIRECTO, nuevoId } from './comun';
+import { ErrorDelAsistente, pedirAlAsistente } from './red';
 import './asistente.css';
 
 /**
@@ -351,6 +352,33 @@ function CajaEscritura({ cargando, onEnviar, entradaRef, registrado, onPedirForm
 
 const esTactil = () => window.matchMedia('(pointer: coarse)').matches;
 
+/** Lo que viaja a la IA: ni los errores ni la confirmación del formulario. */
+const paraLaIa = (lista) => lista
+  .filter((i) => !i.error && !i.registrado)
+  .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.texto }));
+
+/** Burbuja de error: qué pasó, dicho para el cliente, y si tiene sentido «Reintentar». */
+function burbujaDeError(e) {
+  const conocido = e instanceof ErrorDelAsistente;
+  // Un error de NUESTRO código (no de la red) ya no se disfraza de «Se cortó la conexión».
+  if (!conocido) console.error('Error inesperado del chat:', e);
+  const reintentar = !conocido || ['red', 'tiempo', 'incompleta', 'servidor'].includes(e.tipo);
+  const motivo = !conocido
+    ? 'No pude mostrar la respuesta.'
+    : e.tipo === 'red' ? 'No pude conectarme con el asistente (puede ser la señal).' : e.message;
+  // El Worker a veces ya trae «…escríbenos por WhatsApp»: no se repite.
+  const cierre = /whatsapp/i.test(motivo) ? ''
+    : reintentar ? ' Toca «Reintentar» o escríbenos directo por WhatsApp.' : ' Escríbenos directo por WhatsApp.';
+  return {
+    rol: 'asistente',
+    error: true,
+    reintentar,
+    tipoError: conocido ? e.tipo : 'interno',
+    texto: `${motivo}${cierre}`,
+    whatsapp: { url: WHATSAPP_DIRECTO, linea: 'Línea 01' },
+  };
+}
+
 export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, marcoRef }) {
   const reducir = useReducedMotion();
   const [items, setItems] = useState(() => {
@@ -438,7 +466,7 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
     if (!log) return;
     const comportamiento = reducir ? 'auto' : 'smooth';
     const grupo = ultimoGrupoRef.current;
-    if (!cargando && items.at(-1)?.rol === 'asistente' && grupo) {
+    if (!cargando && items[items.length - 1]?.rol === 'asistente' && grupo) {
       const arriba = log.scrollTop + grupo.getBoundingClientRect().top - log.getBoundingClientRect().top - 12;
       log.scrollTo({ top: Math.min(arriba, log.scrollHeight - log.clientHeight), behavior: comportamiento });
     } else {
@@ -509,21 +537,13 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
     return true;
   }
 
-  async function pedirRespuesta(conNuevo) {
+  /** Pide la respuesta de la conversación tal como está. Con un reintento silencioso ante cortes de red
+   * (ver red.js): el mensaje del cliente NO se repite, se reenvía la misma conversación. */
+  async function pedirRespuesta(conversacionActual) {
     try {
-      const r = await fetch(`${API}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(40000),
-        body: JSON.stringify({
-          // Ni los errores ni la confirmación del formulario viajan a la IA.
-          mensajes: conNuevo
-            .filter((i) => !i.error && !i.registrado)
-            .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.texto })),
-        }),
+      const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual) }, {
+        valida: (d) => typeof d.respuesta === 'string',
       });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || 'No pude responder en este momento.');
       // Si son exactamente las mismas tarjetas que la última vez (mismo modelo, medida, box, tela, puff y
       // precio), no se repiten: el cliente ya las tiene a la vista y repetirlas se siente robótico.
       const clave = (j.productos ?? [])
@@ -542,17 +562,21 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
         resumen: j.resumen,
       }]);
     } catch (e) {
-      // Errores de red o de tiempo: nunca el texto técnico del navegador ("Failed to fetch").
-      const tecnico = e instanceof TypeError || e?.name === 'AbortError' || e?.name === 'TimeoutError';
-      setItems((a) => [...a, {
-        rol: 'asistente',
-        error: true,
-        texto: `${tecnico ? 'Se cortó la conexión con el asistente.' : e.message} Intenta de nuevo o escríbenos directo por WhatsApp.`,
-        whatsapp: { url: WHATSAPP_DIRECTO, linea: 'Línea 01' },
-      }]);
+      setItems((a) => [...a, burbujaDeError(e)]);
     } finally {
       setCargando(false);
     }
+  }
+
+  /** «Reintentar» de la burbuja de error: vuelve a pedir la respuesta del último mensaje sin repetirlo. */
+  function reintentar() {
+    if (cargando) return;
+    const ultimo = items[items.length - 1];
+    const sinError = ultimo?.error ? items.slice(0, -1) : items;
+    if (sinError[sinError.length - 1]?.rol !== 'cliente') return;
+    setItems(sinError);
+    setCargando(true);
+    pedirRespuesta(sinError);
   }
 
   // Envía el formulario de contacto. Devuelve un texto de error, o null si se guardó.
@@ -562,16 +586,15 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
     const interes = utiles.find((i) => i.interes)?.interes ?? '';
     const resumen = utiles.find((i) => i.resumen)?.resumen ?? '';
     try {
-      const r = await fetch(`${API}/datos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(30000), // el Worker puede reintentar la hoja (2 × 10 s)
-        body: JSON.stringify({ conversacion, ...datos, interes, resumen }),
+      // Reintentar no duplica la fila: la hoja actualiza por id de conversación (lib/hoja.js).
+      await pedirAlAsistente(`${API}/datos`, { conversacion, ...datos, interes, resumen }, {
+        plazoMs: 30000, // el Worker puede reintentar la hoja (2 × 10 s)
+        valida: (d) => d.guardado === true,
       });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) return j.error || 'No pudimos guardar tus datos. Escríbenos por WhatsApp.';
-    } catch {
-      return 'No pudimos guardar tus datos. Escríbenos por WhatsApp.';
+    } catch (e) {
+      return e instanceof ErrorDelAsistente && ['pedido', 'limite', 'servidor'].includes(e.tipo)
+        ? e.message
+        : 'No pudimos guardar tus datos. Escríbenos por WhatsApp.';
     }
     setRegistrado(true);
     setFormularioAbierto(false);
@@ -582,7 +605,11 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
 
   // El formulario se ofrece si la IA ve interés (y el cliente no dijo "Ahora no") o si lo pidió en el pie.
   // Sigue montado mientras el asistente responde, para no perder lo que el cliente ya escribió.
-  const ultimoAsistente = items.findLastIndex((i) => i.rol === 'asistente');
+  // Sin findLastIndex ni .at(): no existen antes de iOS 15.4 y romperían el chat en iPhone viejos.
+  let ultimoAsistente = -1;
+  for (let k = items.length - 1; k >= 0; k -= 1) {
+    if (items[k].rol === 'asistente') { ultimoAsistente = k; break; }
+  }
   const mostrarFormulario = !registrado
     && (formularioAbierto || (!formularioDescartado && Boolean(items[ultimoAsistente]?.formulario)));
   const bienvenida = aparicion(reducir, { y: 10, retraso: 0.22, duracion: 0.32 });
@@ -641,6 +668,13 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
                   className={`w-fit max-w-[88%] whitespace-pre-line break-words rounded-[20px] rounded-tl-md px-4 py-2.5 text-[15px] leading-[1.5] shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 sm:text-[14.5px] ${tono}`}>
                   <TextoAnimado texto={m.texto} animar={nuevo && !reducir} />
                 </motion.div>
+                {m.error && m.reintentar && i === items.length - 1 && !cargando && (
+                  <button type="button" onClick={reintentar}
+                    className="ml-1 flex h-10 w-fit items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-black/15 transition hover:ring-black active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black">
+                    <RotateCcw size={15} aria-hidden="true" />
+                    Reintentar
+                  </button>
+                )}
                 {productos.length === 1 && <TarjetaSola p={productos[0]} tasa={m.tasa} nuevo={nuevo} reducir={reducir} />}
                 {productos.length > 1 && <Carrusel productos={productos} tasa={m.tasa} nuevo={nuevo} reducir={reducir} />}
                 {m.whatsapp && (
