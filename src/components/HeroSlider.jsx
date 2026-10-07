@@ -1,9 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { anchosDe, recorteMovil, variante } from '../utils/imagenes';
+
+// En un teléfono en vertical la foto apaisada se ve recortada al centro: ahí va su recorte vertical,
+// nítido y liviano. En lo demás, el ancho que cubre la pantalla (object-cover sobre 85–90vh de alto).
+const MOVIL_VERTICAL = '(max-width: 640px) and (orientation: portrait)';
+
+function FotoHero({ src, alt, prioridad, onLoad, className, style }) {
+  return (
+    <picture className="block h-full w-full">
+      <source media={MOVIL_VERTICAL} srcSet={recorteMovil(src)} />
+      <img
+        srcSet={anchosDe(src).map((a) => `${variante(src, a)} ${a}w`).join(', ')}
+        sizes="(max-aspect-ratio: 16/9) 160vh, 100vw"
+        alt={alt}
+        fetchPriority={prioridad ? 'high' : undefined}
+        decoding={prioridad ? undefined : 'async'}
+        src={variante(src, 1280)}
+        onLoad={onLoad}
+        onError={(e) => {
+          // Sin variante (foto nueva sin procesar): la original.
+          const img = e.currentTarget;
+          if (img.dataset.original) return;
+          img.dataset.original = '1';
+          img.parentElement.querySelectorAll('source').forEach((fuente) => fuente.remove());
+          img.removeAttribute('srcset');
+          img.src = src;
+        }}
+        className={className}
+        style={style}
+      />
+    </picture>
+  );
+}
 
 export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
   const [current, setCurrent] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  // Diapositivas que ya pidieron su foto: al principio solo la primera (la imagen principal de la página,
+  // que así no compite con las otras cuatro); cada una pide la siguiente al terminar de cargar.
+  const [conFoto, setConFoto] = useState(() => new Set([0]));
+  const pedirFoto = useCallback((i) => setConFoto((s) => (s.has(i) ? s : new Set(s).add(i))), []);
+  useEffect(() => { pedirFoto(current); }, [current, pedirFoto]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -66,12 +104,16 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
           style={{ opacity: i === current ? 1 : 0, zIndex: i === current ? 1 : 0 }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent z-10" />
-          <img
-            src={s.imagen}
-            alt={s.nombre}
-            className="w-full h-full object-cover object-center"
-            style={{ transform: i === current ? 'scale(1.05)' : 'scale(1)', transition: 'transform 8s ease-out' }}
-          />
+          {conFoto.has(i) && (
+            <FotoHero
+              src={s.imagen}
+              alt={s.nombre}
+              prioridad={i === 0}
+              onLoad={() => pedirFoto((i + 1) % slides.length)}
+              className="w-full h-full object-cover object-center"
+              style={{ transform: i === current ? 'scale(1.05)' : 'scale(1)', transition: 'transform 8s ease-out' }}
+            />
+          )}
         </div>
       ))}
       {/* Content overlay */}

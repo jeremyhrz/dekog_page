@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import Imagen from './Imagen';
 
 export default function Cart({ carrito, setCarrito, abierto, setAbierto }) {
   const total = carrito.reduce((s, p) => s + (p.precio * p.cant), 0);
@@ -50,7 +51,7 @@ export default function Cart({ carrito, setCarrito, abierto, setAbierto }) {
             <div className="space-y-4">
               {carrito.map(p => (
                 <div key={p.id} className="flex gap-4 bg-gray-50 p-4 rounded-2xl group hover:bg-gray-100 transition-colors">
-                  <img src={p.imagen} className="w-20 h-20 object-cover rounded-xl" alt={p.nombre} />
+                  <Imagen src={p.imagen} sizes="80px" className="w-20 h-20 object-cover rounded-xl" alt={p.nombre} />
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm uppercase truncate">{p.nombre}</h4>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wider">{p.categoria}</p>

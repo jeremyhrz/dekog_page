@@ -1,5 +1,6 @@
 import { ChevronRight, Armchair, Lamp, Layers, User, Settings, ShieldCheck, Gem, Shield, Clock, CheckCircle2 } from 'lucide-react';
 import { productos } from '../data/productos';
+import Imagen from './Imagen';
 
 export default function HomeSection({ setCategoria }) {
   const handleNavigation = (targetId, cat = 'Todos') => {
@@ -50,10 +51,15 @@ export default function HomeSection({ setCategoria }) {
         </div>
         <div className="order-1 lg:order-2 relative group cursor-pointer" onClick={() => handleNavigation('catalogo', 'Sofás')}>
           <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-500 z-10" />
-          <img 
-            src="/catalogo/dubai.png" 
-            alt="Dekog Home Sofa" 
-            className="w-full h-auto object-cover rounded-sm shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]" 
+          {/* width/height: el navegador reserva el alto antes de que llegue la foto (sin saltos). */}
+          <Imagen
+            src="/catalogo/dubai.png"
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            width={896}
+            height={1195}
+            prioridad
+            alt="Dekog Home Sofa"
+            className="w-full h-auto object-cover rounded-sm shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]"
           />
           <div className="absolute -bottom-6 -left-6 bg-[#FDFCFA] p-6 shadow-xl hidden md:block z-20 border border-gray-100">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Modelo Destacado</p>
@@ -111,9 +117,10 @@ export default function HomeSection({ setCategoria }) {
               ].map(cat => (
                 <div key={cat.title} onClick={() => handleNavigation('catalogo', cat.cat)} className="group cursor-pointer relative overflow-hidden bg-[#FDFCFA] shadow-lg">
                   <div className="aspect-[4/5] overflow-hidden">
-                    <img 
-                      src={cat.img} 
-                      alt={cat.title} 
+                    <Imagen
+                      src={cat.img}
+                      sizes="(min-width: 1024px) 22vw, (min-width: 640px) 33vw, 100vw"
+                      alt={cat.title}
                       loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
                     />

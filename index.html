@@ -14,7 +14,12 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="DEKOG | Diseñamos, Construimos, Amoblamos" />
   <meta property="og:description" content="Diseño integral, construcción de alta gama y mobiliario exclusivo. Creamos espacios que trascienden." />
-  <meta property="og:image" content="/logo.png" />
+  <!-- Vista previa al compartir el enlace (WhatsApp, Facebook…): URL absoluta, 1200×630. -->
+  <meta property="og:image" content="https://www.dekog.net/og.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Dekog — Diseñamos, Construimos, Amoblamos" />
+  <meta property="og:url" content="https://www.dekog.net/" />
   <meta property="og:locale" content="es_VE" />
   <meta property="og:site_name" content="DEKOG" />
 
@@ -22,25 +27,11 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="DEKOG | Diseñamos, Construimos, Amoblamos" />
   <meta name="twitter:description" content="Diseño integral, construcción de alta gama y mobiliario exclusivo. Creamos espacios que trascienden." />
-  <meta name="twitter:image" content="/logo.png" />
+  <meta name="twitter:image" content="https://www.dekog.net/og.jpg" />
 
   <title>DEKOG | Diseñamos, Construimos, Amoblamos</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            'sans': ['Inter', 'system-ui', 'sans-serif'],
-            'display': ['Playfair Display', 'serif'],
-          },
-        }
-      }
-    }
-  </script>
+  <!-- Inter y Playfair se sirven desde el propio sitio (src/main.jsx): Google Fonts frenaba el primer pintado. -->
+  <!-- Tailwind ya no se carga aquí: se compila al construir (tailwind.config.js + src/tailwind.css). -->
 </head>
 
 <body class="font-sans">

@@ -1,0 +1,17 @@
+{
+  "_nota": "Anchos de las variantes WebP de cada carpeta de public/ (primera parte de la ruta). Los lee scripts/optimizar_imagenes.py para generarlas en public/opt/ y src/utils/imagenes.js para pedirlas con srcset. Si cambias un ancho, vuelve a correr el script.",
+  "anchos": {
+    "hero": [828, 1280, 1920, 2560],
+    "assets": [640, 1280, 2048],
+    "arquitectura": [640, 1280, 2048],
+    "servicios": [640, 1280, 2048],
+    "nosotros": [640, 1280, 2048],
+    "links": [1200],
+    "muebles": [480, 800, 1200],
+    "mesas": [480, 800, 1200],
+    "catalogo": [480, 800, 1200],
+    "otros": [640, 1280, 2048]
+  },
+  "miniaturas": ["muebles", "mesas"],
+  "recorte_movil": { "carpetas": ["hero"], "proporcion": 0.7, "alto_max": 1800 }
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Mail } from 'lucide-react';
 import Nosotros from '../components/Nosotros';
+import Imagen from '../components/Imagen';
 
 /**
  * NosotrosPage — /nosotros
@@ -14,8 +15,11 @@ export default function NosotrosPage() {
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative py-32 px-6 bg-gradient-to-br from-gray-900 to-black text-white overflow-hidden">
         <div className="absolute inset-0 opacity-20">
-          <img
+          {/* Fondo al 20 % de opacidad: basta una variante mediana (sizes 50vw). */}
+          <Imagen
             src="/nosotros/PRINCIPAL.jpeg"
+            sizes="50vw"
+            prioridad
             alt=""
             className="w-full h-full object-cover"
           />

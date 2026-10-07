@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, GitMerge, CheckCircle, Eye, User, Handshake, Mail } from 'lucide-react';
+import Imagen from './Imagen';
 
 export default function Nosotros() {
   return (
@@ -34,7 +35,7 @@ export default function Nosotros() {
             </a>
           </div>
           <div className="order-1 md:order-2">
-            <img src="/nosotros/PRINCIPAL.jpeg" alt="Equipo Dekog" className="w-full h-auto shadow-2xl object-cover rounded-sm" loading="lazy" />
+            <Imagen src="/nosotros/PRINCIPAL.jpeg" sizes="(min-width: 1152px) 540px, (min-width: 768px) 50vw, 100vw" width={3648} height={5121} alt="Equipo Dekog" className="w-full h-auto shadow-2xl object-cover rounded-sm" loading="lazy" />
           </div>
         </div>
 
@@ -73,7 +74,7 @@ export default function Nosotros() {
           DEKOG nace de la pasión por el diseño y la arquitectura, con el propósito de ofrecer un servicio integral que combine creatividad, funcionalidad y calidad.
         </p>
         
-        <img src="/nosotros/SECUNDARIA NOSOTROS.PNG" alt="Diseño Interior Dekog" className="w-full h-auto mb-12 shadow-xl rounded-sm" loading="lazy" />
+        <Imagen src="/nosotros/SECUNDARIA NOSOTROS.PNG" sizes="(min-width: 896px) 896px, 100vw" width={1364} height={768} alt="Diseño Interior Dekog" className="w-full h-auto mb-12 shadow-xl rounded-sm" loading="lazy" />
 
         <p className="text-sm text-[#4a4a4a] leading-relaxed mb-16 max-w-xl mx-auto">
           Creamos un modelo de trabajo donde el cliente no tiene que preocuparse por coordinar distintos proveedores. Nosotros nos encargamos de todo.

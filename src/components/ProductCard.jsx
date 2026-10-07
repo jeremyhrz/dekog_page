@@ -1,12 +1,14 @@
 import React from 'react';
 import { ShoppingCart, Eye } from 'lucide-react';
+import Imagen from './Imagen';
 
 export default function ProductCard({ product, onAdd, onQuickView }) {
   return (
     <div className="product-card group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden">
       <div className="relative aspect-[4/5] overflow-hidden bg-gray-50">
-        <img
+        <Imagen
           src={product.imagen}
+          sizes="(min-width: 1280px) 300px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           alt={product.nombre}
           className="product-image w-full h-full object-cover opacity-0 transition-opacity duration-500"
           loading="lazy"

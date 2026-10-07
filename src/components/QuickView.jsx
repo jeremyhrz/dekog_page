@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingCart } from 'lucide-react';
+import Imagen from './Imagen';
 
 export default function QuickView({ product, onClose, onAdd }) {
   const [selectedTalla, setSelectedTalla] = useState(null);
@@ -37,7 +38,7 @@ export default function QuickView({ product, onClose, onAdd }) {
         onClick={(e) => e.stopPropagation()}>
         {/* Image */}
         <div className="md:w-1/2 aspect-square md:aspect-auto bg-gray-50">
-          <img src={product.imagen} alt={product.nombre} className="w-full h-full object-cover" />
+          <Imagen src={product.imagen} sizes="(min-width: 768px) 384px, 100vw" alt={product.nombre} className="w-full h-full object-cover" />
         </div>
         {/* Info */}
         <div className="md:w-1/2 p-8 flex flex-col justify-between">

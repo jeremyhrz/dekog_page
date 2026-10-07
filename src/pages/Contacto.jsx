@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Clock, MessageCircle, Send, CheckCircle, Instagram, Facebook, ArrowRight } from 'lucide-react';
+import Imagen from '../components/Imagen';
 
 export default function Contacto() {
   const [formData, setFormData] = useState({
@@ -98,7 +99,8 @@ export default function Contacto() {
       {/* Hero Section */}
       <section className="relative py-32 px-6 bg-gradient-to-br from-gray-900 to-black text-white overflow-hidden">
         <div className="absolute inset-0 opacity-20">
-          <img src="/nosotros/PRINCIPAL.jpeg" alt="" className="w-full h-full object-cover" />
+          {/* Fondo al 20 % de opacidad: basta una variante mediana (sizes 50vw). */}
+          <Imagen src="/nosotros/PRINCIPAL.jpeg" sizes="50vw" prioridad alt="" className="w-full h-full object-cover" />
         </div>
         <div className="relative max-w-6xl mx-auto text-center z-10">
           <p className="text-[10px] uppercase tracking-[0.4em] text-gray-400 font-semibold mb-4">CONTÁCTANOS</p>
@@ -121,7 +123,7 @@ export default function Contacto() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white rounded-2xl p-8 shadow-lg"
+              className="min-w-0 bg-white rounded-2xl p-8 shadow-lg"
             >
               <div className="mb-8">
                 <h2 className="text-2xl font-black uppercase tracking-tight mb-2">Envíanos un mensaje</h2>
@@ -235,7 +237,7 @@ export default function Contacto() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="space-y-8"
+              className="min-w-0 space-y-8"
             >
               {/* Contact Cards */}
               <div className="space-y-6">
@@ -279,36 +281,37 @@ export default function Contacto() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 1 }}
-                className="bg-black text-white rounded-2xl p-8"
+                className="bg-black text-white rounded-2xl p-6 sm:p-8"
               >
                 <h3 className="text-xl font-black uppercase tracking-tight mb-6">Síguenos en redes</h3>
-                <div className="flex gap-4">
+                {/* En teléfono, letra y espaciado algo menores: los tres botones caben sin salirse. */}
+                <div className="flex gap-2 sm:gap-4">
                   <a
                     href="https://www.instagram.com/dekog.home/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 bg-white/10 hover:bg-white/20 rounded-xl p-4 text-center transition-colors"
+                    className="flex-1 min-w-0 bg-white/10 hover:bg-white/20 rounded-xl px-2 py-4 sm:p-4 text-center transition-colors"
                   >
                     <Instagram size={24} className="mx-auto mb-2" />
-                    <span className="text-xs font-bold uppercase tracking-widest">Instagram</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">Instagram</span>
                   </a>
                   <a
                     href="https://www.facebook.com/share/1Hfbm8dQrs/?mibextid=wwXIfr"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 bg-white/10 hover:bg-white/20 rounded-xl p-4 text-center transition-colors"
+                    className="flex-1 min-w-0 bg-white/10 hover:bg-white/20 rounded-xl px-2 py-4 sm:p-4 text-center transition-colors"
                   >
                     <Facebook size={24} className="mx-auto mb-2" />
-                    <span className="text-xs font-bold uppercase tracking-widest">Facebook</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">Facebook</span>
                   </a>
                   <a
                     href="https://wa.me/584145847791"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 bg-white/10 hover:bg-white/20 rounded-xl p-4 text-center transition-colors"
+                    className="flex-1 min-w-0 bg-white/10 hover:bg-white/20 rounded-xl px-2 py-4 sm:p-4 text-center transition-colors"
                   >
                     <MessageCircle size={24} className="mx-auto mb-2" />
-                    <span className="text-xs font-bold uppercase tracking-widest">WhatsApp</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">WhatsApp</span>
                   </a>
                 </div>
               </motion.div>

@@ -85,8 +85,8 @@ export default function Navbar({ cartCount = 0, onCartOpen = () => {}, onSearch 
             })}
           </div>
 
-          {/* Right icons */}
-          <div className="flex items-center gap-3">
+          {/* Right icons (gap-2 en teléfono: con gap-3 el menú se salía 2 px de una pantalla de 390) */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <button onClick={() => setSearchOpen(true)} className={`p-2 rounded-full transition-colors ${isDarkNavbar ? 'hover:bg-gray-100 text-black' : 'hover:bg-white/10 text-white'}`} aria-label="Buscar">
               <Search size={20} />
             </button>
