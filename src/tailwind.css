@@ -1,0 +1,7 @@
+/*
+ * Tailwind compilado. Se importa DESPUÉS de index.css (ver main.jsx) para conservar el orden que
+ * tenía el CDN: sus estilos se cargaban detrás de los del sitio y ganaban en los empates.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

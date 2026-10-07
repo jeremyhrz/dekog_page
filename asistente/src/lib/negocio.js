@@ -39,33 +39,41 @@ Horario publicado en la web: lunes a viernes de 9:00 a. m. a 6:00 p. m. y sábad
 Trabajan a nivel nacional.
 Correo: dekog.inf@gmail.com · Instagram: @dekog.home y @dekog.arquitectura · Web: dekog.net
 
-Camas:
-- Se fabrican en madera de pino secada al horno y espuma de alta densidad, con el textil y el color
-  de preferencia del cliente. Garantía estructural de Dekog.
-- Medidas: Individual 1,00 x 1,90 m · Matrimonial 1,40 x 1,90 m · Queen 1,60 x 1,90 m · King 2,00 x 2,00 m.
-- Box (base) de las Camas Clásicas: liso de 5 a 7 cm incluido; alta gama de 7 a 10 cm +REF 80;
-  nube de 10 a 15 cm +REF 120. Altura del copete: 1,20 a 1,30 m.
-- Box de las Camas Kids: liso de 6 a 7 cm incluido; alta gama de 8 a 10 cm +REF 80; nube +REF 120.
-- Camas Alta Gama: vienen con box alta gama (7 a 10 cm) o nube (10 a 15 cm). El precio de cada
-  box en esta línea lo confirma una asesora.
-- Los precios del catálogo están en REF. Si el cliente paga en bolívares, se calculan a la tasa oficial del BCV
-  del EURO del día del pago.
+Precios: el catálogo está en REF. Si el cliente paga en bolívares, se calculan a la tasa oficial del BCV
+del EURO del día del pago.
 `.trim();
+
+// Las especificaciones de cada línea, las telas y la ficha de cada modelo están en conocimiento.js.
 
 export const pendientes = [
   'formas de pago (Pago Móvil, Zelle, efectivo, Cashea u otras)',
   'costo y tiempo de envío a cada ciudad',
   'tiempo de fabricación y de entrega',
-  'telas y colores disponibles en este momento',
+  'disponibilidad en este momento de un modelo, una tela o un color concretos',
   'precio del box en las Camas Alta Gama',
+  'si las camas incluyen colchón',
+  'plazo de la garantía estructural',
+  'recargo de las telas premium en sofás, puffs y otros muebles (en camas sí está confirmado)',
+  'medidas o diseños personalizados',
   'descuentos, promociones o apartados',
-  'disponibilidad exacta de un modelo',
 ];
 
 // Recargo del box en Camas Clásicas y Kids (el liso va incluido).
 export const recargosBox = { alta_gama: 80, nube: 120 };
 export const nombresBox = { alta_gama: 'box alta gama', nube: 'box nube' };
-export const recargosValidos = Object.values(recargosBox);
+
+// Telas premium (LOFT y las que Dekog indicó «igual que la loft»): recargo en CAMAS según la
+// medida, confirmado por Dekog el 2026-10-06. En sofás y puffs ese recargo lo confirma una asesora.
+export const recargosTelaPremium = { individual: 80, matrimonial: 100, queen: 120, king: 150 };
+
+// Sofás que pueden llevar su puff a juego (catálogo de mobiliario 2026), por nombre exacto en productos.js.
+export const puffsOpcionales = { Amsterdam: 200, Mississippi: 300, Dubai: 130 };
+
+export const recargosValidos = [
+  ...Object.values(recargosBox),
+  ...Object.values(recargosTelaPremium),
+  ...Object.values(puffsOpcionales),
+];
 
 // Porcentajes que el asistente puede mencionar (anticipo, descuentos...). Vacío
 // hasta que Dekog los confirme: cualquier "%" en una respuesta se trata como inventado.

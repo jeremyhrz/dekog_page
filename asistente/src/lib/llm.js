@@ -62,21 +62,102 @@ function sinAdditionalProperties(nodo) {
   return nodo;
 }
 
-let gemini;
-async function conGemini(mensajes, sistema) {
-  // Máximo 15 s: si Gemini tarda más, el chat responde con el paso a una asesora.
-  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY, httpOptions: { timeout: 15000 } });
-  const r = await gemini.models.generateContent({
-    model: config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite',
-    contents: mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-    config: {
-      systemInstruction: sistema,
-      responseMimeType: 'application/json',
-      responseJsonSchema: sinAdditionalProperties(ESQUEMA),
-    },
+// Gemini gratuito a veces tarda 10–25 s o se satura (429/503), y Google retira modelos (404). En vez de
+// esperar a que un modelo falle para probar otro, se escalonan: arranca el principal y, si a los ESCALON_MS
+// no contestó (o falló antes), arranca también el siguiente; gana la primera respuesta y las demás se
+// cancelan. Cada modelo tiene su propio cupo gratuito. Una clave inválida (400/401/403) no se arregla
+// cambiando de modelo.
+// Sin httpOptions.timeout: la librería lo manda a Google como X-Server-Timeout y Google corta con 504
+// respuestas que iban a llegar (pasó el 2026-10-07). El tope lo pone `hasta`, cancelando del lado del Worker.
+const MODELOS_RESPALDO = ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
+const ESCALON_MS = 8000;
+const TOPE_MS = 30000;
+
+export function esReintentable(e) {
+  if (e?.reintentable) return true;
+  const texto = String(e?.message ?? '');
+  const estado = Number(e?.status ?? e?.code ?? texto.match(/\b(404|429|500|502|503|504)\b/)?.[1]);
+  return [404, 429, 500, 502, 503, 504].includes(estado) || /timeout|timed out|abort|unavailable|overloaded/i.test(`${texto} ${e?.name ?? ''}`);
+}
+
+/**
+ * Pide lo mismo a varios modelos escalonados y devuelve la primera respuesta. `pedir(modelo, signal)` hace la
+ * petición (y debe abandonarla si `signal` se cancela). Falla si todos fallan o si se llega a `hasta`.
+ */
+export function escalonar(modelos, pedir, { hasta = Date.now() + TOPE_MS, escalonMs = ESCALON_MS } = {}) {
+  const cancelar = new AbortController();
+  return new Promise((resolver, rechazar) => {
+    let siguiente = 0;
+    let enCurso = 0;
+    let fin = false;
+    let ultimoError;
+    let escalon;
+    const tope = setTimeout(
+      () => terminar(undefined, ultimoError ?? new Error('Gemini no respondió a tiempo')),
+      Math.max(0, hasta - Date.now()),
+    );
+    function terminar(datos, error) {
+      if (fin) return;
+      fin = true;
+      clearTimeout(escalon);
+      clearTimeout(tope);
+      cancelar.abort(); // las que sigan en curso ya no hacen falta
+      if (error) rechazar(error);
+      else resolver(datos);
+    }
+    function lanzar() {
+      clearTimeout(escalon);
+      if (fin) return;
+      if (siguiente >= modelos.length) {
+        if (!enCurso) terminar(undefined, ultimoError);
+        return;
+      }
+      const modelo = modelos[siguiente++];
+      enCurso++;
+      if (siguiente < modelos.length) escalon = setTimeout(lanzar, escalonMs);
+      Promise.resolve()
+        .then(() => pedir(modelo, cancelar.signal))
+        .then((datos) => {
+          if (!fin && modelo !== modelos[0]) console.log(`Respondió el modelo de respaldo ${modelo}`);
+          terminar(datos);
+        })
+        .catch((e) => {
+          enCurso--;
+          if (fin) return;
+          ultimoError = e;
+          if (!esReintentable(e)) {
+            terminar(undefined, e);
+            return;
+          }
+          console.warn(`Gemini (${modelo}) no respondió:`, e?.status ?? e?.message, '— pruebo otro modelo');
+          lanzar(); // falló antes del escalón: el siguiente arranca ya
+        });
+    }
+    lanzar();
   });
-  if (!r.text) throw new Error('Gemini devolvió una respuesta vacía');
-  return JSON.parse(r.text);
+}
+
+let gemini;
+function conGemini(mensajes, sistema, hasta) {
+  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+  const principal = config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite';
+  const modelos = [principal, ...MODELOS_RESPALDO.filter((m) => m !== principal)];
+  const contents = mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+  const responseJsonSchema = sinAdditionalProperties(ESQUEMA);
+  return escalonar(modelos, async (modelo, signal) => {
+    const r = await gemini.models.generateContent({
+      model: modelo,
+      contents,
+      config: { systemInstruction: sistema, responseMimeType: 'application/json', responseJsonSchema, abortSignal: signal },
+    });
+    try {
+      if (!r.text) throw new Error('Gemini devolvió una respuesta vacía');
+      return JSON.parse(r.text);
+    } catch (e) {
+      e.reintentable = true; // vacía o JSON roto: otro modelo puede responder bien
+      throw e;
+    }
+  }, { hasta });
 }
 
 /** Respuestas fijas para revisar la pantalla sin clave ni costo. */
@@ -106,10 +187,11 @@ function dePrueba(mensajes) {
   };
 }
 
-export async function responder(mensajes, canal = 'web') {
+/** `hasta`: momento (Date.now()) en que se deja de esperar a la IA; sin él, TOPE_MS desde ahora. */
+export async function responder(mensajes, canal = 'web', { hasta } = {}) {
   const p = proveedorActivo();
   if (p === 'claude') return conClaude(mensajes, sistemaPara(canal));
-  if (p === 'gemini') return conGemini(mensajes, sistemaPara(canal));
+  if (p === 'gemini') return conGemini(mensajes, sistemaPara(canal), hasta);
   if (p === 'prueba') return dePrueba(mensajes);
   throw new Error('No hay clave de IA configurada (ANTHROPIC_API_KEY o GEMINI_API_KEY).');
 }

@@ -43,7 +43,7 @@ export async function firmaValida(cuerpoCrudo, cabecera, ...secretos) {
  * "• Mesa Kenia · 2 × REF 170: REF 340 = Bs …"
  */
 export function lineaPrecio(p, tasa) {
-  const partes = [p.nombre, p.talla, p.box];
+  const partes = [p.nombre, p.talla, p.box, p.tela, p.puff];
   if (p.cantidad > 1) partes.push(`${p.cantidad} × REF ${p.unitario.toLocaleString('es-VE')}`);
   const cual = partes.filter(Boolean).join(' · ');
   const ref = `${p.desde ? 'desde ' : ''}REF ${p.ref.toLocaleString('es-VE')}`;

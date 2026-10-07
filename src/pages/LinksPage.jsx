@@ -1,5 +1,6 @@
 import React from 'react';
 import './LinksPage.css';
+import { varianteHasta } from '../utils/imagenes';
 
 const CARDS = [
   {
@@ -79,6 +80,8 @@ export default function LinksPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto mt-12 px-6">
           {CARDS.map((c, i) => {
             const isMap = c.type === 'map';
+            // Variante WebP de 1200 px (scripts/optimizar_imagenes.py): las originales pesan 1,2–1,7 MB cada una.
+            const fondo = varianteHasta(c.image, 1200);
 
             /* Overlay reforzado en tarjetas de ubicación para legibilidad
                bajo luz solar directa (stop 1: 0.55 → stop 2: 0.90) */
@@ -88,13 +91,13 @@ export default function LinksPage() {
                     to bottom,
                     rgba(11,11,13,0.55) 0%,
                     rgba(11,11,13,0.90) 100%
-                  ), url(${c.image})`,
+                  ), url("${fondo}")`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   backgroundRepeat: 'no-repeat',
                 }
               : {
-                  backgroundImage: `url(${c.image})`,
+                  backgroundImage: `url("${fondo}")`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   backgroundRepeat: 'no-repeat',

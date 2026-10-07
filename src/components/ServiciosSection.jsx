@@ -37,6 +37,8 @@ export default function ServiciosSection({ setCategoria }) {
         <div className="aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden rounded-sm shadow-2xl relative group">
           <ImageWithSkeleton
             src="/servicios/imagen central.jpeg"
+            sizes="(min-width: 1400px) 1352px, 100vw"
+            prioridad
             alt="Servicios Dekog Central"
             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
             containerClassName="w-full h-full"
@@ -60,6 +62,7 @@ export default function ServiciosSection({ setCategoria }) {
                 <div className="aspect-[4/5] overflow-hidden rounded-sm shadow-xl group">
                   <ImageWithSkeleton
                     src={step.img}
+                    sizes="(min-width: 1024px) 620px, 100vw"
                     alt={step.title}
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     containerClassName="w-full h-full"

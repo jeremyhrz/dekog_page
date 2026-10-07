@@ -7,8 +7,8 @@
 }
 
 :root {
-  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Inter', sans-serif;
+  --font-main: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Inter Variable', 'Inter', sans-serif;
   --bg-primary: #FDFCFA;
   --bg-secondary: #f4f0ec;
   --text-primary: #1a1a1a;
@@ -375,6 +375,26 @@ body {
   filter: invert(1);
 }
 
+/* ── Asistente Dekog: logo y botón flotante. El resto de sus estilos va en
+   components/asistente/asistente.css, que se descarga con el chat. ── */
+.dk-logo path { transform-box: fill-box; transform-origin: 0 50%; }
+.dk-onda { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  /* Onda que sale del botón (3 veces al cargar; 1 más cuando aparece el saludo). */
+  @keyframes dk-onda { 0% { transform: scale(1); opacity: 0; } 12% { opacity: 0.5; } 80%, 100% { transform: scale(1.6); opacity: 0; } }
+  .dk-onda { animation: dk-onda 2.4s cubic-bezier(0.22, 1, 0.36, 1) 1.2s 3 both; }
+  /* Punto verde de «en línea». */
+  @keyframes dk-latido { 0% { transform: scale(1); opacity: 0.7; } 70%, 100% { transform: scale(2.6); opacity: 0; } }
+  .dk-latido::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: #25D366;
+    animation: dk-latido 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
 /* Hide scrollbar for carousels */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
@@ -382,4 +402,4 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
+}

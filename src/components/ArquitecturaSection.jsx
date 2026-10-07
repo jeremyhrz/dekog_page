@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight, Compass, Box, FileText, HardHat, ClipboardCheck, CheckCircle2, Users, Handshake, Award, Search, PenTool, CalendarClock, Hammer, PackageCheck, ShieldCheck } from 'lucide-react';
+import Imagen from './Imagen';
 
 export default function ArquitecturaSection() {
   const servicios = [
@@ -92,11 +93,15 @@ export default function ArquitecturaSection() {
           </a>
         </div>
         <div>
-          <img
+          {/* Lo más grande de la página (LCP): no espera a estar a la vista. */}
+          <Imagen
             src="/arquitectura/principal.jpeg"
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            width={3840}
+            height={2160}
+            prioridad
             alt="Dekog Arquitectura - Proyecto Principal"
             className="w-full h-auto object-cover rounded-sm shadow-xl"
-            loading="lazy"
           />
         </div>
       </div>
@@ -139,8 +144,9 @@ export default function ArquitecturaSection() {
             {proyectos.map((p, i) => (
               <div key={i} className="group cursor-pointer">
                 <div className="aspect-[3/4] overflow-hidden rounded-sm shadow-md mb-4 relative">
-                  <img
+                  <Imagen
                     src={p.img}
+                    sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
                     alt={p.title.replace('\n', ' ')}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
@@ -194,8 +200,11 @@ export default function ArquitecturaSection() {
       <div className="py-24 px-6 bg-[#f4f0ec]">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
           <div>
-            <img
+            <Imagen
               src="/arquitectura/residencial.jpeg"
+              sizes="(min-width: 768px) 50vw, 100vw"
+              width={3840}
+              height={2160}
               alt="Proyecto Residencial Dekog"
               className="w-full h-auto object-cover rounded-sm shadow-xl"
               loading="lazy"
@@ -245,8 +254,9 @@ export default function ArquitecturaSection() {
             </div>
           </div>
           <div className="hidden md:block">
-            <img
+            <Imagen
               src="/arquitectura/interiorismo.jpeg"
+              sizes="50vw"
               alt="Interiorismo Dekog"
               className="w-full h-full object-cover rounded-sm shadow-xl min-h-[500px]"
               loading="lazy"

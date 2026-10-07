@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { productos, categorias } from '../data/productos';
 import HomeSection from '../components/HomeSection';
 import ProductCard from '../components/ProductCard';
+import Imagen from '../components/Imagen';
 
 /**
  * HomeMueblesPage — /home
@@ -50,7 +51,7 @@ export default function HomeMueblesPage({
       {/* ── CTA hacia Arquitectura ────────────────────────────────────── */}
       <section className="relative py-24 px-6 bg-black text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10">
-          <img src="/muebles/qatar.png" alt="" className="w-full h-full object-cover" loading="lazy" />
+          <Imagen src="/muebles/qatar.png" alt="" className="w-full h-full object-cover" loading="lazy" />
         </div>
         <div className="relative max-w-3xl mx-auto text-center z-10">
           <p className="text-[10px] uppercase tracking-[0.4em] text-gray-400 font-semibold mb-4">

@@ -1,11 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
 :root {
   --color-cream: #f4f0ec;
   --color-dark: #1a1a1a;
   --color-accent: #c5a059;
-  --font-display: 'Inter', sans-serif;
-  --font-serif: 'Playfair Display', serif;
+  --font-display: 'Inter Variable', 'Inter', sans-serif;
+  --font-serif: 'Playfair Display Variable', 'Playfair Display', serif;
 }
 
 .projects-container {
@@ -90,6 +89,16 @@
   height: 500px;
 }
 
+/* En columna (teléfono y tablet) el alto lo da la proporción de la foto (1290×832): queda reservado antes
+   de que cargue y la página no salta cuando aparece. */
+@media (max-width: 1023px) {
+  .hero-image-container {
+    flex: none;
+    height: auto;
+    aspect-ratio: 1290 / 832;
+  }
+}
+
 .hero-image {
   width: 100%;
   height: 100%;
@@ -125,6 +134,18 @@
 .filter-group {
   display: flex;
   gap: 12px;
+}
+
+/* Teléfono: los filtros bajan de línea en vez de salirse de la pantalla. */
+@media (max-width: 640px) {
+  .filter-bar,
+  .filter-group-container,
+  .filter-group {
+    flex-wrap: wrap;
+  }
+  .filter-bar {
+    gap: 20px;
+  }
 }
 
 .filter-btn {
@@ -171,7 +192,8 @@
 /* Grid */
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  /* min(…, 100%): en un teléfono de menos de 400 px de ancho la tarjeta ocupa la pantalla, sin cortarse. */
+  grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr));
   gap: 60px 40px;
   padding: 60px 6%;
   max-width: 1400px;
@@ -518,7 +540,7 @@
 }
 
 .project-modal-title {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-serif);
   font-size: clamp(28px, 4vw, 38px);
   font-weight: 400;
   line-height: 1.15;

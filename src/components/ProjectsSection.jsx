@@ -41,8 +41,11 @@ const ProjectsSection = () => {
         <div className="hero-image-container">
           <ImageWithSkeleton
             src="/hero/IMG_3919.PNG"
+            sizes="(min-width: 1024px) 60vw, 100vw"
+            prioridad
             alt="Hero Proyecto"
             className="hero-image"
+            containerClassName="h-full"
           />
         </div>
       </header>
@@ -93,6 +96,7 @@ const ProjectsSection = () => {
                   ? `/assets/PROYECTOS/${project.imageFolder}/${project.portada}`
                   : `/assets/PROYECTOS/${project.imageFolders[0].folder}/${project.portada}`
                 }
+                sizes="(min-width: 1400px) 400px, (min-width: 900px) 45vw, 100vw"
                 alt={project.titulo}
                 className="card-image"
               />

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Imagen from './Imagen';
 
-const ImageWithSkeleton = ({ src, alt, className, containerClassName = "" }) => {
+// sizes: cuánto mide en pantalla (elige la variante WebP justa). prioridad: la imagen principal de la
+// página (LCP), que no espera a estar a la vista para cargarse.
+const ImageWithSkeleton = ({ src, alt, className, containerClassName = "", sizes, prioridad = false }) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   return (
@@ -16,11 +19,13 @@ const ImageWithSkeleton = ({ src, alt, className, containerClassName = "" }) => 
         )}
       </AnimatePresence>
       
-      <img
+      <Imagen
         src={src}
+        sizes={sizes}
+        prioridad={prioridad}
         alt={alt}
         className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
-        loading="lazy"
+        loading={prioridad ? undefined : 'lazy'}
         onLoad={() => setIsLoaded(true)}
       />
     </div>

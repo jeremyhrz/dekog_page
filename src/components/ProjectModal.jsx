@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
+import Imagen from './Imagen';
 
 export default function ProjectModal({ project, onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -95,9 +96,10 @@ export default function ProjectModal({ project, onClose }) {
         {/* Left Side — Image Carousel */}
         <div className="project-modal-gallery">
           <div className="project-modal-image-wrapper">
-            <img
+            <Imagen
               key={currentIndex}
               src={images[currentIndex]}
+              sizes="(min-width: 768px) 550px, 100vw"
               alt={`${project.titulo} — ${currentIndex + 1}`}
               className={`project-modal-image ${imageLoaded ? 'loaded' : ''}`}
               onLoad={() => setImageLoaded(true)}
