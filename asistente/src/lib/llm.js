@@ -62,21 +62,51 @@ function sinAdditionalProperties(nodo) {
   return nodo;
 }
 
+// Si el modelo principal está saturado (429/500/503/504), tarda demasiado o Google lo retiró (404), se
+// prueba con otros modelos gratuitos (cada uno tiene su propio cupo), sin pasar de PRESUPUESTO_MS en total.
+// Visto el 2026-10-07: ráfagas de 504 y respuestas de 10-20 s; gemini-2.5-flash-lite ya no se ofrece a
+// usuarios nuevos (404). Una clave inválida (400/401/403) no se arregla cambiando de modelo.
+const MODELOS_RESPALDO = ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite'];
+const PRESUPUESTO_MS = 30000;
+
+export function esReintentable(e) {
+  const texto = String(e?.message ?? '');
+  const estado = Number(e?.status ?? e?.code ?? texto.match(/\b(404|429|500|502|503|504)\b/)?.[1]);
+  return [404, 429, 500, 502, 503, 504].includes(estado) || /timeout|timed out|abort|unavailable|overloaded/i.test(`${texto} ${e?.name ?? ''}`);
+}
+
 let gemini;
 async function conGemini(mensajes, sistema) {
-  // Máximo 15 s: si Gemini tarda más, el chat responde con el paso a una asesora.
-  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY, httpOptions: { timeout: 15000 } });
-  const r = await gemini.models.generateContent({
-    model: config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite',
-    contents: mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-    config: {
-      systemInstruction: sistema,
-      responseMimeType: 'application/json',
-      responseJsonSchema: sinAdditionalProperties(ESQUEMA),
-    },
-  });
-  if (!r.text) throw new Error('Gemini devolvió una respuesta vacía');
-  return JSON.parse(r.text);
+  // Hasta 15 s el principal y 12 s cada respaldo, sin pasar de PRESUPUESTO_MS: si todos fallan, el chat
+  // responde con el paso a una asesora.
+  gemini ??= new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+  const principal = config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite';
+  const modelos = [principal, ...MODELOS_RESPALDO.filter((m) => m !== principal)];
+  const inicio = Date.now();
+  let ultimoError;
+  for (const [i, modelo] of modelos.entries()) {
+    const restante = PRESUPUESTO_MS - (Date.now() - inicio);
+    if (i > 0 && restante < 4000) break; // no alcanza el tiempo para otro intento útil
+    try {
+      const r = await gemini.models.generateContent({
+        model: modelo,
+        contents: mensajes.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        config: {
+          systemInstruction: sistema,
+          responseMimeType: 'application/json',
+          responseJsonSchema: sinAdditionalProperties(ESQUEMA),
+          httpOptions: { timeout: Math.min(i === 0 ? 15000 : 12000, restante) },
+        },
+      });
+      if (!r.text) throw new Error('Gemini devolvió una respuesta vacía');
+      return JSON.parse(r.text);
+    } catch (e) {
+      ultimoError = e;
+      if (!esReintentable(e)) throw e;
+      console.warn(`Gemini (${modelo}) no respondió:`, e?.status ?? e?.message, modelo === modelos.at(-1) ? '— sin más respaldo' : '— pruebo el modelo de respaldo');
+    }
+  }
+  throw ultimoError;
 }
 
 /** Respuestas fijas para revisar la pantalla sin clave ni costo. */

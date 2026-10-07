@@ -17,7 +17,7 @@
  * solo decide qué decir, qué productos mostrar y cuándo pasar a una asesora.
  */
 import { responder, proveedorActivo, RechazoDelModelo } from './lib/llm.js';
-import { tarjeta, montosInventados, numerosDelCliente, categoriaPedida, fueraDeCategoria } from './lib/catalogo.js';
+import { tarjeta, montosInventados, numerosDelCliente, categoriaPedida, fueraDeCategoria, totalesIncoherentes } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { lineas, lineaPorArea } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
@@ -148,16 +148,23 @@ export async function pensar(mensajes, canal = 'web') {
   const ultimo = mensajes.at(-1)?.content ?? '';
   const categoria = categoriaPedida(ultimo);
   const ajenos = (s) => (categoria ? fueraDeCategoria(s.productos, categoria, ultimo) : []);
+  // Las tarjetas que mostraría esta salida (sin tasa: solo importan los REF) y los totales del texto que las contradicen.
+  const tarjetasDe = (s) => (s.productos ?? []).slice(0, 3).map((p) => tarjeta(p.id, p.talla, null, {
+    box: p.box, cantidad: p.cantidad, telaPremium: p.tela_premium === true, puff: p.con_puff === true,
+  })).filter(Boolean);
+  const incoherentes = (s) => totalesIncoherentes(s.respuesta ?? '', tarjetasDe(s));
 
   let salida;
   try {
     salida = await responder(mensajes, canal);
     const inventados = revisar(salida, salida.respuesta);
     const deOtraCategoria = ajenos(salida);
-    if (inventados.length || deOtraCategoria.length) {
-      // Un monto que no está en el catálogo o un modelo de otra categoría: se pide UNA corrección.
+    const malSumados = incoherentes(salida);
+    if (inventados.length || deOtraCategoria.length || malSumados.length) {
+      // Un monto que no está en el catálogo, un modelo de otra categoría o un total mal sumado: se pide UNA corrección.
       if (inventados.length) console.warn('Montos fuera del catálogo:', inventados);
       if (deOtraCategoria.length) console.warn('Modelos de otra categoría:', deOtraCategoria.map((p) => p.nombre));
+      if (malSumados.length) console.warn('Totales que no coinciden con la tarjeta:', malSumados.map((m) => m.dicho));
       const notas = [];
       if (inventados.length) {
         notas.push(`${inventados.join(', ')} no corresponde al catálogo o a un dato confirmado: usa solo precios exactos del catálogo en REF, sin montos en bolívares ni porcentajes`);
@@ -165,6 +172,9 @@ export async function pensar(mensajes, canal = 'web') {
       if (deOtraCategoria.length) {
         const nombres = deOtraCategoria.map((p) => `${p.nombre} (${p.categoria.toLowerCase()})`).join(', ');
         notas.push(`el cliente pidió ${categoria.toLowerCase()} y ${nombres} no es de esa categoría: menciona y muestra solo modelos de la sección ${categoria.toUpperCase()} del catálogo`);
+      }
+      if (malSumados.length) {
+        notas.push(`${malSumados.map((m) => m.dicho).join(', ')} está mal sumado: con todo lo que eligió el cliente (medida, box, tela, puff y cantidad) el total exacto es ${malSumados[0].correcto}`);
       }
       const primera = salida;
       try {
@@ -177,11 +187,11 @@ export async function pensar(mensajes, canal = 'web') {
         console.warn('Falló la corrección; se conserva la primera respuesta sin el texto dudoso:', motivo(e));
         salida = primera;
       }
-      if (revisar(salida, salida.respuesta).length) {
+      if (revisar(salida, salida.respuesta).length || incoherentes(salida).length) {
         salida = {
           ...salida,
           respuesta: salida.productos?.length
-            ? 'Te muestro abajo los precios exactos del catálogo.'
+            ? 'Te muestro abajo el total exacto con todo lo que elegiste, también en bolívares.'
             : 'Disculpa, ese precio te lo confirma una asesora de Dekog.',
         };
       }
@@ -197,7 +207,9 @@ export async function pensar(mensajes, canal = 'web') {
   const tasa = await tasaPromesa;
   const productos = (salida.productos ?? [])
     .slice(0, 3)
-    .map((p) => tarjeta(p.id, p.talla, tasa, { box: p.box, cantidad: p.cantidad }))
+    .map((p) => tarjeta(p.id, p.talla, tasa, {
+      box: p.box, cantidad: p.cantidad, telaPremium: p.tela_premium === true, puff: p.con_puff === true,
+    }))
     .filter(Boolean);
 
   // El resumen para la asesora tampoco puede llevar montos inventados: si los
@@ -205,7 +217,7 @@ export async function pensar(mensajes, canal = 'web') {
   let resumen = salida.derivar?.resumen ?? '';
   if (resumen && revisar(salida, resumen).length) {
     resumen = productos
-      .map((p) => [p.nombre, p.talla, p.box, p.cantidad > 1 ? `${p.cantidad} unidades` : '', `REF ${p.ref}`].filter(Boolean).join(' · '))
+      .map((p) => [p.nombre, p.talla, p.box, p.tela, p.puff, p.cantidad > 1 ? `${p.cantidad} unidades` : '', `REF ${p.ref}`].filter(Boolean).join(' · '))
       .join(' | ') || 'Consulta desde el asistente';
   }
 
@@ -223,7 +235,7 @@ export async function pensar(mensajes, canal = 'web') {
     formulario: Boolean(salida.ofrecer_formulario),
     emergencia: Boolean(salida.emergencia),
     // Lo que se guarda en la hoja como "le interesa" y "resumen".
-    interes: productos.map((p) => [p.nombre, p.talla, p.box].filter(Boolean).join(' ')).join(', '),
+    interes: productos.map((p) => [p.nombre, p.talla, p.box, p.tela, p.puff].filter(Boolean).join(' ')).join(', '),
     resumen,
   };
 }
