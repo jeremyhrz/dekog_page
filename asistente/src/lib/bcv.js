@@ -16,6 +16,15 @@ const VIGENCIA_MS = 60 * 60 * 1000;
 
 let cache = null;
 
+// Fecha de Caracas (UTC−4 fijo: Venezuela no cambia la hora desde 2016) sin Intl: el primer formato con zona
+// horaria de una instancia cuesta varios ms de CPU, y el plan gratis da 10 ms por pedido.
+function fechaCaracas(iso) {
+  const d = new Date(Date.parse(iso) - 4 * 60 * 60 * 1000);
+  if (Number.isNaN(d.getTime())) return '';
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${dos(d.getUTCDate())}/${dos(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
+}
+
 export async function tasaBcv() {
   if (cache && Date.now() - cache.leida < VIGENCIA_MS) return cache.tasa;
   try {
@@ -30,9 +39,7 @@ export async function tasaBcv() {
       valor,
       moneda: monedaTasa,
       etiqueta: monedaTasa === 'EUR' ? 'tasa BCV euro' : 'tasa BCV dólar',
-      fecha: new Date(j.fechaActualizacion).toLocaleDateString('es-VE', {
-        day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Caracas',
-      }),
+      fecha: fechaCaracas(j.fechaActualizacion),
     };
     cache = { tasa, leida: Date.now() };
     return tasa;

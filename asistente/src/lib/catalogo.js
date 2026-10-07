@@ -120,7 +120,14 @@ export function precioPuff(p) {
  * Todos los montos REF válidos de un producto: cada medida, con o sin box (si aplica), con o sin
  * tela premium (camas, según la medida), con o sin su puff (sofás que lo ofrecen) y por cantidad.
  */
+// Montos válidos de cada producto, calculados una vez por instancia (el catálogo completo ya se recorre al
+// cargar el Worker): rearmarlos en cada mensaje costaba CPU en el plan gratis de 10 ms por pedido.
+const montosPorProducto = new Map();
 function montosDe(p) {
+  if (!montosPorProducto.has(p.id)) montosPorProducto.set(p.id, calcularMontos(p));
+  return montosPorProducto.get(p.id);
+}
+function calcularMontos(p) {
   const tallas = p.tallas?.length ? p.tallas : [{ nombre: '', precio: p.precio }];
   const boxes = CON_BOX.has(p.subcategoria) ? [0, ...Object.values(recargosBox)] : [0];
   const puff = precioPuff(p);
@@ -156,12 +163,13 @@ function leerMonto(texto) {
  */
 export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
   const citados = ids.map(buscarProducto).filter(Boolean);
-  const validos = citados.length ? new Set(citados.flatMap((p) => [...montosDe(p)])) : montosDelCatalogo;
+  // Se consultan los conjuntos de cada producto citado en vez de unirlos en uno nuevo en cada mensaje.
+  const conjuntos = citados.length ? citados.map(montosDe) : [montosDelCatalogo];
   const permitidos = new Set(delCliente);
   const malos = [];
   const revisar = (crudo, coincidencia) => {
     const n = leerMonto(crudo);
-    if (Number.isFinite(n) && !validos.has(n) && !permitidos.has(n)) malos.push(coincidencia.trim());
+    if (Number.isFinite(n) && !conjuntos.some((c) => c.has(n)) && !permitidos.has(n)) malos.push(coincidencia.trim());
   };
   const monedas = [
     /\bREF\.?\s*:?\s*\$?\s*(\d[\d.,]*)/gi,
@@ -212,8 +220,17 @@ export function numerosDelCliente(mensajes) {
     .filter(Number.isFinite);
 }
 
-function formatoBs(n) {
-  return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// 1.003.955,00 como es-VE, sin Intl: crear un formateador de idioma en cada tarjeta cuesta CPU, y el plan
+// gratis de Cloudflare da 10 ms por pedido (mismo resultado que toLocaleString en 2.000.000 de montos de prueba).
+export function formatoBs(n) {
+  const texto = String(Math.abs(n));
+  if (texto.includes('e')) return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Como Intl: parte de la representación decimal más corta del número (String(1.005) = «1.005») y redondea
+  // a 2 decimales con la mitad hacia arriba. Multiplicar el binario por 100 daría 1,00 en vez de 1,01.
+  const [entero, decimales = ''] = texto.split('.');
+  const centimos = Number(entero) * 100 + Number(`${decimales}00`.slice(0, 2)) + (decimales[2] >= '5' ? 1 : 0);
+  const conPuntos = String(Math.floor(centimos / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${n < 0 ? '-' : ''}${conPuntos},${String(centimos % 100).padStart(2, '0')}`;
 }
 
 /**

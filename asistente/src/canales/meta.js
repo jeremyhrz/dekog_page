@@ -42,11 +42,14 @@ export async function firmaValida(cuerpoCrudo, cabecera, ...secretos) {
  * "• Toronto · Queen 1,60x1,90 M · box nube: REF 670 = Bs 653.058,87 (tasa BCV euro 29/09/2026)"
  * "• Mesa Kenia · 2 × REF 170: REF 340 = Bs …"
  */
+// 1.290 como es-VE, sin Intl (como formatoBs en catalogo.js). Los REF del catálogo son enteros.
+const miles = (n) => (Number.isInteger(n) ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : n.toLocaleString('es-VE'));
+
 export function lineaPrecio(p, tasa) {
   const partes = [p.nombre, p.talla, p.box, p.tela, p.puff];
-  if (p.cantidad > 1) partes.push(`${p.cantidad} × REF ${p.unitario.toLocaleString('es-VE')}`);
+  if (p.cantidad > 1) partes.push(`${p.cantidad} × REF ${miles(p.unitario)}`);
   const cual = partes.filter(Boolean).join(' · ');
-  const ref = `${p.desde ? 'desde ' : ''}REF ${p.ref.toLocaleString('es-VE')}`;
+  const ref = `${p.desde ? 'desde ' : ''}REF ${miles(p.ref)}`;
   const bs = p.bs ? ` = Bs ${p.bs} (${tasa?.etiqueta ?? 'tasa BCV'} ${tasa?.fecha ?? ''})` : '';
   return `• ${cual}: ${ref}${bs}`;
 }
@@ -73,3 +76,11 @@ export function extraerTelefono(texto) {
   }
   return '';
 }
+
+// Precalentado al cargar el Worker (ver chat.js): lo que usa el primer mensaje de WhatsApp o Instagram.
+try {
+  lineaPrecio({ nombre: 'Toronto', talla: 'Queen', box: 'box nube', cantidad: 2, unitario: 670, ref: 1340, bs: '1.318.908,40' },
+    { etiqueta: 'tasa BCV euro', fecha: '07/10/2026' });
+  recortar(presentarse('Hola, te ayudo con modelos y precios.', true), 1024);
+  extraerTelefono('mi número es 0414-555-1234');
+} catch { /* solo es una optimización */ }
