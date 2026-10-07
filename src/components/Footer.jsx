@@ -3,7 +3,8 @@ import { MapPin, Instagram, Phone, Mail, Globe, HardHat, CheckCircle, Map, Armch
 
 export default function Footer() {
   return (
-    <footer id="contacto" className="bg-[#0a0a0a] text-white pt-20 pb-6 border-t border-gray-800">
+    // pb-24 en teléfono: deja libre la última fila (enlaces legales) bajo el botón flotante del asistente.
+    <footer id="contacto" className="bg-[#0a0a0a] text-white pt-20 pb-24 sm:pb-6 border-t border-gray-800">
       <div className="max-w-[1400px] mx-auto px-6 md:px-12">
         {/* Main Footer Grid */}
         <div className="flex flex-wrap lg:flex-nowrap justify-between gap-10 lg:gap-8 mb-16">
