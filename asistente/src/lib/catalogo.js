@@ -61,6 +61,25 @@ export function fueraDeCategoria(sugeridos, categoria, textoCliente) {
     .filter((p) => p && p.categoria !== categoria && !nombrado(p.nombre));
 }
 
+// En las Camas Alta Gama el box no tiene un recargo fijo (lo confirma una asesora): el +80/+120 es solo de
+// Clásicas y Kids. El detector de montos no lo ve, porque 80 o 120 también valen como tela premium en una cama.
+// Dentro de la misma frase (sin cruzar «, ; .»), para no confundirlo con un recargo de tela dicho al lado.
+const RECARGO_DE_BOX = new RegExp(
+  String.raw`\bbox\b[^.!?\n;,]{0,80}(recargo|adicional|\+\s*ref|m[aá]s\s+ref|suma)`
+  + String.raw`|\bbox\b[^.!?\n;,]{0,30}\b(cuesta|vale|sale)\b[^.!?\n;,]{0,20}\bref`
+  + String.raw`|(recargo|adicional|\+\s*ref|m[aá]s\s+ref)[^.!?\n;,]{0,60}\bbox\b`,
+  'i',
+);
+
+/** Camas Alta Gama a las que el texto les atribuye un recargo de box (si en la respuesta no hay también una
+ * Clásica o Kids, a las que sí les corresponde). */
+export function recargoDeBoxEnAltaGama(texto, sugeridos) {
+  const elegidos = (sugeridos ?? []).map((s) => buscarProducto(s.id)).filter(Boolean);
+  const altaGama = elegidos.filter((p) => p.subcategoria === 'Camas Alta Gama');
+  if (!altaGama.length || elegidos.some((p) => CON_BOX.has(p.subcategoria)) || !RECARGO_DE_BOX.test(texto ?? '')) return [];
+  return altaGama;
+}
+
 /** "Queen 1,60x1,90 M" → "queen160x190m", para comparar sin importar mayúsculas, espacios ni signos. */
 function normalizar(texto) {
   return String(texto ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
