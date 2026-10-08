@@ -19,6 +19,12 @@ export const lineas = {
 // Dekog convierte sus precios REF a bolívares con la tasa oficial del BCV del euro.
 export const monedaTasa = 'EUR';
 
+// El saludo que escribió la dueña (8-oct), tal cual: sale cuando el primer mensaje del cliente es solo un saludo.
+export const saludoInicial = '¡Hola! 💛\nBienvenido a Dekog 🙌\n'
+  + 'Soy tu asistente virtual y con gusto te ayudo a elegir mobiliario o planificar tu espacio.\n'
+  + '¿Buscas un arquitecto o diseñador para remodelar un espacio? ¿O estás interesado en amoblar tu espacio con camas, '
+  + 'sofás u otro mueble en particular?';
+
 // Qué línea recibe cada tipo de cliente: los de arquitectura van a la suya (confirmado por la dueña el 8-oct).
 export const lineaPorArea = {
   home: '01',

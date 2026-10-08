@@ -145,3 +145,26 @@ test('Porcentajes: el 50 % del anticipo vale; un 50 % de descuento o de inicial 
   assert.deepEqual(montosInventados('Hoy tenemos 50 % de descuento.'), ['50 %']);
   assert.deepEqual(montosInventados('Con Cashea pagas un 50 % de inicial.'), ['50 %']);
 });
+
+test('Primer mensaje que es solo un saludo: el saludo de la dueña, tal cual y sin IA; con pregunta, responde la IA', async () => {
+  const { pensar, esSoloSaludo } = await import('../src/chat.js');
+  const { saludoInicial } = await import('../src/lib/negocio.js');
+  for (const t of ['hola', 'Hola!', 'buenas tardes', 'Hola, buenas noches 👋', '¡Hola! ¿cómo estás?', 'holaaa', 'Buenos días Dekog']) {
+    assert.ok(esSoloSaludo(t), t);
+  }
+  for (const t of ['hola, ¿cuánto cuesta la Toronto?', 'quiero ver camas', 'buenas, tienen sofás?', 'precio', '']) {
+    assert.ok(!esSoloSaludo(t), t);
+  }
+  const r = await pensar([{ role: 'user', content: 'Hola' }], 'whatsapp');
+  assert.equal(r.respuesta, saludoInicial);
+  // El segundo «hola» de la misma conversación ya no es el primer mensaje: lo responde la IA.
+  const r2 = await pensar([{ role: 'user', content: 'hola' }, { role: 'assistant', content: saludoInicial }, { role: 'user', content: 'hola' }], 'web');
+  assert.notEqual(r2.respuesta, saludoInicial);
+});
+
+test('WhatsApp: «hola» como primer mensaje → el saludo de la dueña, sin el «Soy el asistente virtual» repetido', async () => {
+  const { saludoInicial } = await import('../src/lib/negocio.js');
+  await wa(textoWa('hola'), '584140000077');
+  const [m] = mensajes();
+  assert.equal(m.text?.body ?? m.interactive?.body?.text, saludoInicial);
+});
