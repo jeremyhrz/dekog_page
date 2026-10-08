@@ -158,12 +158,14 @@ export async function atenderChat(cuerpo, ip) {
   return { status: 200, datos };
 }
 
-/**
- * El cerebro compartido por la web, WhatsApp e Instagram. Recibe la
- * conversación YA SIN datos personales y devuelve lo que hay que mostrar:
- * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
- * ofrecer que lo contacten.
- */
+// La IA a veces dice «te lo muestro abajo en bolívares» aunque no mande ningún producto: sin tarjeta, esa frase
+// promete algo que el cliente no ve. Se quita la oración entera (por líneas y oraciones: lineal, sin regex que retroceda).
+export function sinBolivaresAbajo(texto) {
+  const limpio = texto.split('\n').map((linea) => linea.split(/(?<=[.!?])\s+/)
+    .filter((o) => !(/abajo/i.test(o) && /bol[ií]var|\bBs\b|tasa/i.test(o))).join(' ')).join('\n').trim();
+  return limpio || texto;
+}
+
 // Palabras de un saludo suelto («hola», «buenas tardes», «hola, ¿cómo estás?»): ninguna pregunta todavía.
 const SALUDO = new Set(['hola', 'holaa', 'holaaa', 'holi', 'buenas', 'buenos', 'buen', 'dia', 'dias', 'tardes', 'noches', 'hey',
   'saludos', 'que', 'tal', 'epa', 'alo', 'como', 'estas', 'esta', 'estan', 'dekog', 'amiga', 'amigo', 'equipo']);
@@ -192,6 +194,12 @@ export function conOpcionDelSaludo(mensajes) {
   return n ? [...mensajes.slice(0, -1), { role: 'user', content: opcionesDelSaludo[n] }] : mensajes;
 }
 
+/**
+ * El cerebro compartido por la web, WhatsApp e Instagram. Recibe la
+ * conversación YA SIN datos personales y devuelve lo que hay que mostrar:
+ * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
+ * ofrecer que lo contacten.
+ */
 export async function pensar(entrada, canal = 'web') {
   const mensajes = conOpcionDelSaludo(entrada);
   // Primer mensaje y es solo un saludo: el saludo que escribió la dueña, tal cual y sin IA (al instante y sin gastar
@@ -315,7 +323,8 @@ export async function pensar(entrada, canal = 'web') {
       .join(' | ') || 'Consulta desde el asistente';
   }
 
-  let respuesta = salida.respuesta;
+  // Solo hay algo «abajo» con bolívares si va una tarjeta, o la vitrina de la web (la de WhatsApp no lleva Bs).
+  let respuesta = productos.length || (vitrina && canal !== 'whatsapp') ? salida.respuesta : sinBolivaresAbajo(salida.respuesta);
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
