@@ -66,7 +66,8 @@ con dos líneas de servicio:
 Showroom: Centro Comercial Vía Veneto, Nivel Roma, Local R17 (Mañongo, Naguanagua, Carabobo).
 Horario de atención: lunes a sábado de 9:00 a. m. a 6:00 p. m.
 Trabajan a nivel nacional.
-Asesoras por WhatsApp: línea Home (muebles) y línea de Arquitectura (proyectos de arquitectura e interiorismo).
+Asesoras por WhatsApp: dos líneas, Home y Arquitectura, y las DOS atienden todo (presupuestos, información, compras,
+muebles y arquitectura); el asistente pasa a muebles por la Home y a arquitectura por la de Arquitectura.
 El WhatsApp 0412-4423350 es el de este asistente virtual (atiende a cualquier hora).
 Correo: dekog.inf@gmail.com · Instagram: @dekog.home y @dekog.arquitectura · Web: dekog.net
 
