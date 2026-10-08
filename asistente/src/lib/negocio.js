@@ -19,11 +19,19 @@ export const lineas = {
 // Dekog convierte sus precios REF a bolívares con la tasa oficial del BCV del euro.
 export const monedaTasa = 'EUR';
 
-// El saludo que escribió la dueña (8-oct), tal cual: sale cuando el primer mensaje del cliente es solo un saludo.
-export const saludoInicial = '¡Hola! 💛\nBienvenido a Dekog 🙌\n'
-  + 'Soy tu asistente virtual y con gusto te ayudo a elegir mobiliario o planificar tu espacio.\n'
-  + '¿Buscas un arquitecto o diseñador para remodelar un espacio? ¿O estás interesado en amoblar tu espacio con camas, '
-  + 'sofás u otro mueble en particular?';
+// El saludo que escribió la dueña (8-oct), tal cual y en un solo mensaje: sale cuando el primer mensaje del cliente
+// es solo un saludo. Si responde con el número de una opción, chat.js lo convierte en lo que dice esa opción.
+export const saludoInicial = '¡Hola! 💛 Bienvenido a DEKOG.\n'
+  + 'Soy tu asistente virtual y estoy aquí para ayudarte a transformar tu espacio. ✨\n'
+  + '¿En qué te podemos acompañar hoy?\n'
+  + '1. Arquitectura o diseño de interiores para remodelar\n'
+  + '2. Mobiliario a medida (camas, sofás, comedores, etc.)\n'
+  + '3. Hablar con un asesor';
+export const opcionesDelSaludo = {
+  1: 'Me interesa arquitectura o diseño de interiores para remodelar un espacio.',
+  2: 'Me interesa mobiliario a medida (camas, sofás, comedores, etc.).',
+  3: 'Quiero hablar con una asesora.',
+};
 
 // Qué línea recibe cada tipo de cliente: los de arquitectura van a la suya (confirmado por la dueña el 8-oct).
 export const lineaPorArea = {

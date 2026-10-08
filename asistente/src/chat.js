@@ -23,7 +23,7 @@ import {
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
-import { lineas, lineaPorArea, saludoInicial } from './lib/negocio.js';
+import { lineas, lineaPorArea, saludoInicial, opcionesDelSaludo } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 
 const MAX_MENSAJES = 16;
@@ -174,7 +174,24 @@ export function esSoloSaludo(texto) {
   return palabras.length > 0 && palabras.length <= 6 && INICIO_SALUDO.has(palabras[0]) && palabras.every((p) => SALUDO.has(p));
 }
 
-export async function pensar(mensajes, canal = 'web') {
+const NUMERO_DE_OPCION = { 1: 1, uno: 1, 2: 2, dos: 2, 3: 3, tres: 3 };
+
+/**
+ * Si el cliente respondió al saludo con el número de una opción («2», «la 3», «opción 1», «2️⃣»), el historial con
+ * ese mensaje cambiado por lo que dice la opción; si no, el mismo historial.
+ */
+export function conOpcionDelSaludo(mensajes) {
+  const ultimo = mensajes.at(-1);
+  const anterior = mensajes.at(-2);
+  if (ultimo?.role !== 'user' || anterior?.role !== 'assistant' || !anterior.content.startsWith(saludoInicial)) return mensajes;
+  const m = /^(?:(?:la|el|opci[oó]n|n[uú]mero)\s*)?(\d|uno|dos|tres)[.)!]?$/i
+    .exec(ultimo.content.replace(/[️⃣]/g, '').trim().toLowerCase());
+  const n = m ? NUMERO_DE_OPCION[m[1]] : null;
+  return n ? [...mensajes.slice(0, -1), { role: 'user', content: opcionesDelSaludo[n] }] : mensajes;
+}
+
+export async function pensar(entrada, canal = 'web') {
+  const mensajes = conOpcionDelSaludo(entrada);
   // Primer mensaje y es solo un saludo: el saludo que escribió la dueña, tal cual y sin IA (al instante y sin gastar
   // Gemini). Si ya trae una pregunta, responde la IA.
   if (mensajes.filter((m) => m.role === 'user').length === 1 && esSoloSaludo(mensajes.at(-1)?.content)) {

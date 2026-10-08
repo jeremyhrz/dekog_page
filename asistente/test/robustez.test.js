@@ -168,3 +168,18 @@ test('WhatsApp: «hola» como primer mensaje → el saludo de la dueña, sin el 
   const [m] = mensajes();
   assert.equal(m.text?.body ?? m.interactive?.body?.text, saludoInicial);
 });
+
+test('Responder al saludo con el número de una opción: «3» → hablar con una asesora; «2️⃣», «la 1», «dos» también', async () => {
+  const { conOpcionDelSaludo } = await import('../src/chat.js');
+  const { saludoInicial, opcionesDelSaludo } = await import('../src/lib/negocio.js');
+  const con = (t) => conOpcionDelSaludo([{ role: 'user', content: 'hola' }, { role: 'assistant', content: saludoInicial }, { role: 'user', content: t }]).at(-1).content;
+  assert.equal(con('3'), opcionesDelSaludo[3]);
+  assert.equal(con('2️⃣'), opcionesDelSaludo[2]);
+  assert.equal(con('la 1'), opcionesDelSaludo[1]);
+  assert.equal(con('dos'), opcionesDelSaludo[2]);
+  assert.equal(con('Opción 3.'), opcionesDelSaludo[3]);
+  assert.equal(con('3 camas queen'), '3 camas queen'); // no es solo el número: se deja como está
+  // Sin el saludo justo antes, un «2» es solo un «2» (por ejemplo, la cantidad que quiere).
+  const sinSaludo = conOpcionDelSaludo([{ role: 'user', content: 'quiero la toronto' }, { role: 'assistant', content: '¿Cuántas?' }, { role: 'user', content: '2' }]);
+  assert.equal(sinSaludo.at(-1).content, '2');
+});
