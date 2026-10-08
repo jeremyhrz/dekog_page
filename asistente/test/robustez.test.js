@@ -155,7 +155,7 @@ test('Primer mensaje que es solo un saludo: el saludo de la dueña, tal cual y s
   for (const t of ['hola, ¿cuánto cuesta la Toronto?', 'quiero ver camas', 'buenas, tienen sofás?', 'precio', '']) {
     assert.ok(!esSoloSaludo(t), t);
   }
-  const r = await pensar([{ role: 'user', content: 'Hola' }], 'whatsapp');
+  const r = await pensar([{ role: 'user', content: 'Hola' }], 'web');
   assert.equal(r.respuesta, saludoInicial);
   // El segundo «hola» de la misma conversación ya no es el primer mensaje: lo responde la IA.
   const r2 = await pensar([{ role: 'user', content: 'hola' }, { role: 'assistant', content: saludoInicial }, { role: 'user', content: 'hola' }], 'web');
@@ -163,10 +163,17 @@ test('Primer mensaje que es solo un saludo: el saludo de la dueña, tal cual y s
 });
 
 test('WhatsApp: «hola» como primer mensaje → el saludo de la dueña, sin el «Soy el asistente virtual» repetido', async () => {
-  const { saludoInicial } = await import('../src/lib/negocio.js');
+  const { saludoWhatsapp } = await import('../src/lib/negocio.js');
   await wa(textoWa('hola'), '584140000077');
   const [m] = mensajes();
-  assert.equal(m.text?.body ?? m.interactive?.body?.text, saludoInicial);
+  assert.equal(m.text?.body ?? m.interactive?.body?.text, saludoWhatsapp);
+  assert.match(saludoWhatsapp, /\*DEKOG\*/);
+  assert.ok(!/comedores/.test(saludoWhatsapp));
+  // Responde «3» al saludo (guardado con el formato de WhatsApp): se entiende como hablar con una asesora.
+  const { conOpcionDelSaludo } = await import('../src/chat.js');
+  const { opcionesDelSaludo } = await import('../src/lib/negocio.js');
+  const h = conOpcionDelSaludo([{ role: 'user', content: 'hola' }, { role: 'assistant', content: saludoWhatsapp }, { role: 'user', content: '3' }]);
+  assert.equal(h.at(-1).content, opcionesDelSaludo[3]);
 });
 
 test('Responder al saludo con el número de una opción: «3» → hablar con una asesora; «2️⃣», «la 1», «dos» también', async () => {
