@@ -8,12 +8,12 @@
  * se agregan en `datos` y se quitan de `pendientes`.
  */
 
-// Líneas de WhatsApp de las asesoras, con los nombres que usa la dueña (8-oct): Home, Home 2 y Arquitectura.
+// Líneas de WhatsApp de las asesoras, con los nombres que usa la dueña (8-oct). La que era «Home 2»
+// (0412-4423350) pasó a ser el número de ESTE asistente el 8-oct: nunca se usa para pasar clientes a una persona.
 export const lineas = {
   // Home: la de los muebles; recibe los botones de la web salvo los de proyectos, que van a Arquitectura.
   '01': { numero: '584145847791', nombre: 'Home' },
   '02': { numero: '584244006086', nombre: 'Arquitectura' },
-  '03': { numero: '584124423350', nombre: 'Home 2' },
 };
 
 // Dekog convierte sus precios REF a bolívares con la tasa oficial del BCV del euro.
@@ -44,7 +44,8 @@ con dos líneas de servicio:
 Showroom: Centro Comercial Vía Veneto, Nivel Roma, Local R17 (Mañongo, Naguanagua, Carabobo).
 Horario de atención: lunes a sábado de 9:00 a. m. a 6:00 p. m.
 Trabajan a nivel nacional.
-Asesoras por WhatsApp: líneas Home y Home 2 (muebles) y Arquitectura (proyectos de arquitectura e interiorismo).
+Asesoras por WhatsApp: línea Home (muebles) y línea de Arquitectura (proyectos de arquitectura e interiorismo).
+El WhatsApp 0412-4423350 es el de este asistente virtual (atiende a cualquier hora).
 Correo: dekog.inf@gmail.com · Instagram: @dekog.home y @dekog.arquitectura · Web: dekog.net
 
 Precios: el catálogo está en REF. Si el cliente paga en bolívares, se calculan a la tasa oficial del BCV

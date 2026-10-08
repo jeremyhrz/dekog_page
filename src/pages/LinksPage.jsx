@@ -32,8 +32,8 @@ const CARDS = [
   },
   {
     tag: 'CONTACTO',
-    title: 'Línea 03',
-    subtitle: 'ASESORÍAS Y VENTAS',
+    title: 'Asistente 24/7',
+    subtitle: 'MODELOS Y PRECIOS AL INSTANTE',
     href: 'https://wa.me/584124423350?text=Hola',
     image: '/links/vinedo.webp',
     type: 'whatsapp',
