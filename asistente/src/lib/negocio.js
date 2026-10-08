@@ -21,15 +21,23 @@ export const monedaTasa = 'EUR';
 
 // El saludo que escribió la dueña (8-oct), tal cual y en un solo mensaje: sale cuando el primer mensaje del cliente
 // es solo un saludo. Si responde con el número de una opción, chat.js lo convierte en lo que dice esa opción.
-export const saludoInicial = '¡Hola! 💛 Bienvenido a DEKOG.\n'
-  + 'Soy tu asistente virtual y estoy aquí para ayudarte a transformar tu espacio. ✨\n'
-  + '¿En qué te podemos acompañar hoy?\n'
-  + '1. Arquitectura o diseño de interiores para remodelar\n'
-  + '2. Mobiliario a medida (camas, sofás, comedores, etc.)\n'
-  + '3. Hablar con un asesor';
+// En WhatsApp va con su formato (*negrita* y _cursiva_); en la web e Instagram, sin los signos.
+export const saludoWhatsapp = [
+  '¡Hola! 💛 Bienvenido a *DEKOG*.',
+  'Soy tu asistente virtual y estoy aquí para ayudarte a transformar tu espacio. ✨',
+  '',
+  '¿En qué te podemos acompañar hoy?',
+  '',
+  '*1.* Arquitectura o diseño de interiores para remodelar',
+  '*2.* Mobiliario a medida (camas, sofás, mesas de noche, etc.)',
+  '*3.* Hablar con un asesor',
+  '',
+  '_(Responde con el número de tu elección)_',
+].join('\n');
+export const saludoInicial = saludoWhatsapp.replace(/[*_]/g, '');
 export const opcionesDelSaludo = {
   1: 'Me interesa arquitectura o diseño de interiores para remodelar un espacio.',
-  2: 'Me interesa mobiliario a medida (camas, sofás, comedores, etc.).',
+  2: 'Me interesa mobiliario a medida (camas, sofás, mesas de noche, etc.).',
   3: 'Quiero hablar con una asesora.',
 };
 

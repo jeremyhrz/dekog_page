@@ -23,7 +23,7 @@ import {
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
-import { lineas, lineaPorArea, saludoInicial, opcionesDelSaludo } from './lib/negocio.js';
+import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 
 const MAX_MENSAJES = 16;
@@ -183,7 +183,9 @@ const NUMERO_DE_OPCION = { 1: 1, uno: 1, 2: 2, dos: 2, 3: 3, tres: 3 };
 export function conOpcionDelSaludo(mensajes) {
   const ultimo = mensajes.at(-1);
   const anterior = mensajes.at(-2);
-  if (ultimo?.role !== 'user' || anterior?.role !== 'assistant' || !anterior.content.startsWith(saludoInicial)) return mensajes;
+  // El saludo guardado puede venir con el formato de WhatsApp (*negrita*, _cursiva_): se compara sin los signos.
+  if (ultimo?.role !== 'user' || anterior?.role !== 'assistant'
+    || !anterior.content.replace(/[*_]/g, '').startsWith(saludoInicial)) return mensajes;
   const m = /^(?:(?:la|el|opci[oó]n|n[uú]mero)\s*)?(\d|uno|dos|tres)[.)!]?$/i
     .exec(ultimo.content.replace(/[️⃣]/g, '').trim().toLowerCase());
   const n = m ? NUMERO_DE_OPCION[m[1]] : null;
@@ -196,7 +198,7 @@ export async function pensar(entrada, canal = 'web') {
   // Gemini). Si ya trae una pregunta, responde la IA.
   if (mensajes.filter((m) => m.role === 'user').length === 1 && esSoloSaludo(mensajes.at(-1)?.content)) {
     return {
-      respuesta: saludoInicial, productos: [], vitrina: null, whatsapp: null, tasa: null,
+      respuesta: canal === 'whatsapp' ? saludoWhatsapp : saludoInicial, productos: [], vitrina: null, whatsapp: null, tasa: null,
       formulario: false, emergencia: false, interes: '', resumen: '',
     };
   }
