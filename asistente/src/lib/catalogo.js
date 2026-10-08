@@ -75,7 +75,7 @@ export function fueraDeCategoria(sugeridos, categoria, textoCliente) {
     .filter((p) => p && p.categoria !== categoria && !nombrado(p.nombre));
 }
 
-// En las Camas Alta Gama el box no tiene un recargo fijo (lo confirma una asesora): el +80/+120 es solo de
+// En las Camas Alta Gama el box va incluido (alta gama, curvo o nube según el modelo; la dueña, 8-oct): el +80/+120 es solo de
 // Clásicas y Kids. El detector de montos no lo ve, porque 80 o 120 también valen como tela premium en una cama.
 // Dentro de la misma frase (sin cruzar «, ; .»), para no confundirlo con un recargo de tela dicho al lado.
 const RECARGO_DE_BOX = new RegExp(

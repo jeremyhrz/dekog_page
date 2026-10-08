@@ -248,7 +248,7 @@ export async function pensar(entrada, canal = 'web') {
       }
       if (boxInventado.length) {
         const nombres = boxInventado.map((p) => p.nombre).join(', ');
-        notas.push(`${nombres} es de la línea Alta Gama: ahí el box alta gama ya va incluido en el precio y el nube no tiene un recargo confirmado, así que no des ningún monto para el box; si pide el nube, di que cuánto suma lo confirma una asesora`);
+        notas.push(`${nombres} es de la línea Alta Gama: ahí cada modelo trae su box incluido en el precio (alta gama, curvo o nube) y nunca suma nada, así que no des ningún monto para el box; si pide un box distinto al de su modelo, di que eso lo confirma una asesora`);
       }
       if (malSumados.length) {
         notas.push(`${malSumados.map((m) => m.dicho).join(', ')} está mal sumado: con todo lo que eligió el cliente (medida, box, tela, puff y cantidad) el total exacto es ${malSumados[0].correcto}`);
@@ -272,7 +272,7 @@ export async function pensar(entrada, canal = 'web') {
       if (boxAltaGama(salida).length) {
         salida = {
           ...salida,
-          respuesta: 'En la línea Alta Gama el box alta gama ya va incluido en el precio; si prefieres el nube, cuánto suma te lo confirma una asesora de Dekog. Abajo te muestro el precio de la cama, también en bolívares.',
+          respuesta: 'En la línea Alta Gama cada cama trae su box incluido en el precio (alta gama, curvo o nube, según el modelo), sin pagar nada adicional. Abajo te muestro el precio de la cama, también en bolívares.',
         };
       } else if (revisar(salida, salida.respuesta).length || incoherentes(salida).length) {
         salida = {

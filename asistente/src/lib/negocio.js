@@ -83,17 +83,16 @@ export const pendientes = [
   'el costo exacto de un envío, o de la entrega o la instalación en Valencia (depende de la dirección)',
   'el tiempo de fabricación de los puffs y de los modelos personalizados que no sean mesas de noche (el de camas, sofás, mesas y mesas de noche personalizadas sí lo tienes)',
   'disponibilidad en este momento de un modelo, una tela o un color concretos, o si un pedido urgente se puede adelantar',
-  'cuánto suma el box nube en una Cama Alta Gama',
+  'qué box trae cada Cama Alta Gama (salvo Sydney, Berna y Singapure, que traen el curvo) y si se puede cambiar por otro',
   'el precio de un colchón',
-  'el plazo de la garantía de las Camas Kids, los puffs y las mesas',
   'recargo de las telas premium en sofás, puffs y otros muebles (en camas sí está confirmado)',
   'cuándo se paga el resto después del anticipo',
   'los datos para pagar (cuentas, Pago Móvil, Zelle…) y el monto exacto con Cashea',
 ];
 
 // Recargo del box por línea de camas (el liso va incluido). Clásicas: lo dijo la dueña el 2026-10-08 (el catálogo
-// 2026 decía nube +120). Kids: catálogo 2026 (la dueña no las mencionó). Las Alta Gama no están: el box alta gama ya
-// va incluido en su precio y el nube lo confirma una asesora, así que no tienen recargo fijo.
+// 2026 decía nube +120). Kids: catálogo 2026 (la dueña no las mencionó). Las Alta Gama no están: cada modelo trae su
+// box incluido (alta gama, curvo o nube) y no se paga adicional (la dueña, 8-oct).
 export const recargosBox = {
   'Camas Clásicas': { alta_gama: 80, nube: 150 },
   'Camas Kids': { alta_gama: 80, nube: 120 },
