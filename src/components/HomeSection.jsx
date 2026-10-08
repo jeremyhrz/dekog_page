@@ -39,7 +39,7 @@ export default function HomeSection({ setCategoria }) {
             </p>
             <div className="inline-flex items-center gap-3 px-4 py-2 bg-black/5 rounded-full border border-black/10">
               <ShieldCheck size={18} className="text-black" />
-              <span className="text-xs font-bold uppercase tracking-widest text-black">Garantía estructural de 2 años</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-black">Garantía estructural hasta 24 meses</span>
             </div>
           </div>
           <button 
@@ -168,7 +168,7 @@ export default function HomeSection({ setCategoria }) {
                   <Shield size={24} className="text-black" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Respaldo Dekog</span>
                 </div>
-                <p className="text-xs text-gray-500 italic">"Garantía estructural de 2 años en todas nuestras piezas mobiliarias."</p>
+                <p className="text-xs text-gray-500 italic">"Garantía estructural: 24 meses en camas Alta Gama, 12 meses en camas Clásicas y 8 meses en muebles."</p>
               </div>
             </div>
 

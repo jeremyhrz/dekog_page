@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MessageCircle, ShieldCheck, CreditCard, Truck, Star, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { productos, heroSlides, categorias } from '../data/productos';
 import HeroSlider from '../components/HeroSlider';
 import ProductCard from '../components/ProductCard';
@@ -18,7 +18,19 @@ import ProductCard from '../components/ProductCard';
  *
  * Las secciones Nosotros, Arquitectura, Proyectos y Servicios
  * ahora son páginas independientes accesibles desde la Navbar.
+ *
+ * /?categoria=camas#catalogo abre el catálogo ya filtrado: lo usan el botón «Ver las 40 camas» del
+ * asistente y los enlaces que manda por WhatsApp e Instagram (asistente/src/lib/vitrina.js).
  */
+const CATEGORIA_DE_URL = {
+  camas: 'Camas',
+  'camas-clasicas': 'Camas Clásicas',
+  'camas-kids': 'Camas Kids',
+  'camas-alta-gama': 'Camas Alta Gama',
+  sofas: 'Sofás',
+  mesas: 'Mesas',
+};
+
 export default function Home({
   categoria, setCategoria,
   carrito, setCarrito,
@@ -32,6 +44,22 @@ export default function Home({
   handleCategoryClick,
   handleClearSearch,
 }) {
+  // ?categoria=… : filtra y baja al catálogo. Solo al llegar por un enlace (cambia search o key), no en cada
+  // render: handleCategoryClick es una función nueva en cada render de App y lo re-filtraría sin parar.
+  const { search, key } = useLocation();
+  useEffect(() => {
+    // Object.hasOwn: con ?categoria=valueOf (o toString…) el objeto devolvería una función heredada y la página
+    // quedaba en blanco.
+    const valor = new URLSearchParams(search).get('categoria');
+    const cat = valor && Object.hasOwn(CATEGORIA_DE_URL, valor) ? CATEGORIA_DE_URL[valor] : null;
+    if (!cat) return undefined;
+    handleCategoryClick(cat);
+    // Después del scrollTo(0, 0) de App.jsx al cambiar de página y de que el catálogo se pinte.
+    const espera = setTimeout(() => catalogRef.current?.scrollIntoView({ behavior: 'smooth' }), 150);
+    return () => clearTimeout(espera);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, key]);
+
   const filtrados = React.useMemo(() => {
     let result = productos;
     if (categoria !== 'Todos') {

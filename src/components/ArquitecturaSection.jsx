@@ -171,7 +171,7 @@ export default function ArquitecturaSection() {
             </h2>
             <p className="text-sm text-gray-400 mb-6">Hagamos realidad tu espacio ideal.</p>
             <a
-              href="https://wa.me/584145847791?text=Hola,%20quiero%20cotizar%20un%20proyecto%20de%20arquitectura"
+              href="https://wa.me/584244006086?text=Hola,%20quiero%20cotizar%20un%20proyecto%20de%20arquitectura"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block border border-white text-white px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-300"

@@ -90,7 +90,7 @@ export default function Footer() {
                 <MapPin size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
                 <a href="https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&entry=ttu&g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" className="block">
                   <p className="text-xs text-gray-400 hover:text-white transition-colors">Dekog Home</p>
-                  <p className="text-xs text-gray-400 hover:text-white transition-colors">CC Vía Veneto, Nivel Roma - Local R18</p>
+                  <p className="text-xs text-gray-400 hover:text-white transition-colors">CC Vía Veneto, Nivel Roma - Local R17</p>
                 </a>
               </div>
               {/* Google Maps - Dekog Home */}
