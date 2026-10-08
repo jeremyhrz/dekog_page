@@ -9,15 +9,22 @@
  * WA_VERIFY_TOKEN. Opcionales: WA_API_VERSION (v25.0), WA_API_BASE (pruebas).
  *
  * Cada respuesta va en UN solo mensaje (foto del producto + texto + precio en
- * Bs + botón a la asesora) para gastar lo mínimo del cupo gratis de Meta.
+ * Bs + botón a la asesora) para gastar lo mínimo del cupo gratis de Meta. Si
+ * pide ver una categoría, ese mensaje es una lista con los modelos (vitrina):
+ * al tocar uno le llega su foto con los precios, también en UN mensaje y sin IA.
  * El número y el nombre del cliente nunca se envían a la IA.
  */
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
 import { lineas } from '../lib/negocio.js';
+import { tasaBcv } from '../lib/bcv.js';
+import { fotoParaCanales } from '../lib/catalogo.js';
+import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
-import { verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse } from './meta.js';
+import {
+  verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse, eleccionDe, fichaElegida, listaDeVitrina, textoDeVitrinaWa,
+} from './meta.js';
 
 const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${config.WA_API_VERSION || 'v25.0'}`;
 
@@ -32,9 +39,11 @@ const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${con
  */
 const CUARENTA_DIAS = 60 * 60 * 24 * 40;
 
-function cupoMensual() {
-  const n = Number(config.WA_CUPO_MENSUAL ?? 1000);
-  const cupo = Number.isFinite(n) && n >= 0 ? Math.floor(n) : 1000;
+export function cupoMensual() {
+  // Se escribe a mano en una emergencia: «1.000», «2,000» o « 1000 » valen lo mismo que 1000; vacío o inválido = 1000.
+  const limpio = String(config.WA_CUPO_MENSUAL ?? '').replace(/[.,\s]/g, '');
+  const n = /^\d+$/.test(limpio) ? Number(limpio) : 1000;
+  const cupo = Math.floor(n);
   const reserva = Math.max(1, Math.min(30, Math.floor(cupo * 0.03))); // para los avisos del final
   return { cupo, tope: cupo - reserva, aviso: Math.floor(cupo * 0.8) };
 }
@@ -90,7 +99,21 @@ export function whatsappGet(url) {
 const CAMPOS_DE_CUENTA = new Set([
   'account_update', 'account_review_update', 'account_alerts',
   'business_capability_update', 'phone_number_quality_update', 'phone_number_name_update',
+  'security', // cambios del PIN o de la verificación del número: la única alarma si alguien los toca
 ]);
+
+// Lo que el cliente manda sin texto: con estos se le ofrece la asesora; el resto (reacciones, ediciones, avisos
+// del sistema, tipos nuevos) se ignora sin responder ni gastar cupo ni escrituras de KV.
+const SIN_TEXTO = new Set(['image', 'audio', 'video', 'document', 'sticker', 'location', 'contacts']);
+const CON_TEXTO = new Set(['text', 'interactive', 'button']);
+
+// Tope por cliente y por día: alguien que manda cientos de mensajes, o el contestador automático de otra empresa
+// respondiéndole al bot, se comería en una tarde el cupo del mes, las escrituras de KV y la IA de todos.
+const topeDiario = () => {
+  const n = Number(String(config.WA_TOPE_DIARIO ?? '').replace(/[.,\s]/g, ''));
+  return Number.isInteger(n) && n > 0 ? n : 30;
+};
+const hoyCaracas = () => new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
 
 async function avisarCambioDeCuenta(cambio, idCuenta) {
   const valor = cambio.value ?? {};
@@ -123,6 +146,7 @@ export async function whatsappPost(request, env, ctx) {
         ctx.waitUntil(avisarCambioDeCuenta(cambio, entrada.id).catch((e) => console.error('No se pudo anotar el aviso de Meta:', e?.message)));
         continue;
       }
+      if (cambio.field !== 'messages') continue; // otros avisos (plantillas, ecos…) no son de clientes
       for (const mensaje of valor.messages ?? []) {
         ctx.waitUntil(procesar(valor, mensaje, env).catch((e) => console.error('Error con un mensaje de WhatsApp:', e)));
       }
@@ -147,88 +171,160 @@ function textoDe(mensaje) {
   return '';
 }
 
+/** Lo que eligió en una lista o botón nuestro ("prod:48", "mas:camas"), o null si escribió. */
+function eleccionDeMensaje(mensaje) {
+  return eleccionDe(mensaje.interactive?.list_reply?.id ?? mensaje.interactive?.button_reply?.id ?? mensaje.button?.payload);
+}
+
+/** Envía la vitrina como UNA lista; si Meta la rechaza, el mismo contenido en texto. Siempre 1 mensaje del cupo. */
+async function enviarVitrina(env, phoneId, base, v, texto) {
+  const ok = await enviar(env, phoneId, { ...base, type: 'interactive', interactive: listaDeVitrina(v, texto) });
+  if (!ok) await enviar(env, phoneId, { ...base, type: 'text', text: { body: textoDeVitrinaWa(v, texto), preview_url: false } });
+}
+
 async function procesar(valor, mensaje, env) {
   // Clave estable de la conversación: el BSUID (from_user_id) llega siempre; el número (from)
   // puede faltar si el cliente usa nombre de usuario en WhatsApp.
   const usuario = mensaje.from_user_id ?? mensaje.from;
   const phoneId = valor.metadata?.phone_number_id;
   if (!usuario || !phoneId) return;
-  if (await yaAtendido(env.CONVERSACIONES, mensaje.id)) return; // aviso repetido de Meta
+  // Reacciones, ediciones, avisos del sistema o tipos nuevos: ni respuesta, ni cupo, ni escrituras.
+  if (!CON_TEXTO.has(mensaje.type) && !SIN_TEXTO.has(mensaje.type)) return;
+  if (yaAtendido(env.CONVERSACIONES, mensaje.id)) return; // aviso repetido de Meta en esta instancia
   const clave = `wa:${phoneId}:${usuario}`;
   const estado = await cargarEstado(env.CONVERSACIONES, clave);
   if (estado.procesados.includes(mensaje.id)) return; // aviso duplicado de Meta
   estado.procesados.push(mensaje.id);
 
-  // "Leído" y "escribiendo…" mientras piensa (no consume cupo).
-  await enviar(env, phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
   const destino = mensaje.from ? { to: mensaje.from } : { recipient: mensaje.from_user_id };
   const base = { recipient_type: 'individual', ...destino };
   const contacto = valor.contacts?.find((c) => (mensaje.from && c.wa_id === mensaje.from)
     || (mensaje.from_user_id && c.user_id === mensaje.from_user_id));
   const nombre = contacto?.profile?.name ?? '';
+  const asesora = `https://wa.me/${lineas['01'].numero}`;
 
-  // Cupo del mes casi agotado: sin IA, UN mensaje con el enlace a la asesora (una vez al mes por
-  // cliente) y el cliente queda en la hoja para que lo llamen.
-  const { cupo, tope } = cupoMensual();
-  if (cupo > 0 && (await enviadosEsteMes(env, phoneId)) >= tope) {
-    if (estado.avisoCupo !== mesActual()) {
-      estado.avisoCupo = mesActual();
-      const asesora = `https://wa.me/${lineas['01'].numero}`;
-      await enviar(env, phoneId, {
-        ...base,
-        type: 'text',
-        text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a nuestra asesora: ${asesora}`, preview_url: false },
-      });
-      if (mensaje.from) {
-        await guardarCliente({
-          conversacion: `wa-${mensaje.from}`,
-          cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },
-          interes: estado.interes,
-          resumen: 'Escribió al WhatsApp del asistente cuando ya no le quedaban respuestas gratis este mes: escríbele tú.',
-          canal: 'WhatsApp',
-        });
-      }
-    }
+  // Tope por cliente y por día: pasado el tope, UN aviso con la asesora y luego silencio (sin escribir en KV).
+  const hoy = hoyCaracas();
+  if (estado.hoy?.fecha !== hoy) estado.hoy = { fecha: hoy, n: 0, avisado: false };
+  estado.hoy.n += 1;
+  if (estado.hoy.n > topeDiario()) {
+    if (estado.hoy.avisado) return;
+    estado.hoy.avisado = true;
+    await enviar(env, phoneId, {
+      ...base,
+      type: 'text',
+      text: { body: `Para seguir atendiéndote hoy, escríbele directo a una asesora de Dekog 😊 ${asesora}`, preview_url: false },
+    });
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
 
+  // Cupo del mes casi agotado: sin IA, UN mensaje con el enlace a la asesora (una vez al mes por
+  // cliente) y el cliente queda en la hoja para que lo llamen. Al que ya se le avisó, silencio: ni
+  // «escribiendo…» ni escrituras.
+  const { cupo, tope } = cupoMensual();
+  const enviados = cupo > 0 ? await enviadosEsteMes(env, phoneId).catch(() => 0) : 0;
+  if (cupo > 0 && enviados >= tope) {
+    if (estado.avisoCupo === mesActual()) return;
+    estado.avisoCupo = mesActual();
+    await enviar(env, phoneId, {
+      ...base,
+      type: 'text',
+      text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a nuestra asesora: ${asesora}`, preview_url: false },
+    });
+    // Primero la memoria y después la hoja: si la hoja tarda, al menos no se le vuelve a avisar.
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    if (mensaje.from) {
+      await guardarCliente({
+        conversacion: `wa-${mensaje.from}`,
+        cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },
+        interes: estado.interes,
+        resumen: 'Escribió al WhatsApp del asistente cuando ya no le quedaban respuestas gratis este mes: escríbele tú.',
+        canal: 'WhatsApp',
+      });
+    }
+    return;
+  }
+
+  // "Leído" y "escribiendo…" mientras piensa (no consume cupo).
+  await enviar(env, phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
+
   const texto = textoDe(mensaje).trim().slice(0, 800);
   if (!texto) {
-    await enviar(env, phoneId, { ...base, type: 'text', text: { body: 'Por ahora solo puedo leer mensajes de texto 🙂 Escríbeme tu pregunta y te ayudo.' } });
+    // Nota de voz, foto, video…: en Venezuela la nota de voz es lo normal, y Dekog fabrica a partir de fotos. Se le
+    // ofrece la asesora en el mismo mensaje (y se presenta si es lo primero que escribe).
+    const aviso = 'Por ahora no puedo escuchar audios ni ver fotos 🙏 Escríbeme tu pregunta y te ayudo, o habla directo con una asesora de Dekog.';
+    await enviar(env, phoneId, {
+      ...base,
+      type: 'interactive',
+      interactive: {
+        type: 'cta_url',
+        body: { text: presentarse(aviso, estado.mensajes.length === 0) },
+        action: { name: 'cta_url', parameters: { display_text: 'Hablar con asesora', url: asesora } },
+      },
+    });
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
 
   estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
+
+  // Tocó una fila de la vitrina: se responde SIN IA (al instante y sin gastar Gemini), con UN mensaje.
+  const eleccion = eleccionDeMensaje(mensaje);
+  if (eleccion?.tipo === 'producto') {
+    const ficha = fichaElegida(eleccion.id, await tasaBcv());
+    // La misma foto que acaba de ver: solo el texto.
+    const conFoto = productosNuevos(estado, [ficha.tarjeta]).length > 0;
+    const listo = conFoto && await enviar(env, phoneId, { ...base, type: 'image', image: { link: fotoParaCanales(ficha.tarjeta.id), caption: recortar(ficha.caption, 1024) } });
+    if (!listo) await enviar(env, phoneId, { ...base, type: 'text', text: { body: recortar(ficha.caption, 4096), preview_url: false } });
+    estado.mensajes.push({ role: 'assistant', content: ficha.texto });
+    estado.interes = ficha.interes;
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
+  if (eleccion?.tipo === 'mas') {
+    const v = vitrinaSiguiente(eleccion.clave, estado.mensajes);
+    const intro = `Más ${v.titulo.toLowerCase()} para elegir.`;
+    await enviarVitrina(env, phoneId, base, v, intro);
+    estado.mensajes.push({ role: 'assistant', content: `${intro}\n\n${v.nota}` });
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
+
   const r = await pensar(estado.mensajes, 'whatsapp');
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
+  // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Con asesora, manda su botón.
+  const vitrina = r.whatsapp ? null : r.vitrina;
   // La foto y el precio solo van cuando cambian: si el cliente pregunta por el pago o el envío del
-  // mismo producto, repetir la misma foto se siente robótico.
-  const nuevos = productosNuevos(estado, r.productos);
+  // mismo producto, repetir la misma foto se siente robótico. Con vitrina, los modelos van en la lista.
+  const nuevos = vitrina ? [] : productosNuevos(estado, r.productos);
   const [principal] = nuevos;
   const cuerpo = [respuesta, nuevos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
 
   let enviado = false;
-  if (r.whatsapp) {
+  if (vitrina) {
+    await enviarVitrina(env, phoneId, base, vitrina, cuerpo);
+    enviado = true;
+  } else if (r.whatsapp) {
     enviado = await enviar(env, phoneId, {
       ...base,
       type: 'interactive',
       interactive: {
         type: 'cta_url',
-        ...(principal ? { header: { type: 'image', image: { link: principal.imagen } } } : {}),
+        ...(principal ? { header: { type: 'image', image: { link: fotoParaCanales(principal.id) } } } : {}),
         body: { text: recortar(cuerpo, 1024) },
         action: { name: 'cta_url', parameters: { display_text: 'Hablar con asesora', url: r.whatsapp.url } },
       },
     });
   } else if (principal) {
-    enviado = await enviar(env, phoneId, { ...base, type: 'image', image: { link: principal.imagen, caption: recortar(cuerpo, 1024) } });
+    enviado = await enviar(env, phoneId, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption: recortar(cuerpo, 1024) } });
   }
   if (!enviado) {
     const conEnlace = r.whatsapp ? `${cuerpo}\n\nHabla con una asesora: ${r.whatsapp.url}` : cuerpo;
     await enviar(env, phoneId, { ...base, type: 'text', text: { body: recortar(conEnlace, 4096), preview_url: false } });
   }
-  estado.mensajes.push({ role: 'assistant', content: respuesta });
+  // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
+  estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;

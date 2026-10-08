@@ -4,8 +4,8 @@ import variantes from '../data/variantes.json';
  * Variantes WebP de las fotos de public/, generadas por scripts/optimizar_imagenes.py en public/opt/:
  *   /muebles/toronto.png → /opt/muebles/toronto.png-480.webp, -800.webp y -1200.webp
  * Los anchos de cada carpeta están en src/data/variantes.json (los lee también el script).
- * Las fotos originales no cambian: el asistente manda /muebles y /mesas por WhatsApp e Instagram en
- * PNG/JPEG, y son el respaldo si a una foto nueva le falta su variante.
+ * Las fotos originales no cambian: son el respaldo si a una foto nueva le falta su variante. (Por WhatsApp e
+ * Instagram el asistente manda otra copia: el JPEG de public/wa/, que genera el mismo script.)
  */
 export function anchosDe(ruta) {
   const carpeta = ruta.replace(/^\//, '').split('/')[0];

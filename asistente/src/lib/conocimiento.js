@@ -120,8 +120,8 @@ export const fichas = {
 /** Reglas generales de cada línea, de los catálogos 2026 (sin añadir nada que no digan). */
 export const especificaciones = [
   'Todas las camas: copete (cabecero) + box (base), garantía estructural de Dekog, y el textil y el color de tu preferencia. Medidas: Individual 1,00 x 1,90 m · Matrimonial 1,40 x 1,90 m · Queen 1,60 x 1,90 m · King 2,00 x 2,00 m (Sky, solo Individual y Matrimonial). El catálogo no dice si incluyen colchón: eso lo confirma una asesora.',
-  'Camas Clásicas («diseños atemporales que equilibran elegancia, confort y calidez»): box clásico liso de 5 a 7 cm incluido · box alta gama de 7 a 10 cm +REF 80 · box nube de 10 a 15 cm +REF 120. Altura del copete: 1,20 a 1,30 m.',
-  'Camas Alta Gama («diseñadas para transformar el descanso en una experiencia sofisticada»; líneas imponentes, materiales premium, diseño contemporáneo): vienen con box alta gama de 7 a 10 cm o nube de 10 a 15 cm; el precio de cada box en esta línea lo confirma una asesora. La única con box liso es Tampa.',
+  'Camas Clásicas («diseños atemporales que equilibran elegancia, confort y calidez»): box clásico liso de 5 a 7 cm incluido · box alta gama de 7 a 10 cm +REF 80 · box nube de 10 a 15 cm +REF 150. Altura del copete: 1,20 a 1,30 m.',
+  'Camas Alta Gama («diseñadas para transformar el descanso en una experiencia sofisticada»; líneas imponentes, materiales premium, diseño contemporáneo): el box alta gama (7 a 10 cm) ya va incluido en su precio; si quieren el box nube (10 a 15 cm), cuánto suma lo confirma una asesora. La única con box liso es Tampa.',
   'Camas Kids (diseños divertidos): box clásico liso de 6 a 7 cm incluido · box alta gama de 8 a 10 cm +REF 80 · box nube de 10 a 15 cm +REF 120.',
   'Sofás y piezas de 1 puesto (COD-2000 a COD-2003): estructura de madera de pino secada al horno, relleno de espuma de alta densidad, base reforzada con soporte central, patas ocultas y tapizado a elección del catálogo de textiles.',
   'Puffs COD-2004, COD-2005 y COD-2006: estructura de madera de pino secada al horno y acabados de alta calidad; colores blanco, gris claro, negro, beige y gris.',
@@ -129,4 +129,15 @@ export const especificaciones = [
   'Puff a juego opcional solo en los sofás Amsterdam (+REF 200), Mississippi (+REF 300) y Dubai (+REF 130).',
   'Nombres repetidos: Amsterdam y Dubai son sofás y también mesas de noche; Paris es cama y mesa de noche; London es cama y Londres es sofá; Venecia (Clásica) y Venecia Era (Alta Gama) son camas distintas. Si hay duda, pregunta a cuál se refiere.',
   'Lema: «Dekog Home · Elevamos tu descanso con mobiliario arquitectónico».',
+];
+
+/** Cómo se compra, según las respuestas de la dueña del 2026-10-08 (sin añadir nada que no dijo). */
+export const politicas = [
+  'Formas de pago: Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo en dólares o divisas, tarjetas Visa y Mastercard, y Cashea. Los datos para pagar los da una asesora.',
+  'El precio en REF es el mismo con cualquier forma de pago, salvo Cashea: la app de Cashea solo trabaja con la tasa BCV del dólar, así que el monto se ajusta de la tasa BCV del euro a la del dólar. Con Cashea, la inicial y las cuotas dependen del nivel de cada usuario y las indica la propia app.',
+  'Anticipo: con el 50 % se empieza a fabricar el pedido; si el modelo está en stock, con el 50 % se aparta.',
+  'Descuentos y promociones: dependen de la fecha y se anuncian por las redes sociales de Dekog (Instagram @dekog.home).',
+  'Fabricación de camas y sofás: unos 15 días hábiles. Si es urgente, una asesora consulta la disponibilidad: se puede llegar a entregar en 3 días.',
+  'Envíos a todo el país; el costo depende de la ubicación y el día de entrega se coordina según la disponibilidad del equipo de despacho y del cliente. En Valencia la entrega o la instalación tampoco van incluidas: son un servicio aparte cuyo costo depende de la dirección y de si es casa o edificio. El monto exacto lo da una asesora.',
+  'Garantía estructural: Camas Clásicas 12 meses, Camas Alta Gama 24 meses y muebles (sofás) 8 meses.',
 ];

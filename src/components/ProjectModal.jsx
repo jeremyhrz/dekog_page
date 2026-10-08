@@ -75,7 +75,7 @@ export default function ProjectModal({ project, onClose }) {
 
   const handleWhatsApp = () => {
     const message = `Hola DEKOG, quiero consultar sobre un proyecto similar a ${project.titulo}`;
-    window.open(`https://wa.me/584145847791?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/584244006086?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   return ReactDOM.createPortal(

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { ArrowUp, Banknote, BedDouble, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_DIRECTO, nuevoId } from './comun';
@@ -11,7 +12,7 @@ import './asistente.css';
  * AsistenteChat.jsx descarga en un momento libre (o al tocar el botón) y monta dentro de su marco.
  *
  * Habla con el Worker de Cloudflare del asistente (carpeta asistente/):
- *   POST {API}/chat   → respuesta, tarjetas de producto y enlace a WhatsApp
+ *   POST {API}/chat   → respuesta, tarjetas de producto (o la vitrina de una categoría) y enlace a WhatsApp
  *   POST {API}/datos  → formulario de contacto, directo a la hoja de clientes
  * Los precios en bolívares y el enlace a WhatsApp vienen armados del servidor;
  * aquí solo se pintan. Los datos de contacto van en un formulario aparte y
@@ -142,7 +143,7 @@ function TarjetaSola({ p, tasa, nuevo, reducir }) {
   );
 }
 
-/** Dos o tres productos: carrusel con fotos grandes (en escritorio, con flechas si no caben). */
+/** Dos o más productos (hasta 10 en una vitrina): carrusel con fotos grandes (en escritorio, con flechas si no caben). */
 function Carrusel({ productos, tasa, nuevo, reducir }) {
   const pistaRef = useRef(null);
   const [bordes, setBordes] = useState({ desborda: false, inicio: true, fin: true });
@@ -355,7 +356,8 @@ const esTactil = () => window.matchMedia('(pointer: coarse)').matches;
 /** Lo que viaja a la IA: ni los errores ni la confirmación del formulario. */
 const paraLaIa = (lista) => lista
   .filter((i) => !i.error && !i.registrado)
-  .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.texto }));
+  // La nota de la vitrina («[Vitrina «Camas»: Toronto, …]») le dice al servidor y a la IA qué modelos vio.
+  .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.nota ? `${i.texto}\n\n${i.nota}` : i.texto }));
 
 /** Burbuja de error: qué pasó, dicho para el cliente, y si tiene sentido «Reintentar». */
 function burbujaDeError(e) {
@@ -544,16 +546,19 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
       const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual) }, {
         valida: (d) => typeof d.respuesta === 'string',
       });
+      // Si pidió ver una categoría llega `vitrina`: hasta 10 tarjetas, el enlace al catálogo filtrado y la nota.
+      const tarjetas = j.vitrina?.productos ?? j.productos ?? [];
       // Si son exactamente las mismas tarjetas que la última vez (mismo modelo, medida, box, tela, puff y
       // precio), no se repiten: el cliente ya las tiene a la vista y repetirlas se siente robótico.
-      const clave = (j.productos ?? [])
+      const clave = tarjetas
         .map((p) => [p.id, p.talla, p.box, p.tela, p.puff, p.telaPorConfirmar, p.cantidad, p.ref].join('|')).join(';');
       setItems((a) => [...a, {
         rol: 'asistente',
         texto: j.respuesta,
         ...(clave && clave === [...a].reverse().find((i) => i.claveTarjeta)?.claveTarjeta
           ? { productos: [] }
-          : { productos: j.productos, claveTarjeta: clave || undefined }),
+          : { productos: tarjetas, claveTarjeta: clave || undefined, nota: j.vitrina?.nota }),
+        catalogo: j.vitrina ? { ruta: j.vitrina.ruta, texto: j.vitrina.boton } : undefined,
         whatsapp: j.whatsapp,
         tasa: j.tasa,
         formulario: j.formulario,
@@ -622,7 +627,8 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
         ref={logRef}
         onScroll={() => {
           const log = logRef.current;
-          pegadoAbajo.current = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+          // Puede llegar un scroll tardío sin la referencia (pasó en WebKit al navegar desde el botón del catálogo).
+          if (log) pegadoAbajo.current = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
         }}
         role="log"
         aria-live="polite"
@@ -677,6 +683,17 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
                 )}
                 {productos.length === 1 && <TarjetaSola p={productos[0]} tasa={m.tasa} nuevo={nuevo} reducir={reducir} />}
                 {productos.length > 1 && <Carrusel productos={productos} tasa={m.tasa} nuevo={nuevo} reducir={reducir} />}
+                {m.catalogo && (
+                  // El catálogo de la página ya filtrado (Home.jsx lee ?categoria=). En el teléfono el chat tapa la
+                  // página, así que se cierra (la conversación se conserva en sessionStorage).
+                  <motion.div {...entra(nuevo, reducir, { x: 16, y: 0, retraso: 0.16 + productos.length * 0.06, duracion: 0.35, rebote: 0.15 })}>
+                    <Link to={m.catalogo.ruta} onClick={() => { if (pantallaCompleta) onCerrar(); }}
+                      className="flex h-11 w-fit items-center gap-1.5 rounded-full bg-white px-4 text-[13.5px] font-semibold text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-black/10 transition hover:ring-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black">
+                      {m.catalogo.texto} en el catálogo
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </Link>
+                  </motion.div>
+                )}
                 {m.whatsapp && (
                   <motion.div {...entra(nuevo, reducir, { x: 16, y: 0, retraso: 0.16 + productos.length * 0.06, duracion: 0.35, rebote: 0.15 })}>
                     <a href={m.whatsapp.url} target="_blank" rel="noopener noreferrer"

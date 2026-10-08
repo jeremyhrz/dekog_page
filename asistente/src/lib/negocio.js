@@ -1,26 +1,28 @@
 /**
  * Datos del negocio que usa el asistente.
  *
- * Todo lo que está aquí sale de dekog.net o de los catálogos PDF de Dekog.
+ * Todo lo que está aquí sale de dekog.net, de los catálogos PDF de Dekog o de las respuestas de la dueña (las
+ * del 8-oct: local, horario, líneas, box, y pagos, envíos y garantía en conocimiento.js → politicas).
  * Lo que la dueña todavía no ha confirmado va en `pendientes`: el asistente
  * NO lo responde, lo deriva a una asesora. Cuando Dekog dé esas respuestas,
  * se agregan en `datos` y se quitan de `pendientes`.
  */
 
+// Líneas de WhatsApp de las asesoras, con los nombres que usa la dueña (8-oct): Home, Home 2 y Arquitectura.
 export const lineas = {
-  // Línea que recibe hoy todos los botones de la web.
-  '01': { numero: '584145847791', nombre: 'Línea 01 · Asesorías y ventas' },
-  '02': { numero: '584244006086', nombre: 'Línea 02 · Asesorías y ventas' },
-  '03': { numero: '584124423350', nombre: 'Línea 03 · El Viñedo' },
+  // Home: la de los muebles; recibe los botones de la web salvo los de proyectos, que van a Arquitectura.
+  '01': { numero: '584145847791', nombre: 'Home' },
+  '02': { numero: '584244006086', nombre: 'Arquitectura' },
+  '03': { numero: '584124423350', nombre: 'Home 2' },
 };
 
 // Dekog convierte sus precios REF a bolívares con la tasa oficial del BCV del euro.
 export const monedaTasa = 'EUR';
 
-// Qué línea recibe cada tipo de cliente. Por confirmar con Dekog.
+// Qué línea recibe cada tipo de cliente: los de arquitectura van a la suya (confirmado por la dueña el 8-oct).
 export const lineaPorArea = {
   home: '01',
-  arquitectura: '01',
+  arquitectura: '02',
 };
 
 export const datos = `
@@ -29,38 +31,50 @@ con dos líneas de servicio:
 - DEKOG HOME: mobiliario (camas, sofás, puffs, mesas). Dekog es fabricante (confirmado por la dueña el 7-oct):
   hace cualquier modelo, también fuera del catálogo, a la medida y con el diseño que el cliente quiera.
   El precio y el tiempo de un modelo personalizado los cotiza una asesora con una foto de referencia y las medidas.
+  Medidas especiales: sí se hacen; lo personalizado o fuera de medida varía de precio según los centímetros extra o
+  las modificaciones.
 - DEKOG ARQUITECTURA: diseño arquitectónico, modelado 3D, planos, ejecución y supervisión de obra,
   interiorismo y proyectos llave en mano. Tipos: residencial, comercial, oficinas, remodelaciones,
-  interiorismo. Más de 120 proyectos realizados (ejemplos: un área médica, oficinas corporativas,
-  una funeraria, el spa Kaella, la tienda Maviz, el salón de belleza Piel Morena y la Casa MOS83).
-  La consulta inicial de un proyecto es gratuita, presencial o virtual. Proceso: consulta inicial,
-  propuesta de diseño, aprobación y contratación, desarrollo del proyecto, entrega y seguimiento.
+  interiorismo. Proyectos en todo el país. Más de 120 proyectos realizados (ejemplos: un área médica, oficinas
+  corporativas, una funeraria, el spa Kaella, la tienda Maviz, el salón de belleza Piel Morena y la Casa MOS83).
+  La asesoría (consulta inicial) de un proyecto es gratuita, presencial o virtual, y no incluye renders; se pide en
+  la tienda o por WhatsApp, con la línea de Arquitectura. Proceso: consulta inicial, propuesta de diseño, aprobación
+  y contratación, desarrollo del proyecto, entrega y seguimiento.
 
-Showroom: Centro Comercial Vía Veneto, Nivel Roma, Local R18 (Mañongo, Naguanagua, Carabobo).
-Horario publicado en la web: lunes a viernes de 9:00 a. m. a 6:00 p. m. y sábados de 9:00 a. m. a 2:00 p. m.
+Showroom: Centro Comercial Vía Veneto, Nivel Roma, Local R17 (Mañongo, Naguanagua, Carabobo).
+Horario de atención: lunes a sábado de 9:00 a. m. a 6:00 p. m.
 Trabajan a nivel nacional.
+Asesoras por WhatsApp: líneas Home y Home 2 (muebles) y Arquitectura (proyectos de arquitectura e interiorismo).
 Correo: dekog.inf@gmail.com · Instagram: @dekog.home y @dekog.arquitectura · Web: dekog.net
 
 Precios: el catálogo está en REF. Si el cliente paga en bolívares, se calculan a la tasa oficial del BCV
-del EURO del día del pago.
+del EURO del día del pago (con Cashea cambia: ver CÓMO SE COMPRA).
 `.trim();
 
 // Las especificaciones de cada línea, las telas y la ficha de cada modelo están en conocimiento.js.
 
+// Lo que la dueña respondió el 8-oct (pagos, anticipo, envíos, fabricación, garantía, promociones) salió de aquí y
+// está en conocimiento.js → politicas. Quedan los detalles que no dijo.
 export const pendientes = [
-  'formas de pago (Pago Móvil, Zelle, efectivo, Cashea u otras)',
-  'costo y tiempo de envío a cada ciudad',
-  'tiempo de fabricación y de entrega',
-  'disponibilidad en este momento de un modelo, una tela o un color concretos',
-  'precio del box en las Camas Alta Gama',
+  'el costo exacto de un envío, o de la entrega o la instalación en Valencia (depende de la dirección)',
+  'el tiempo de fabricación de mesas, puffs y modelos personalizados (el de camas y sofás sí lo tienes)',
+  'disponibilidad en este momento de un modelo, una tela o un color concretos, o si un pedido urgente se puede adelantar',
+  'cuánto suma el box nube en una Cama Alta Gama',
   'si las camas incluyen colchón',
-  'plazo de la garantía estructural',
+  'el plazo de la garantía de las Camas Kids, los puffs y las mesas',
   'recargo de las telas premium en sofás, puffs y otros muebles (en camas sí está confirmado)',
-  'descuentos, promociones o apartados',
+  'si hay alguna promoción vigente hoy',
+  'cuándo se paga el resto después del anticipo',
+  'los datos para pagar (cuentas, Pago Móvil, Zelle…) y el monto exacto con Cashea',
 ];
 
-// Recargo del box en Camas Clásicas y Kids (el liso va incluido).
-export const recargosBox = { alta_gama: 80, nube: 120 };
+// Recargo del box por línea de camas (el liso va incluido). Clásicas: lo dijo la dueña el 2026-10-08 (el catálogo
+// 2026 decía nube +120). Kids: catálogo 2026 (la dueña no las mencionó). Las Alta Gama no están: el box alta gama ya
+// va incluido en su precio y el nube lo confirma una asesora, así que no tienen recargo fijo.
+export const recargosBox = {
+  'Camas Clásicas': { alta_gama: 80, nube: 150 },
+  'Camas Kids': { alta_gama: 80, nube: 120 },
+};
 export const nombresBox = { alta_gama: 'box alta gama', nube: 'box nube' };
 
 // Telas premium (LOFT y las que Dekog indicó «igual que la loft»): recargo en CAMAS según la
@@ -71,11 +85,12 @@ export const recargosTelaPremium = { individual: 80, matrimonial: 100, queen: 12
 export const puffsOpcionales = { Amsterdam: 200, Mississippi: 300, Dubai: 130 };
 
 export const recargosValidos = [
-  ...Object.values(recargosBox),
+  ...Object.values(recargosBox).flatMap((porBox) => Object.values(porBox)),
   ...Object.values(recargosTelaPremium),
   ...Object.values(puffsOpcionales),
 ];
 
-// Porcentajes que el asistente puede mencionar (anticipo, descuentos...). Vacío
-// hasta que Dekog los confirme: cualquier "%" en una respuesta se trata como inventado.
-export const porcentajesValidos = [];
+// Porcentajes que el asistente puede mencionar: el 50 % del anticipo (con él se empieza a fabricar o, si el modelo
+// está en stock, se aparta; lo dijo la dueña el 2026-10-08). Cualquier otro "%", o un 50 % pegado a un descuento, a
+// una promoción o a Cashea, se trata como inventado (catalogo.js → montosInventados).
+export const porcentajesValidos = [50];

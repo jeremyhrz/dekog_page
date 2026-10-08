@@ -4,7 +4,8 @@
  * expone como POST /chat.
  *
  * Chat:   { mensajes: [{ role: "user" | "assistant", content: string }, ...] }
- *      →  { respuesta, productos: [tarjetas], whatsapp: { url, linea } | null, tasa, formulario, interes, resumen }
+ *      →  { respuesta, productos: [tarjetas], vitrina: {…} | null, whatsapp: { url, linea } | null, tasa, formulario,
+ *           interes, resumen }   (vitrina: ver lib/vitrina.js → armarVitrina)
  * Datos:  { conversacion, nombre, telefono, ciudad, interes, resumen } → { guardado }
  *
  * Privacidad: la IA no debe recibir datos personales. Antes de enviarle la
@@ -21,6 +22,7 @@ import {
   tarjeta, montosInventados, numerosDelCliente, categoriaPedida, fueraDeCategoria, totalesIncoherentes, recargoDeBoxEnAltaGama,
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
+import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
 import { lineas, lineaPorArea } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 
@@ -59,12 +61,25 @@ function enlaceWhatsapp(area, resumen, canal = 'web') {
   return { url: `https://wa.me/${linea.numero}?text=${encodeURIComponent(texto)}`, linea: linea.nombre };
 }
 
+// Si un mensaje largo del asistente trae al final la nota de la vitrina («[Vitrina «Camas»: …]», lib/vitrina.js),
+// se corta el texto y no la nota: es lo que le dice al servidor qué modelos ya vio el cliente.
+// La nota se busca solo en la cola del texto y sin espacios delante: el contenido llega del navegador, y una regex
+// que empieza con \s* sobre todo el texto se vuelve cuadrática (20 KB de espacios costaban ~460 ms de CPU).
+const NOTA_AL_FINAL = /\[Vitrina «[^\]]{1,300}\]$/;
+const MAX_ENTRADA = 4000;
+function recortarMensaje({ role, content }) {
+  const s = content.slice(0, MAX_ENTRADA).trim();
+  if (s.length <= MAX_CARACTERES) return s;
+  const nota = role === 'assistant' ? content.trim().slice(-320).match(NOTA_AL_FINAL)?.[0] ?? '' : '';
+  return nota ? `${s.slice(0, MAX_CARACTERES - nota.length - 2).trimEnd()}\n\n${nota}` : s.slice(0, MAX_CARACTERES);
+}
+
 function limpiarMensajes(entrada) {
   if (!Array.isArray(entrada)) return null;
   const mensajes = entrada
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
     .slice(-MAX_MENSAJES)
-    .map((m) => ({ role: m.role, content: m.content.trim().slice(0, MAX_CARACTERES) }));
+    .map((m) => ({ role: m.role, content: recortarMensaje(m) }));
   while (mensajes.length && mensajes[0].role !== 'user') mensajes.shift();
   if (!mensajes.length || mensajes.at(-1).role !== 'user') return null;
   return mensajes;
@@ -231,6 +246,9 @@ export async function pensar(mensajes, canal = 'web') {
     salida = respuestaDeEmergencia(canal);
   }
 
+  // La IA nunca escribe la nota «[Vitrina …]» del historial: si la copió, se quita.
+  salida = { ...salida, respuesta: quitarNotas(salida.respuesta) };
+
   const tasa = await tasaPromesa;
   const productos = (salida.productos ?? [])
     .slice(0, 3)
@@ -238,6 +256,18 @@ export async function pensar(mensajes, canal = 'web') {
       box: p.box, cantidad: p.cantidad, telaPremium: p.tela_premium === true, puff: p.con_puff === true,
     }))
     .filter(Boolean);
+
+  // Pidió VER una categoría («quiero ver camas») o ver más: hasta 10 modelos que no haya visto y el enlace al catálogo.
+  // No cuando pasa a una asesora ni en una respuesta de emergencia. En WhatsApp la lista no lleva Bs (van al elegir).
+  const previas = vitrinasPrevias(mensajes);
+  const pedida = !salida.emergencia && !salida.derivar?.necesario ? resolverVitrina(salida.vitrina, ultimo, mensajes, previas) : null;
+  const vitrina = pedida ? armarVitrina(pedida, {
+    sugeridos: (salida.productos ?? []).map((p) => p.id),
+    vistos: previas.vistos,
+    tasa: canal === 'whatsapp' ? null : tasa,
+  }) : null;
+  // Para medir en los logs cuántas vitrinas marca la IA y cuántas salen por el respaldo (sin datos del cliente).
+  if (vitrina) console.log('Vitrina:', vitrina.clave, salida.vitrina === vitrina.clave ? '(IA)' : '(respaldo)');
 
   // El resumen para la asesora tampoco puede llevar montos inventados: si los
   // trae, se arma con los datos verificados de las tarjetas.
@@ -249,7 +279,7 @@ export async function pensar(mensajes, canal = 'web') {
   }
 
   let respuesta = salida.respuesta;
-  if (productos.length && !tasa) {
+  if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
   const whatsapp = salida.derivar?.necesario ? enlaceWhatsapp(salida.derivar.area, resumen, canal) : null;
@@ -257,6 +287,7 @@ export async function pensar(mensajes, canal = 'web') {
   return {
     respuesta,
     productos,
+    vitrina,
     whatsapp,
     tasa,
     formulario: Boolean(salida.ofrecer_formulario),
@@ -310,4 +341,5 @@ try {
   }
   tarjeta(48, 'Queen 1,60x1,90 M', { valor: 984.26 }, { box: 'nube', cantidad: 2, telaPremium: true });
   enlaceWhatsapp('home', 'Cama Toronto · Queen', 'web');
+  calentarVitrina(); // «quiero ver camas», «muéstrame otras» y la nota del historial (lib/vitrina.js)
 } catch { /* solo es una optimización */ }

@@ -8,13 +8,26 @@ import { recargosBox, nombresBox, porcentajesValidos, recargosTelaPremium, puffs
 import { fichas } from './conocimiento.js';
 
 const SITIO = 'https://www.dekog.net';
-const CON_BOX = new Set(['Camas Clásicas', 'Camas Kids']);
+// Líneas de camas que cobran el box alta gama o el nube aparte (Clásicas y Kids), cada una con sus recargos.
+const CON_BOX = new Set(Object.keys(recargosBox));
+const boxDe = (p) => (CON_BOX.has(p?.subcategoria) ? recargosBox[p.subcategoria] : null);
 const MAX_CANTIDAD = 20;
 
 const porId = new Map(productos.map((p) => [p.id, p]));
 
 export function buscarProducto(id) {
   return porId.get(Number(id)) ?? null;
+}
+
+/**
+ * Foto de un producto para WhatsApp e Instagram: su copia JPEG de public/wa (scripts/optimizar_imagenes.py),
+ * /muebles/toronto.png → https://www.dekog.net/wa/muebles/toronto.jpg. Casi todas las originales son JPEG con
+ * extensión .png y Vercel las sirve como image/png: WhatsApp rechaza esa foto (error 131053, el tipo no coincide)
+ * y, como el texto va de pie de foto, el cliente se queda sin respuesta. La web sigue con las originales.
+ */
+export function fotoParaCanales(id) {
+  const p = buscarProducto(id);
+  return p ? SITIO + encodeURI(`/wa${p.imagen.replace(/\.[^./]+$/, '')}.jpg`) : null;
 }
 
 /**
@@ -40,7 +53,8 @@ export function catalogoParaPrompt() {
     .join('\n\n');
 }
 
-const plano = (texto) => String(texto ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+/** Minúsculas y sin acentos, para comparar lo que escribe el cliente. */
+export const plano = (texto) => String(texto ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const CATEGORIAS = [['Camas', /\bcamas?\b/], ['Sofás', /\bsofas?\b/], ['Mesas', /\bmesas?\b/]];
 
 /** Categoría que pide el cliente ("quiero ver camas" → "Camas"); null si no nombra ninguna o nombra varias. */
@@ -129,7 +143,8 @@ function montosDe(p) {
 }
 function calcularMontos(p) {
   const tallas = p.tallas?.length ? p.tallas : [{ nombre: '', precio: p.precio }];
-  const boxes = CON_BOX.has(p.subcategoria) ? [0, ...Object.values(recargosBox)] : [0];
+  const porBox = boxDe(p);
+  const boxes = porBox ? [0, ...Object.values(porBox)] : [0];
   const puff = precioPuff(p);
   const puffs = puff ? [0, puff] : [0];
   const unitarios = new Set();
@@ -182,7 +197,9 @@ export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
   }
   for (const m of texto.matchAll(/(?:\bBs\.?|bol[ií]vares)\s*\d[\d.,]*|\d[\d.,]*\s*(?:\bBs\b\.?|bol[ií]vares)/gi)) malos.push(m[0].trim());
   for (const m of texto.matchAll(/(\d+(?:[.,]\d+)?)\s*%/g)) {
-    if (!porcentajesValidos.includes(leerMonto(m[1]))) malos.push(m[0]);
+    // El 50 % confirmado es el del anticipo: pegado a un descuento, una promoción o Cashea sería inventado.
+    const cerca = texto.slice(Math.max(0, m.index - 50), m.index + m[0].length + 50);
+    if (!porcentajesValidos.includes(leerMonto(m[1])) || /descuento|promoci|rebaja|oferta|cashea|inicial|cuota/i.test(cerca)) malos.push(m[0]);
   }
   return [...new Set(malos)];
 }
@@ -220,6 +237,9 @@ export function numerosDelCliente(mensajes) {
     .filter(Number.isFinite);
 }
 
+/** 1500 → "1.500" como es-VE, sin Intl (los REF del catálogo son enteros); lo usan meta.js y la vitrina. */
+export const miles = (n) => (Number.isInteger(n) ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : n.toLocaleString('es-VE'));
+
 // 1.003.955,00 como es-VE, sin Intl: crear un formateador de idioma en cada tarjeta cuesta CPU, y el plan
 // gratis de Cloudflare da 10 ms por pedido (mismo resultado que toLocaleString en 2.000.000 de montos de prueba).
 export function formatoBs(n) {
@@ -244,8 +264,9 @@ export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPre
   if (!p) return null;
   const talla = elegirTalla(p, tallaPedida);
   const base = talla ? talla.precio : p.precio;
-  const conBox = CON_BOX.has(p.subcategoria) && recargosBox[box] ? box : '';
-  const recargo = conBox ? recargosBox[conBox] : 0;
+  const porBox = boxDe(p);
+  const conBox = porBox && Object.hasOwn(porBox, box) ? box : '';
+  const recargo = conBox ? porBox[conBox] : 0;
   // Sin medida elegida, el "desde" de la tela premium es el de la medida más pequeña.
   const tela = telaPremium ? recargoTela(p, talla ?? p.tallas?.[0]) : null;
   const conPuff = puff ? precioPuff(p) : null;

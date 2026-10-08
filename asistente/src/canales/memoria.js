@@ -13,25 +13,31 @@
  */
 const TREINTA_DIAS = 60 * 60 * 24 * 30;
 
-const UN_DIA = 60 * 60 * 24;
+// Mensajes que esta instancia ya está atendiendo. Meta a veces repite el mismo aviso casi al instante: así se
+// ignora sin gastar una escritura de KV (el plan gratis da 1.000 al día). Entre instancias distintas, el
+// duplicado lo frena estado.procesados.
+const enCurso = new Set();
 
-/**
- * Marca el mensaje como atendido apenas llega (clave propia por mensaje) y devuelve true si ya
- * lo estaba: Meta a veces repite el mismo aviso, y así se ignora aunque el primero siga en curso.
- */
-export async function yaAtendido(kv, idMensaje) {
-  if (!kv || !idMensaje) return false;
-  const clave = `visto:${idMensaje}`;
-  if (await kv.get(clave)) return true;
-  await kv.put(clave, '1', { expirationTtl: UN_DIA });
+/** true si el mensaje ya se está atendiendo en esta instancia; si no, lo marca. */
+export function yaAtendido(_kv, idMensaje) {
+  if (!idMensaje) return false;
+  if (enCurso.has(idMensaje)) return true;
+  enCurso.add(idMensaje);
+  if (enCurso.size > 500) enCurso.delete(enCurso.values().next().value);
   return false;
 }
 
 export async function cargarEstado(kv, clave) {
-  const guardado = kv ? await kv.get(clave, 'json') : null;
+  let guardado = null;
+  try {
+    guardado = kv ? await kv.get(clave, 'json') : null;
+  } catch (e) {
+    // Sin memoria se responde igual: mejor una respuesta sin contexto que ninguna.
+    console.warn('No se pudo leer la memoria de la conversación:', e?.message);
+  }
   const estado = {
     mensajes: [], procesados: [], guardado: false, interes: '', resumen: '',
-    resumenEnHoja: null, telefonoEnHoja: false, avisoCupo: '', ultimaTarjeta: '',
+    resumenEnHoja: null, telefonoEnHoja: false, avisoCupo: '', ultimaTarjeta: '', hoy: { fecha: '', n: 0, avisado: false },
     ...(guardado ?? {}),
   };
   estado.desde = estado.mensajes.length; // lo que se agregue después es de esta vuelta (no se guarda)
@@ -77,7 +83,7 @@ export function fusionar(actual, estado) {
   // Si KV devolvió menos de lo que ya se había leído (vencido o desactualizado), se usa lo leído.
   const base = actual.mensajes.length >= desde ? actual.mensajes : estado.mensajes.slice(0, desde);
   return {
-    mensajes: [...base, ...nuevos].slice(-16),
+    mensajes: conservarNotas([...base, ...nuevos], 16),
     procesados: [...new Set([...actual.procesados, ...estado.procesados])].slice(-50),
     guardado: Boolean(actual.guardado || estado.guardado),
     interes: estado.interes || actual.interes,
@@ -86,21 +92,47 @@ export function fusionar(actual, estado) {
     telefonoEnHoja: Boolean(actual.telefonoEnHoja || estado.telefonoEnHoja),
     avisoCupo: estado.avisoCupo || actual.avisoCupo, // mes en que ya se le avisó del cupo agotado
     ultimaTarjeta: estado.ultimaTarjeta || actual.ultimaTarjeta, // última foto/precio mostrados
+    hoy: (estado.hoy?.fecha ?? '') >= (actual.hoy?.fecha ?? '') ? estado.hoy : actual.hoy, // mensajes del cliente hoy
   };
 }
 
+/**
+ * Los últimos `maximo` mensajes, pero sin perder las notas de vitrina de los que se descartan: pasan al primer
+ * mensaje del asistente que queda. Así «Ver más» no repite modelos ya vistos en una conversación larga.
+ */
+export function conservarNotas(mensajes, maximo) {
+  if (mensajes.length <= maximo) return mensajes;
+  const quedan = mensajes.slice(-maximo);
+  const notas = mensajes.slice(0, -maximo)
+    .flatMap((m) => (m.role === 'assistant' && m.content.includes('[Vitrina «') ? m.content.match(/\[Vitrina «[^\]]*\]/g) ?? [] : []));
+  const i = quedan.findIndex((m) => m.role === 'assistant');
+  if (notas.length && i >= 0) {
+    const propias = quedan[i].content.match(/\[Vitrina «[^\]]*\]/g) ?? [];
+    const texto = quedan[i].content.replace(/\[Vitrina «[^\]]*\]/g, '').trim();
+    // Las más viejas primero (la última vitrina sigue siendo la última nota) y como mucho 6.
+    quedan[i] = { ...quedan[i], content: `${texto}\n\n${[...notas, ...propias].slice(-6).join('\n')}` };
+  }
+  return quedan;
+}
+
+/** Guarda la conversación. Nunca lanza: si KV falla (por ejemplo, se acabaron las escrituras gratis del día), el
+ * cliente ya tiene su respuesta y solo se pierde la memoria de este turno. Devuelve si se pudo guardar. */
 export async function guardarEstado(kv, clave, estado) {
-  if (!kv) return;
+  if (!kv) return false;
   // KV admite 1 escritura por segundo en la misma clave: si dos mensajes terminan a la vez,
   // el segundo reintenta un instante después, volviendo a juntar con lo último guardado.
   for (let intento = 1; intento <= 2; intento++) {
     try {
       const final = fusionar(await cargarEstado(kv, clave), estado);
       await kv.put(clave, JSON.stringify(final), { expirationTtl: TREINTA_DIAS });
-      return;
+      return true;
     } catch (e) {
-      if (intento === 2) throw e;
+      if (intento === 2) {
+        console.warn('No se pudo guardar la memoria de la conversación:', e?.message);
+        return false;
+      }
       await new Promise((listo) => setTimeout(listo, 1100));
     }
   }
+  return false;
 }

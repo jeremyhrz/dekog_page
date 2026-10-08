@@ -21,7 +21,7 @@ const ProjectsSection = () => {
   const handleProjectQuote = (projectName) => {
     const message = `Hola DEKOG, me interesa un proyecto como ${projectName}`;
     const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/584145847791?text=${encodedMessage}`, '_blank');
+    window.open(`https://wa.me/584244006086?text=${encodedMessage}`, '_blank');
   };
 
   return (
@@ -138,7 +138,7 @@ const ProjectsSection = () => {
           </div>
           <button
             className="cta-btn"
-            onClick={() => window.open('https://wa.me/584145847791?text=Hola DEKOG, tengo un proyecto en mente y me gustaría una asesoría.', '_blank')}
+            onClick={() => window.open('https://wa.me/584244006086?text=Hola DEKOG, tengo un proyecto en mente y me gustaría una asesoría.', '_blank')}
           >
             COTIZA TU PROYECTO
           </button>

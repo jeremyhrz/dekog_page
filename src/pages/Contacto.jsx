@@ -73,8 +73,7 @@ export default function Contacto() {
       icon: Clock,
       title: 'Horario de atención',
       details: [
-        'Lunes a Viernes: 9:00 AM - 6:00 PM',
-        'Sábados: 9:00 AM - 2:00 PM'
+        'Lunes a Sábado: 9:00 AM - 6:00 PM'
       ]
     }
   ];
