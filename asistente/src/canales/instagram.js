@@ -7,7 +7,8 @@
  * Secretos: IG_TOKEN (token de 60 días de la cuenta de Dekog; el Worker lo
  * renueva cada semana y guarda el nuevo en KV), IG_APP_SECRET (firma; se
  * acepta también META_APP_SECRET), IG_VERIFY_TOKEN. Opcionales: IG_API_VERSION
- * (v25.0), IG_API_BASE (pruebas).
+ * (v25.0), IG_API_BASE (pruebas), IG_VITRINA=tarjetas (la vitrina manda además
+ * un carrusel con fotos; sin ella, solo la lista en texto con respuestas rápidas).
  *
  * Si el cliente escribe su número de WhatsApp, lo captura el servidor y va a
  * la hoja; la IA solo ve "[dato personal]". Si muestra interés sin dar número,
@@ -16,8 +17,14 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
+import { tasaBcv } from '../lib/bcv.js';
+import { fotoParaCanales } from '../lib/catalogo.js';
+import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
-import { verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse } from './meta.js';
+import {
+  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse,
+  eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram,
+} from './meta.js';
 
 const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
 const graph = () => `${RAIZ()}/${config.IG_API_VERSION || 'v25.0'}`;
@@ -38,6 +45,28 @@ async function enviar(env, igsid, message) {
     console.warn('Instagram rechazó el envío:', r.status, j?.error?.code, j?.error?.message);
   }
   return r.ok;
+}
+
+// La doc de Instagram Login usa "attachments" para imágenes; la de Messenger, "attachment".
+// Se envía la forma oficial y, si Instagram la rechaza, la otra.
+async function enviarImagen(env, igsid, url) {
+  const imagen = { type: 'image', payload: { url } };
+  if (!(await enviar(env, igsid, { attachments: imagen }))) await enviar(env, igsid, { attachment: imagen });
+}
+
+/**
+ * La vitrina en Instagram. IG_VITRINA=tarjetas: primero un generic template (fotos que se deslizan; no se ve en
+ * Instagram de escritorio). Siempre, al final, un texto con los modelos, el enlace al catálogo y una respuesta rápida
+ * por modelo (+ «Ver más …»). Si Instagram rechaza las respuestas rápidas, el mismo texto va sin ellas.
+ */
+async function enviarVitrina(env, igsid, v, tasa) {
+  const conTarjetas = config.IG_VITRINA === 'tarjetas' && await enviar(env, igsid, { attachment: carruselDeVitrina(v) });
+  const trozos = partirPorBytes(cierreInstagram(v, { conTarjetas, tasa })).slice(0, 3);
+  for (const [i, trozo] of trozos.entries()) {
+    const ultimo = i === trozos.length - 1;
+    const ok = await enviar(env, igsid, ultimo ? { text: trozo, quick_replies: respuestasRapidas(v) } : { text: trozo });
+    if (!ok && ultimo) await enviar(env, igsid, { text: trozo });
+  }
 }
 
 /** Parte un texto en trozos de como mucho 1000 bytes, sin cortar palabras si se puede. */
@@ -190,22 +219,43 @@ async function procesar(evento, env) {
 
   const telefono = extraerTelefono(texto); // se guarda en la hoja; la IA no lo ve
   estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
+
+  // Tocó una respuesta rápida de la vitrina: se responde SIN IA.
+  const eleccion = eleccionDe(evento.message.quick_reply?.payload);
+  if (eleccion?.tipo === 'producto') {
+    const ficha = fichaElegida(eleccion.id, await tasaBcv());
+    if (productosNuevos(estado, [ficha.tarjeta]).length) await enviarImagen(env, igsid, fotoParaCanales(ficha.tarjeta.id));
+    // Instagram no tiene formato: sin los *asteriscos* de WhatsApp.
+    for (const trozo of partirPorBytes(ficha.caption.replace(/\*/g, '')).slice(0, 3)) await enviar(env, igsid, { text: trozo });
+    estado.mensajes.push({ role: 'assistant', content: ficha.texto });
+    estado.interes = ficha.interes;
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
+  if (eleccion?.tipo === 'mas') {
+    const tasa = config.IG_VITRINA === 'tarjetas' ? await tasaBcv() : null;
+    const v = vitrinaSiguiente(eleccion.clave, estado.mensajes, tasa);
+    await enviarVitrina(env, igsid, v, tasa);
+    estado.mensajes.push({ role: 'assistant', content: `Más ${v.titulo.toLowerCase()} para elegir.\n\n${v.nota}` });
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
+
   const r = await pensar(estado.mensajes, 'instagram');
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
+  const { vitrina } = r;
 
   // La foto y el precio solo van cuando cambian (no repetir la misma foto en cada respuesta).
-  const nuevos = productosNuevos(estado, r.productos);
+  // Con vitrina, los modelos que nombró la IA ya van en ella: sin foto aparte.
+  const nuevos = vitrina ? [] : productosNuevos(estado, r.productos);
   const [principal] = nuevos;
-  if (principal) {
-    // La doc de Instagram Login usa "attachments" para imágenes; la de Messenger, "attachment".
-    // Se envía la forma oficial y, si Instagram la rechaza, la otra.
-    const imagen = { type: 'image', payload: { url: principal.imagen } };
-    if (!(await enviar(env, igsid, { attachments: imagen }))) await enviar(env, igsid, { attachment: imagen });
-  }
+  if (principal) await enviarImagen(env, igsid, fotoParaCanales(principal.id));
   let cuerpo = [respuesta, nuevos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
   if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp: ${r.whatsapp.url}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
-  estado.mensajes.push({ role: 'assistant', content: respuesta });
+  if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
+  // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
+  estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;

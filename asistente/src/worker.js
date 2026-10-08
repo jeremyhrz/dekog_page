@@ -15,7 +15,7 @@ import { configurar } from './lib/config.js';
 import { atenderChat, atenderDatos } from './chat.js';
 import { proveedorActivo } from './lib/llm.js';
 import { hojaConfigurada } from './lib/hoja.js';
-import { whatsappGet, whatsappPost } from './canales/whatsapp.js';
+import { whatsappGet, whatsappPost, cupoMensual } from './canales/whatsapp.js';
 import { instagramGet, instagramPost, instagramConectar, renovarTokenInstagram } from './canales/instagram.js';
 
 const ORIGENES_PERMITIDOS = [
@@ -66,6 +66,8 @@ async function atender(request, env, ctx, url, origen, cors) {
       hoja: hojaConfigurada(),
       memoria: Boolean(env.CONVERSACIONES),
       whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
+      // El tope de respuestas al mes que usa el bot (0 = sin tope): sirve para comprobar WA_CUPO_MENSUAL.
+      cupo_whatsapp: cupoMensual().cupo,
       instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
         && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
     }, 200, cors);
@@ -75,9 +77,11 @@ async function atender(request, env, ctx, url, origen, cors) {
   const ruta = rutas[url.pathname];
   if (!ruta) return json({ error: 'No encontrado' }, 404, cors);
   if (request.method !== 'POST') return json({ error: 'Usa POST' }, 405, cors);
-  if (origen && !cors['Access-Control-Allow-Origin']) {
-    // Sin CORS a propósito (origen ajeno), pero que quede registrado: en el navegador parece un corte de red.
-    console.warn('Origen no permitido:', origen, url.pathname);
+  if (!cors['Access-Control-Allow-Origin']) {
+    // Sin Origin (un script) u origen ajeno: no se atiende. Un navegador siempre manda Origin en un POST a otro sitio,
+    // así que la web no se ve afectada, y un script ya no gasta la cuota diaria de Gemini que comparten la web,
+    // WhatsApp e Instagram. Queda registrado: en el navegador parece un corte de red.
+    console.warn('Origen no permitido:', origen ?? '(sin Origin)', url.pathname);
     return json({ error: 'Origen no permitido' }, 403, cors);
   }
   let cuerpo;
