@@ -119,7 +119,7 @@ export const fichas = {
 
 /** Reglas generales de cada línea, de los catálogos 2026 (sin añadir nada que no digan). */
 export const especificaciones = [
-  'Todas las camas: copete (cabecero) + box (base), garantía estructural de Dekog, y el textil y el color de tu preferencia. Medidas: Individual 1,00 x 1,90 m · Matrimonial 1,40 x 1,90 m · Queen 1,60 x 1,90 m · King 2,00 x 2,00 m (Sky, solo Individual y Matrimonial). El catálogo no dice si incluyen colchón: eso lo confirma una asesora.',
+  'Todas las camas: copete (cabecero) + box (base), garantía estructural de Dekog, y el textil y el color de tu preferencia. Medidas: Individual 1,00 x 1,90 m · Matrimonial 1,40 x 1,90 m · Queen 1,60 x 1,90 m · King 2,00 x 2,00 m (Sky, solo Individual y Matrimonial). El precio del catálogo y de la web es solo la cama (copete y box): el colchón NO va incluido; tiene su propio precio según la medida y el modelo, y lo da una asesora (lo dijo la dueña el 8-oct).',
   'Camas Clásicas («diseños atemporales que equilibran elegancia, confort y calidez»): box clásico liso de 5 a 7 cm incluido · box alta gama de 7 a 10 cm +REF 80 · box nube de 10 a 15 cm +REF 150. Altura del copete: 1,20 a 1,30 m.',
   'Camas Alta Gama («diseñadas para transformar el descanso en una experiencia sofisticada»; líneas imponentes, materiales premium, diseño contemporáneo): el box alta gama (7 a 10 cm) ya va incluido en su precio; si quieren el box nube (10 a 15 cm), cuánto suma lo confirma una asesora. La única con box liso es Tampa.',
   'Camas Kids (diseños divertidos): box clásico liso de 6 a 7 cm incluido · box alta gama de 8 a 10 cm +REF 80 · box nube de 10 a 15 cm +REF 120.',
@@ -136,8 +136,8 @@ export const politicas = [
   'Formas de pago: Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo en dólares o divisas, tarjetas Visa y Mastercard, y Cashea. Los datos para pagar los da una asesora.',
   'El precio en REF es el mismo con cualquier forma de pago, salvo Cashea: la app de Cashea solo trabaja con la tasa BCV del dólar, así que el monto se ajusta de la tasa BCV del euro a la del dólar. Con Cashea, la inicial y las cuotas dependen del nivel de cada usuario y las indica la propia app.',
   'Anticipo: con el 50 % se empieza a fabricar el pedido; si el modelo está en stock, con el 50 % se aparta.',
-  'Descuentos y promociones: dependen de la fecha y se anuncian por las redes sociales de Dekog (Instagram @dekog.home).',
-  'Fabricación de camas y sofás: unos 15 días hábiles. Si es urgente, una asesora consulta la disponibilidad: se puede llegar a entregar en 3 días.',
+  'Descuentos y promociones: por ahora no hay ninguna vigente. Cuando las haya, se anuncian por las redes sociales de Dekog (Instagram @dekog.home).',
+  'Fabricación de camas, sofás y mesas: unos 15 días hábiles; una mesa de noche personalizada, unos 20 días hábiles. Si es urgente, una asesora consulta la disponibilidad: se puede llegar a entregar en 3 días.',
   'Envíos a todo el país; el costo depende de la ubicación y el día de entrega se coordina según la disponibilidad del equipo de despacho y del cliente. En Valencia la entrega o la instalación tampoco van incluidas: son un servicio aparte cuyo costo depende de la dirección y de si es casa o edificio. El monto exacto lo da una asesora.',
   'Garantía estructural: Camas Clásicas 12 meses, Camas Alta Gama 24 meses y muebles (sofás) 8 meses.',
 ];

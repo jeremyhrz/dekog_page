@@ -80,13 +80,12 @@ del EURO del día del pago (con Cashea cambia: ver CÓMO SE COMPRA).
 // está en conocimiento.js → politicas. Quedan los detalles que no dijo.
 export const pendientes = [
   'el costo exacto de un envío, o de la entrega o la instalación en Valencia (depende de la dirección)',
-  'el tiempo de fabricación de mesas, puffs y modelos personalizados (el de camas y sofás sí lo tienes)',
+  'el tiempo de fabricación de los puffs y de los modelos personalizados que no sean mesas de noche (el de camas, sofás, mesas y mesas de noche personalizadas sí lo tienes)',
   'disponibilidad en este momento de un modelo, una tela o un color concretos, o si un pedido urgente se puede adelantar',
   'cuánto suma el box nube en una Cama Alta Gama',
-  'si las camas incluyen colchón',
+  'el precio de un colchón',
   'el plazo de la garantía de las Camas Kids, los puffs y las mesas',
   'recargo de las telas premium en sofás, puffs y otros muebles (en camas sí está confirmado)',
-  'si hay alguna promoción vigente hoy',
   'cuándo se paga el resto después del anticipo',
   'los datos para pagar (cuentas, Pago Móvil, Zelle…) y el monto exacto con Cashea',
 ];

@@ -190,3 +190,20 @@ test('Responder al saludo con el número de una opción: «3» → hablar con un
   const sinSaludo = conOpcionDelSaludo([{ role: 'user', content: 'quiero la toronto' }, { role: 'assistant', content: '¿Cuántas?' }, { role: 'user', content: '2' }]);
   assert.equal(sinSaludo.at(-1).content, '2');
 });
+
+test('Sin tarjeta no se promete «te lo muestro abajo en bolívares»; el resto del mensaje queda igual', async () => {
+  const { sinBolivaresAbajo } = await import('../src/chat.js');
+  assert.equal(
+    sinBolivaresAbajo('La fabricación toma unos 15 días hábiles ✨. Te lo muestro abajo en bolívares a la tasa BCV del euro de hoy.'),
+    'La fabricación toma unos 15 días hábiles ✨.',
+  );
+  assert.equal(
+    sinBolivaresAbajo('Sí, aceptamos Zelle. Te lo muestro abajo en bolívares a la tasa BCV del euro de hoy. 💳✨\n\n¿Algo más?'),
+    'Sí, aceptamos Zelle. 💳✨\n\n¿Algo más?',
+  );
+  // «Abajo» sin bolívares (el formulario) se queda.
+  assert.equal(sinBolivaresAbajo('Déjanos tus datos en el formulario de abajo.'), 'Déjanos tus datos en el formulario de abajo.');
+  const t0 = performance.now();
+  sinBolivaresAbajo(`${'a '.repeat(2000)}abajo bolívares`);
+  assert.ok(performance.now() - t0 < 20);
+});
