@@ -23,7 +23,7 @@ import {
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
-import { lineas, lineaPorArea } from './lib/negocio.js';
+import { lineas, lineaPorArea, saludoInicial } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 
 const MAX_MENSAJES = 16;
@@ -164,7 +164,25 @@ export async function atenderChat(cuerpo, ip) {
  * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
  * ofrecer que lo contacten.
  */
+// Palabras de un saludo suelto («hola», «buenas tardes», «hola, ¿cómo estás?»): ninguna pregunta todavía.
+const SALUDO = new Set(['hola', 'holaa', 'holaaa', 'holi', 'buenas', 'buenos', 'buen', 'dia', 'dias', 'tardes', 'noches', 'hey',
+  'saludos', 'que', 'tal', 'epa', 'alo', 'como', 'estas', 'esta', 'estan', 'dekog', 'amiga', 'amigo', 'equipo']);
+const INICIO_SALUDO = new Set(['hola', 'holaa', 'holaaa', 'holi', 'buenas', 'buenos', 'buen', 'hey', 'saludos', 'epa', 'alo']);
+export function esSoloSaludo(texto) {
+  const palabras = String(texto ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z]+/g, ' ').trim().split(' ').filter(Boolean);
+  return palabras.length > 0 && palabras.length <= 6 && INICIO_SALUDO.has(palabras[0]) && palabras.every((p) => SALUDO.has(p));
+}
+
 export async function pensar(mensajes, canal = 'web') {
+  // Primer mensaje y es solo un saludo: el saludo que escribió la dueña, tal cual y sin IA (al instante y sin gastar
+  // Gemini). Si ya trae una pregunta, responde la IA.
+  if (mensajes.filter((m) => m.role === 'user').length === 1 && esSoloSaludo(mensajes.at(-1)?.content)) {
+    return {
+      respuesta: saludoInicial, productos: [], vitrina: null, whatsapp: null, tasa: null,
+      formulario: false, emergencia: false, interes: '', resumen: '',
+    };
+  }
   const tasaPromesa = tasaBcv();
   const delCliente = numerosDelCliente(mensajes);
   const revisar = (s, texto) => montosInventados(texto ?? '', { ids: (s.productos ?? []).map((p) => p.id), delCliente });
@@ -203,7 +221,7 @@ export async function pensar(mensajes, canal = 'web') {
       }
       if (boxInventado.length) {
         const nombres = boxInventado.map((p) => p.nombre).join(', ');
-        notas.push(`${nombres} es de la línea Alta Gama: ahí el box no tiene un recargo fijo, así que no des ningún monto para el box; di que su precio lo confirma una asesora`);
+        notas.push(`${nombres} es de la línea Alta Gama: ahí el box alta gama ya va incluido en el precio y el nube no tiene un recargo confirmado, así que no des ningún monto para el box; si pide el nube, di que cuánto suma lo confirma una asesora`);
       }
       if (malSumados.length) {
         notas.push(`${malSumados.map((m) => m.dicho).join(', ')} está mal sumado: con todo lo que eligió el cliente (medida, box, tela, puff y cantidad) el total exacto es ${malSumados[0].correcto}`);
@@ -227,7 +245,7 @@ export async function pensar(mensajes, canal = 'web') {
       if (boxAltaGama(salida).length) {
         salida = {
           ...salida,
-          respuesta: 'En la línea Alta Gama el precio del box te lo confirma una asesora de Dekog. Abajo te muestro el precio de la cama, también en bolívares.',
+          respuesta: 'En la línea Alta Gama el box alta gama ya va incluido en el precio; si prefieres el nube, cuánto suma te lo confirma una asesora de Dekog. Abajo te muestro el precio de la cama, también en bolívares.',
         };
       } else if (revisar(salida, salida.respuesta).length || incoherentes(salida).length) {
         salida = {
