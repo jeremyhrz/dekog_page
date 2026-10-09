@@ -350,7 +350,7 @@ async function procesar(valor, mensaje, env) {
  * X-Clave igual a DIAG_CLAVE (secreto del Worker); si no, 404. Nunca devuelve el token ni datos de clientes.
  *   GET /diagnostico/whatsapp?telefono=<phone_number_id>&cuenta=<waba_id>&app=<app_id>
  * Con app, también la configuración del webhook de la app (con su token de app: id|WA_APP_SECRET); con
- * reparar=1, además vuelve a apuntar el webhook de WhatsApp de la app a /whatsapp de este Worker (campo messages).
+ * reparar=1, además vuelve a apuntar el webhook de WhatsApp de la app a /whatsapp de este Worker (mismos campos).
  */
 export async function diagnosticoWhatsapp(request, url, env) {
   if (!env.DIAG_CLAVE || request.headers.get('X-Clave') !== env.DIAG_CLAVE) return new Response('No encontrado', { status: 404 });
@@ -374,7 +374,9 @@ export async function diagnosticoWhatsapp(request, url, env) {
         object: 'whatsapp_business_account',
         callback_url: `${url.origin}/whatsapp`,
         verify_token: config.WA_VERIFY_TOKEN ?? '',
-        fields: 'messages',
+        // Los mismos campos que ya tenía la app (si se manda solo «messages», Meta deja solo ese).
+        fields: 'account_alerts,account_review_update,account_update,calls,message_template_quality_update,'
+          + 'message_template_status_update,messages,phone_number_name_update,phone_number_quality_update,security',
       }),
     })
     : null;
