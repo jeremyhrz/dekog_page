@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUp, Banknote, BedDouble, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_ASISTENTE, nuevoId } from './comun';
+import { saludoInicial } from '../../../asistente/src/lib/negocio.js';
 import { ErrorDelAsistente, pedirAlAsistente } from './red';
 import './asistente.css';
 
@@ -25,7 +26,9 @@ import './asistente.css';
 const API = import.meta.env.VITE_ASISTENTE_API
   || (import.meta.env.DEV ? '/asistente-api' : 'https://dekog-asistente.dekog-web.workers.dev');
 
-const BIENVENIDA = '¡Hola! Soy el asistente de Dekog 👋 Te ayudo con modelos, medidas y precios (también en bolívares) o con tu proyecto de arquitectura. ¿Qué estás buscando?';
+// El saludo que escribió la dueña, el mismo de WhatsApp (sin sus * y _): sus opciones 1, 2 y 3 valen también aquí
+// porque cada pedido avisa `saludado: true` (el saludo no va en el historial: la IA empieza por el cliente).
+const BIENVENIDA = saludoInicial;
 const SUGERENCIAS = [
   'Quiero ver camas',
   '¿Cuánto es la Toronto queen en bolívares?',
@@ -543,7 +546,7 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
    * (ver red.js): el mensaje del cliente NO se repite, se reenvía la misma conversación. */
   async function pedirRespuesta(conversacionActual) {
     try {
-      const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual) }, {
+      const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual), saludado: true }, {
         valida: (d) => typeof d.respuesta === 'string',
       });
       // Si pidió ver una categoría llega `vitrina`: hasta 10 tarjetas, el enlace al catálogo filtrado y la nota.
