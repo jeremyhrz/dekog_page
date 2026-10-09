@@ -201,6 +201,15 @@ test('Sin tarjeta no se promete «te lo muestro abajo en bolívares»; el resto 
     sinBolivaresAbajo('Sí, aceptamos Zelle. Te lo muestro abajo en bolívares a la tasa BCV del euro de hoy. 💳✨\n\n¿Algo más?'),
     'Sí, aceptamos Zelle. 💳✨\n\n¿Algo más?',
   );
+  // Con tarjeta, la afirmación se queda y la pregunta se va (la tarjeta llega sola).
+  assert.equal(
+    sinBolivaresAbajo('La Toronto Queen cuesta REF 550. Te lo muestro abajo en bolívares a la tasa BCV del euro de hoy.', { soloPreguntas: true }),
+    'La Toronto Queen cuesta REF 550. Te lo muestro abajo en bolívares a la tasa BCV del euro de hoy.',
+  );
+  assert.equal(
+    sinBolivaresAbajo('Una asesora te confirma la disponibilidad. ¿Te lo muestro abajo en bolívares a la tasa BCV del euro de hoy?', { soloPreguntas: true }),
+    'Una asesora te confirma la disponibilidad.',
+  );
   // «Abajo» sin bolívares (el formulario) se queda.
   assert.equal(sinBolivaresAbajo('Déjanos tus datos en el formulario de abajo.'), 'Déjanos tus datos en el formulario de abajo.');
   const t0 = performance.now();

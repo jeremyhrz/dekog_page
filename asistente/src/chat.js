@@ -159,10 +159,11 @@ export async function atenderChat(cuerpo, ip) {
 }
 
 // La IA a veces dice «te lo muestro abajo en bolívares» aunque no mande ningún producto: sin tarjeta, esa frase
-// promete algo que el cliente no ve. Se quita la oración entera (por líneas y oraciones: lineal, sin regex que retroceda).
-export function sinBolivaresAbajo(texto) {
-  const limpio = texto.split('\n').map((linea) => linea.split(/(?<=[.!?])\s+/)
-    .filter((o) => !(/abajo/i.test(o) && /bol[ií]var|\bBs\b|tasa/i.test(o))).join(' ')).join('\n').trim();
+// promete algo que el cliente no ve. Con tarjeta solo sobra si lo PREGUNTA («¿Te lo muestro abajo…?»), porque la
+// tarjeta llega sola. Se quita la oración entera (por líneas y oraciones: lineal, sin regex que retroceda).
+export function sinBolivaresAbajo(texto, { soloPreguntas = false } = {}) {
+  const sobra = (o) => /abajo/i.test(o) && /bol[ií]var|\bBs\b|tasa/i.test(o) && (!soloPreguntas || /^¿|\?$/.test(o.trim()));
+  const limpio = texto.split('\n').map((linea) => linea.split(/(?<=[.!?])\s+/).filter((o) => !sobra(o)).join(' ')).join('\n').trim();
   return limpio || texto;
 }
 
@@ -324,7 +325,8 @@ export async function pensar(entrada, canal = 'web') {
   }
 
   // Solo hay algo «abajo» con bolívares si va una tarjeta, o la vitrina de la web (la de WhatsApp no lleva Bs).
-  let respuesta = productos.length || (vitrina && canal !== 'whatsapp') ? salida.respuesta : sinBolivaresAbajo(salida.respuesta);
+  const conTarjeta = Boolean(productos.length || (vitrina && canal !== 'whatsapp'));
+  let respuesta = sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta });
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
