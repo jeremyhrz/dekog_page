@@ -159,6 +159,11 @@ export async function atenderChat(cuerpo, ip) {
   return { status: 200, datos };
 }
 
+/** «Toca el botón de hablar con asesora» (o «la asesora… botón»): la respuesta promete el botón de WhatsApp. */
+export function prometeBotonDeAsesora(texto) {
+  return /bot[oó]n[^.!?\n]{0,60}asesor|asesor[^.!?\n]{0,60}bot[oó]n/i.test(texto ?? '');
+}
+
 // La IA a veces dice «te lo muestro abajo en bolívares» aunque no mande ningún producto: sin tarjeta, esa frase
 // promete algo que el cliente no ve. Con tarjeta solo sobra si lo PREGUNTA («¿Te lo muestro abajo…?»), porque la
 // tarjeta llega sola. Se quita la oración entera (por líneas y oraciones: lineal, sin regex que retroceda).
@@ -211,7 +216,10 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false } = {}) 
     : conOpcionDelSaludo(entrada);
   // Primer mensaje y es solo un saludo: el saludo que escribió la dueña, tal cual y sin IA (al instante y sin gastar
   // Gemini). Si ya trae una pregunta, o si ya lo vio, responde la IA.
-  if (!yaSaludo && mensajes.filter((m) => m.role === 'user').length === 1 && esSoloSaludo(mensajes.at(-1)?.content)) {
+  // Un «1», «2» o «3» suelto como primer mensaje (vio el menú en otra conversación que ya no se recuerda): el saludo
+  // de nuevo, con sus opciones, en vez de que la IA adivine qué quiso decir.
+  const primero = mensajes.filter((m) => m.role === 'user').length === 1 ? mensajes.at(-1)?.content ?? '' : null;
+  if (!yaSaludo && primero !== null && (esSoloSaludo(primero) || /^\s*[123]\s*[.)]?\s*$/.test(primero))) {
     return {
       respuesta: canal === 'whatsapp' ? saludoWhatsapp : saludoInicial, productos: [], vitrina: null, whatsapp: null, tasa: null,
       formulario: false, emergencia: false, interes: '', resumen: '',
@@ -336,7 +344,11 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false } = {}) 
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
-  const whatsapp = salida.derivar?.necesario ? enlaceWhatsapp(salida.derivar.area, resumen, canal) : null;
+  // La IA a veces dice «toca el botón de la asesora» sin marcar el pase: el botón se agrega, así no promete algo que
+  // el cliente no ve.
+  const whatsapp = salida.derivar?.necesario || prometeBotonDeAsesora(respuesta)
+    ? enlaceWhatsapp(salida.derivar?.area ?? 'home', resumen, canal)
+    : null;
 
   return {
     respuesta,

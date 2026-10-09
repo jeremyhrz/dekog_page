@@ -229,3 +229,28 @@ test('Web con el saludo ya mostrado (saludado): «2» es la opción 2 y «hola»
   assert.match(visto[0].content, /mobiliario a medida/);
   assert.ok(!/camas/.test(visto[0].content), 'la opción 2 no debe empujar a mostrar camas');
 });
+
+test('WhatsApp: pide el monto en bolívares del MISMO producto → sin repetir la foto, pero con el precio en Bs', async () => {
+  await wa(textoWa('¿Cuánto es la Toronto queen?'), '584140000088');
+  await wa(textoWa('¿y en bolívares?'), '584140000088');
+  const [primero, segundo] = mensajes();
+  assert.equal(primero.type, 'image');
+  assert.equal(segundo.type, 'text');
+  assert.match(segundo.text.body, /REF 550 = Bs/);
+});
+
+test('Si la respuesta promete el botón de la asesora, se reconoce (y entonces el botón se agrega)', async () => {
+  const { prometeBotonDeAsesora } = await import('../src/chat.js');
+  assert.ok(prometeBotonDeAsesora('Toca el botón de hablar con asesora para darte más detalles.'));
+  assert.ok(prometeBotonDeAsesora('Una asesora te atiende si tocas el botón de abajo.'));
+  assert.ok(!prometeBotonDeAsesora('La garantía estructural es de 18 meses.'));
+  assert.ok(!prometeBotonDeAsesora('Una asesora te confirma el costo del envío.'));
+});
+
+test('Un «2» suelto como PRIMER mensaje (sin el saludo antes): el saludo con sus opciones', async () => {
+  const { pensar } = await import('../src/chat.js');
+  const { saludoInicial, saludoWhatsapp } = await import('../src/lib/negocio.js');
+  assert.equal((await pensar([{ role: 'user', content: '2' }], 'web')).respuesta, saludoInicial);
+  assert.equal((await pensar([{ role: 'user', content: ' 3. ' }], 'whatsapp')).respuesta, saludoWhatsapp);
+  assert.notEqual((await pensar([{ role: 'user', content: '23' }], 'web')).respuesta, saludoInicial);
+});
