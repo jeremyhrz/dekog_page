@@ -152,7 +152,8 @@ export async function atenderChat(cuerpo, ip) {
     return { status: 503, datos: { error: 'El asistente no está disponible en este momento.' } };
   }
   const mensajes = limpios.map((m) => ({ ...m, content: ocultarDatosPersonales(m.content) }));
-  const datos = await pensar(mensajes, 'web');
+  // La web ya mostró el saludo de la dueña en su globo de bienvenida (no va en el historial).
+  const datos = await pensar(mensajes, 'web', { yaSaludo: cuerpo?.saludado === true });
   // Si el cliente escribió un dato personal en el chat, se le ofrece el formulario.
   if (mensajes.at(-1).content !== limpios.at(-1).content) datos.formulario = true;
   return { status: 200, datos };
@@ -201,11 +202,16 @@ export function conOpcionDelSaludo(mensajes) {
  * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
  * ofrecer que lo contacten.
  */
-export async function pensar(entrada, canal = 'web') {
-  const mensajes = conOpcionDelSaludo(entrada);
+export async function pensar(entrada, canal = 'web', { yaSaludo = false } = {}) {
+  // yaSaludo: el cliente ya vio el saludo de la dueña fuera del historial (el globo de bienvenida de la web). Se
+  // antepone solo para entender «1», «2» o «3»; a la IA no le llega (su conversación empieza por el cliente).
+  const conSaludo = yaSaludo && entrada[0]?.role === 'user';
+  const mensajes = conSaludo
+    ? conOpcionDelSaludo([{ role: 'assistant', content: saludoInicial }, ...entrada]).slice(1)
+    : conOpcionDelSaludo(entrada);
   // Primer mensaje y es solo un saludo: el saludo que escribió la dueña, tal cual y sin IA (al instante y sin gastar
-  // Gemini). Si ya trae una pregunta, responde la IA.
-  if (mensajes.filter((m) => m.role === 'user').length === 1 && esSoloSaludo(mensajes.at(-1)?.content)) {
+  // Gemini). Si ya trae una pregunta, o si ya lo vio, responde la IA.
+  if (!yaSaludo && mensajes.filter((m) => m.role === 'user').length === 1 && esSoloSaludo(mensajes.at(-1)?.content)) {
     return {
       respuesta: canal === 'whatsapp' ? saludoWhatsapp : saludoInicial, productos: [], vitrina: null, whatsapp: null, tasa: null,
       formulario: false, emergencia: false, interes: '', resumen: '',

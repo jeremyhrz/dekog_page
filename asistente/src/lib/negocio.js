@@ -37,7 +37,7 @@ export const saludoWhatsapp = [
 export const saludoInicial = saludoWhatsapp.replace(/[*_]/g, '');
 export const opcionesDelSaludo = {
   1: 'Me interesa arquitectura o diseño de interiores para remodelar un espacio.',
-  2: 'Me interesa mobiliario a medida (camas, sofás, mesas de noche, etc.).',
+  2: 'Me interesa el mobiliario a medida.', // sin nombrar camas: la IA pregunta qué mueble busca (prompt, regla 9)
   3: 'Quiero hablar con una asesora.',
 };
 

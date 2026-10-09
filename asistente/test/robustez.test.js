@@ -216,3 +216,16 @@ test('Sin tarjeta no se promete «te lo muestro abajo en bolívares»; el resto 
   sinBolivaresAbajo(`${'a '.repeat(2000)}abajo bolívares`);
   assert.ok(performance.now() - t0 < 20);
 });
+
+test('Web con el saludo ya mostrado (saludado): «2» es la opción 2 y «hola» no repite el saludo', async () => {
+  const { pensar } = await import('../src/chat.js');
+  const { saludoInicial } = await import('../src/lib/negocio.js');
+  const r = await pensar([{ role: 'user', content: 'hola' }], 'web', { yaSaludo: true });
+  assert.notEqual(r.respuesta, saludoInicial);
+  const { conOpcionDelSaludo } = await import('../src/chat.js');
+  // Lo que pensar() le pasa a la IA con yaSaludo: el «2» ya convertido y sin el saludo delante.
+  const visto = conOpcionDelSaludo([{ role: 'assistant', content: saludoInicial }, { role: 'user', content: '2' }]).slice(1);
+  assert.equal(visto.length, 1);
+  assert.match(visto[0].content, /mobiliario a medida/);
+  assert.ok(!/camas/.test(visto[0].content), 'la opción 2 no debe empujar a mostrar camas');
+});
