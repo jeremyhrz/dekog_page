@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowUp, Banknote, BedDouble, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
-import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_DIRECTO, nuevoId } from './comun';
+import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_ASISTENTE, nuevoId } from './comun';
 import { ErrorDelAsistente, pedirAlAsistente } from './red';
 import './asistente.css';
 
@@ -217,7 +217,7 @@ function Escribiendo({ reducir }) {
       {espera === 2 && (
         <p className="pl-1 text-[12px] text-[#6b6b6b]">
           Está tardando más de lo normal. Puedes esperar o{' '}
-          <a href={WHATSAPP_DIRECTO} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-black">escribirnos por WhatsApp</a>.
+          <a href={WHATSAPP_ASISTENTE} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-black">escribirnos por WhatsApp</a>.
         </p>
       )}
     </motion.div>
@@ -377,7 +377,7 @@ function burbujaDeError(e) {
     reintentar,
     tipoError: conocido ? e.tipo : 'interno',
     texto: `${motivo}${cierre}`,
-    whatsapp: { url: WHATSAPP_DIRECTO, linea: 'Línea 01' },
+    whatsapp: { url: WHATSAPP_ASISTENTE, linea: 'Asistente' },
   };
 }
 
@@ -699,7 +699,7 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
                     <a href={m.whatsapp.url} target="_blank" rel="noopener noreferrer"
                       className={`relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#0e7a3e] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_-14px_rgba(14,122,62,0.9)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-[#f4f0ec]${nuevo ? ' dk-brillo' : ''}`}>
                       <IconoWhatsapp />
-                      Seguir por WhatsApp con una asesora
+                      {m.whatsapp.linea === 'Asistente' ? 'Seguir por WhatsApp' : 'Seguir por WhatsApp con una asesora'}
                     </a>
                   </motion.div>
                 )}

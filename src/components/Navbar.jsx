@@ -160,7 +160,7 @@ export default function Navbar({ cartCount = 0, onCartOpen = () => {}, onSearch 
           <div className="p-10 border-t border-gray-200 bg-white/50">
             <div className="flex items-center gap-3 text-gray-500 text-[10px] mb-3 uppercase tracking-widest font-bold">
               <MapPin size={14} className="text-black" />
-              <span>CC Via Veneto / El Viñedo</span>
+              <span>CC Vía Veneto · Local R17</span>
             </div>
             <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer" 
               className="flex items-center gap-3 text-black font-black text-sm uppercase tracking-widest">
