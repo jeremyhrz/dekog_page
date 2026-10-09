@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import AsistenteChat from './AsistenteChat';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { propsWhatsapp } from '../utils/whatsapp';
 
 // El asistente con IA está activo (aprobado por Dekog el 2026-10-05).
 // Interruptor de emergencia: la variable VITE_ASISTENTE=0 en Vercel (y volver
@@ -38,7 +38,7 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
       {/* ── Asistente con IA (si está activo) o botón flotante WhatsApp ── */}
       {mostrarAsistente ? <AsistenteChat /> : (
       <a
-        href={asistenteWhatsapp()}
+        {...propsWhatsapp()}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 hover:shadow-green-500/30 transition-all duration-300 group"

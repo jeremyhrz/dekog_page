@@ -5,6 +5,7 @@ import { pageTransition, animatePresenceConfig } from './utils/animations';
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
 import Layout from './components/Layout';
+import SelectorWhatsapp from './components/SelectorWhatsapp';
 
 // ─── Páginas reales cargadas perezosamente (Code Splitting) ───────────────────
 const Home            = lazy(() => import('./pages/Home'));
@@ -240,6 +241,9 @@ function AppContent() {
         abierto={abierto}
         setAbierto={setAbierto}
       />
+
+      {/* ── «¿Con quién quieres hablar?» (Línea 1 o 2): lo abren los botones de WhatsApp ── */}
+      <SelectorWhatsapp />
 
       {/* ── Modal de Quick View ───────────────────────────────────────── */}
       <QuickView

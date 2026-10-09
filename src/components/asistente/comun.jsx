@@ -1,16 +1,13 @@
 import React from 'react';
 import { RotateCcw, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
-import { asistenteWhatsapp } from '../../utils/whatsapp';
+import { propsWhatsapp } from '../../utils/whatsapp';
 
 /**
  * Lo que usan a la vez el botón flotante (AsistenteChat.jsx, va con la página) y la conversación
- * (AsistentePanel.jsx, se descarga aparte): claves de sessionStorage, el WhatsApp del asistente y la cabecera.
+ * (AsistentePanel.jsx, se descarga aparte): claves de sessionStorage y la cabecera.
  */
 export const CLAVE = 'dekog-asistente-chat';
-// El WhatsApp del mismo asistente: el cliente sigue ahí la conversación (el pase a una asesora, con el resumen ya
-// escrito, lo decide el asistente y va a la línea de la asesora).
-export const WHATSAPP_ASISTENTE = asistenteWhatsapp();
 
 /** Id de la conversación (una fila por conversación en la hoja de clientes). crypto.randomUUID solo
  * existe en https y localhost: sin él (p. ej., probando por la IP local) se usa el respaldo. */
@@ -48,8 +45,8 @@ export function Cabecera({ onCerrar, onReiniciar, cargando = false }) {
             <RotateCcw size={18} />
           </button>
         )}
-        <a href={WHATSAPP_ASISTENTE} target="_blank" rel="noopener noreferrer" className={BOTON_CABECERA}
-          aria-label="Seguir por WhatsApp" title="Seguir por WhatsApp">
+        <a {...propsWhatsapp()} className={BOTON_CABECERA}
+          aria-label="Hablar con una asesora por WhatsApp" title="Hablar con una asesora">
           <IconoWhatsapp />
         </a>
         <button type="button" onClick={onCerrar} className={BOTON_CABECERA} aria-label="Cerrar el asistente" title="Cerrar">

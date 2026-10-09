@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Instagram, Phone, Mail, Globe, HardHat, CheckCircle, Map, Armchair, Facebook, MessageCircle } from 'lucide-react';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { propsWhatsapp } from '../utils/whatsapp';
 
 export default function Footer() {
   return (
@@ -28,7 +28,7 @@ export default function Footer() {
               <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <Instagram size={18} />
               </a>
-              <a href={asistenteWhatsapp()} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors" aria-label="WhatsApp">
+              <a {...propsWhatsapp()} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors" aria-label="WhatsApp">
                 <MessageCircle size={18} />
               </a>
               <a href="https://www.facebook.com/share/1Hfbm8dQrs/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
@@ -130,8 +130,8 @@ export default function Footer() {
               </a>
               <div className="flex items-start gap-3">
                 <MessageCircle size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
-                <a href={asistenteWhatsapp()} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors">
-                  Asistente 24/7 por WhatsApp
+                <a {...propsWhatsapp()} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors">
+                  WhatsApp (Línea 1 y Línea 2)
                 </a>
               </div>
               <div className="flex items-start gap-3">

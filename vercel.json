@@ -2,6 +2,14 @@
     "$schema": "https://openapi.vercel.sh/vercel.json",
     "rewrites": [
         {
+            "source": "/links",
+            "destination": "/links.html"
+        },
+        {
+            "source": "/links/",
+            "destination": "/links.html"
+        },
+        {
             "source": "/((?!wa/).*)",
             "destination": "/index.html"
         }
@@ -17,7 +25,7 @@
             ]
         },
         {
-            "source": "/(opt|mini|wa|muebles|mesas|catalogo|hero|arquitectura|servicios|nosotros|links|assets|home)/(.*)",
+            "source": "/(opt|mini|wa|muebles|mesas|catalogo|hero|arquitectura|servicios|nosotros|links|assets|home|fonts)/(.*)",
             "headers": [
                 {
                     "key": "Cache-Control",

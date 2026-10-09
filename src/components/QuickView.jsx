@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingCart } from 'lucide-react';
 import Imagen from './Imagen';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { propsWhatsapp } from '../utils/whatsapp';
 
 export default function QuickView({ product, onClose, onAdd }) {
   const [selectedTalla, setSelectedTalla] = useState(null);
@@ -89,7 +89,7 @@ export default function QuickView({ product, onClose, onAdd }) {
               className="btn-primary w-full bg-black text-white py-4 rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2">
               <ShoppingCart size={16} /> Añadir al Carrito
             </button>
-            <a href={asistenteWhatsapp(`Hola, me interesa el producto: ${product.nombre}${selectedTalla ? ` (${selectedTalla.nombre})` : ''} (REF ${displayPrice})`)}
+            <a {...propsWhatsapp(`Hola, me interesa el producto: ${product.nombre}${selectedTalla ? ` (${selectedTalla.nombre})` : ''} (REF ${displayPrice})`)}
               target="_blank" rel="noopener noreferrer"
               className="block text-center w-full border-2 border-black text-black py-4 rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-black hover:text-white transition-colors">
               Consultar por WhatsApp
