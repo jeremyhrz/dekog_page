@@ -28,8 +28,8 @@ export default function Footer() {
               <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <Instagram size={18} />
               </a>
-              <a href="https://wa.me/584145847791" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
-                <Phone size={18} />
+              <a href={asistenteWhatsapp()} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors" aria-label="WhatsApp">
+                <MessageCircle size={18} />
               </a>
               <a href="https://www.facebook.com/share/1Hfbm8dQrs/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <Facebook size={18} />
@@ -136,7 +136,7 @@ export default function Footer() {
               </div>
               <div className="flex items-start gap-3">
                 <Phone size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
-                <a href="https://wa.me/584145847791" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors">
+                <a href="tel:+584145847791" className="text-xs text-gray-400 hover:text-white transition-colors">
                   +58 414 584 7791
                 </a>
               </div>

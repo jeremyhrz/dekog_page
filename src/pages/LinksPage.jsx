@@ -14,24 +14,6 @@ const CARDS = [
     span: 3,
   },
   {
-    tag: 'CONTACTO',
-    title: 'Línea 1',
-    subtitle: 'ASESORÍAS Y VENTAS',
-    href: 'https://wa.me/584145847791?text=Hola',
-    image: '/links/manongo1.webp',
-    type: 'whatsapp',
-    span: 1,
-  },
-  {
-    tag: 'CONTACTO',
-    title: 'Línea 2',
-    subtitle: 'ASESORÍAS Y VENTAS',
-    href: 'https://wa.me/584244006086?text=Hola',
-    image: '/links/manongo2.webp',
-    type: 'whatsapp',
-    span: 1,
-  },
-  {
     tag: 'ENLACE',
     title: 'Sitio Web',
     subtitle: 'www.dekog.net',
@@ -68,6 +50,7 @@ const CARDS = [
     image: '/links/manongo-ubicacion.webp',
     type: 'map',
     span: 1,
+    clase: 'lg:col-span-3', // en escritorio cierra a todo lo ancho; en tablet va al lado de Mobiliario
   }
 ];
 
@@ -112,7 +95,7 @@ export default function LinksPage() {
                 href={c.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`g-card ${c.span === 2 ? 'md:col-span-2' : ''} ${c.span === 3 ? 'md:col-span-2 lg:col-span-3' : ''}`}
+                className={`g-card ${c.span === 2 ? 'md:col-span-2' : ''} ${c.span === 3 ? 'md:col-span-2 lg:col-span-3' : ''} ${c.clase ?? ''}`}
                 aria-label={`${c.title} — ${c.subtitle}`}
               >
                 <span className="g-tag" aria-hidden="true">{c.tag}</span>

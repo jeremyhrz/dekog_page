@@ -35,7 +35,7 @@ export default function Contacto() {
       `Tipo de proyecto: ${formData.tipoProyecto}`,
       `Mensaje: ${formData.mensaje}`,
     ].join('\n');
-    window.open(`https://wa.me/584145847791?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
+    window.open(asistenteWhatsapp(texto), '_blank', 'noopener,noreferrer');
     setIsSubmitted(true);
     setFormData({
       nombre: '',
@@ -65,10 +65,10 @@ export default function Contacto() {
     },
     {
       icon: MapPin,
-      title: 'Ubicaciones',
+      title: 'Ubicación',
       details: [
         'CC Vía Veneto - Nivel Roma, Local R17',
-        'Av. Carlos Sanda, El Viñedo'
+        'Mañongo, Naguanagua, Carabobo'
       ]
     },
     {
@@ -346,41 +346,29 @@ export default function Contacto() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight font-display mb-4">Encuéntranos</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">Visita nuestras ubicaciones en Valencia para una consulta presencial.</p>
+            <p className="text-gray-600 max-w-2xl mx-auto">Visita nuestro showroom en Naguanagua para una consulta presencial.</p>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Location 1 */}
+          <div className="max-w-3xl mx-auto">
             <div className="bg-gray-50 rounded-2xl p-6">
               <h3 className="text-xl font-bold uppercase mb-4">CC Vía Veneto</h3>
               <div className="aspect-video bg-gray-200 rounded-xl mb-4 overflow-hidden">
-                {/* Aquí iría un mapa embebido o imagen */}
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
-                  <MapPin size={48} className="text-gray-600" />
-                </div>
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3925.9642436440263!2d-67.9994466!3d10.2337844!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e8067bc8767db79%3A0x17e49c019b1dfaea!2sDekog%20Home!5e0!3m2!1ses!2sve!4v1716733200000!5m2!1ses!2sve"
+                  title="Mapa del showroom de Dekog en el CC Vía Veneto"
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
               </div>
               <div className="space-y-2">
-                <p className="text-gray-700"><strong>Dirección:</strong> CC Vía Veneto, Nivel Roma, Local R17</p>
+                <p className="text-gray-700"><strong>Dirección:</strong> CC Vía Veneto, Nivel Roma, Local R17, Mañongo, Naguanagua</p>
                 <p className="text-gray-700"><strong>Horario:</strong> Lunes a Sábado, 9:00 AM - 6:00 PM</p>
                 <p className="text-gray-700"><strong>Teléfono:</strong> +58 414 584 7791</p>
               </div>
             </div>
 
-            {/* Location 2 */}
-            <div className="bg-gray-50 rounded-2xl p-6">
-              <h3 className="text-xl font-bold uppercase mb-4">Av. Carlos Sanda</h3>
-              <div className="aspect-video bg-gray-200 rounded-xl mb-4 overflow-hidden">
-                {/* Aquí iría un mapa embebido o imagen */}
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
-                  <MapPin size={48} className="text-gray-600" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-gray-700"><strong>Dirección:</strong> Av. Carlos Sanda, El Viñedo</p>
-                <p className="text-gray-700"><strong>Horario:</strong> Lunes a Viernes, 9:00 AM - 5:00 PM</p>
-                <p className="text-gray-700"><strong>Teléfono:</strong> +58 414 584 7791</p>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -397,7 +385,7 @@ export default function Contacto() {
             {[
               {
                 question: '¿Cuál es el tiempo de respuesta para consultas?',
-                answer: 'Respondemos todas las consultas en menos de 24 horas hábiles. Para consultas urgentes, recomendamos contactarnos por WhatsApp.'
+                answer: 'Por WhatsApp, nuestro asistente te responde al instante y a cualquier hora, y si lo necesitas te pasa con una asesora. Las asesoras atienden de lunes a sábado, de 9:00 a. m. a 6:00 p. m.'
               },
               {
                 question: '¿Ofrecen consultas gratuitas?',

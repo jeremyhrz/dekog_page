@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { MarcaD } from './asistente/LogoDekog';
-import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_DIRECTO } from './asistente/comun';
+import { CLAVE, Cabecera, IconoWhatsapp, WHATSAPP_ASISTENTE } from './asistente/comun';
 
 /**
  * AsistenteChat — botón flotante del asistente con IA de Dekog (esquina inferior derecha), su saludo
@@ -107,7 +107,7 @@ class ErrorDelPanel extends Component {
         <Cabecera onCerrar={this.props.onCerrar} />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
           <p className="text-[15px] text-neutral-800">No pudimos cargar el asistente.</p>
-          <a href={WHATSAPP_DIRECTO} target="_blank" rel="noopener noreferrer"
+          <a href={WHATSAPP_ASISTENTE} target="_blank" rel="noopener noreferrer"
             className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0e7a3e] px-5 text-[14px] font-semibold text-white transition hover:brightness-110">
             <IconoWhatsapp />
             Escríbenos por WhatsApp
