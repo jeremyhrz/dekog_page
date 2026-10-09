@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ImageWithSkeleton from './ImageWithSkeleton';
+import { asistenteWhatsapp } from '../utils/whatsapp';
 
 export default function ServiciosSection({ setCategoria }) {
   const steps = [
@@ -23,7 +24,7 @@ export default function ServiciosSection({ setCategoria }) {
           SERVICIOS
         </h2>
         <a
-          href="https://wa.me/584244006086?text=Hola,%20quisiera%20solicitar%20asesoría%20para%20un%20proyecto"
+          href={asistenteWhatsapp('Hola, quisiera solicitar asesoría para un proyecto')}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-4 bg-[#1a1a1a] text-white px-10 py-5 text-xs font-bold uppercase tracking-[0.2em] hover:bg-black transition-all duration-300 hover:gap-6 shadow-xl"

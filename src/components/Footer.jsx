@@ -1,5 +1,6 @@
 import React from 'react';
-import { MapPin, Instagram, Phone, Mail, Globe, HardHat, CheckCircle, Map, Armchair, Facebook } from 'lucide-react';
+import { MapPin, Instagram, Phone, Mail, Globe, HardHat, CheckCircle, Map, Armchair, Facebook, MessageCircle } from 'lucide-react';
+import { asistenteWhatsapp } from '../utils/whatsapp';
 
 export default function Footer() {
   return (
@@ -127,6 +128,12 @@ export default function Footer() {
                   title="Ubicación Dekog Home"
                 />
               </a>
+              <div className="flex items-start gap-3">
+                <MessageCircle size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
+                <a href={asistenteWhatsapp()} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors">
+                  Asistente 24/7 por WhatsApp
+                </a>
+              </div>
               <div className="flex items-start gap-3">
                 <Phone size={14} className="text-[#a89076] mt-0.5 flex-shrink-0" />
                 <a href="https://wa.me/584145847791" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-white transition-colors">
