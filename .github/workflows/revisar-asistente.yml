@@ -1,0 +1,19 @@
+# Visita /salud del asistente cada hora. Es el respaldo de la tarea horaria de Cloudflare (el 9-oct no corrió):
+# si la última reconexión del webhook de WhatsApp tiene más de 65 minutos, esa visita la hace (ver worker.js).
+name: Revisar el asistente
+
+on:
+  schedule:
+    - cron: '37 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  salud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Visitar /salud
+        # Con un User-Agent de navegador: Cloudflare bloquea algunos de scripts (error 1010).
+        run: curl -fsS --max-time 60 -A "Mozilla/5.0 (X11; Linux x86_64) Chrome/141.0" https://dekog-asistente.dekog-web.workers.dev/salud
