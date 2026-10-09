@@ -83,3 +83,19 @@ test('La tarea programada: cada hora reconecta WhatsApp; la del lunes renueva In
   await Promise.all(pendientes);
   assert.ok(!pedidos.some((x) => x.url.includes('/subscriptions') || x.url.includes('/subscribed_apps')));
 });
+
+test('Respaldo: /salud reconecta si la última reconexión tiene más de 65 minutos; si es reciente, no', async () => {
+  metaFalso();
+  const pendientes = [];
+  const ctx = { waitUntil: (p) => pendientes.push(p) };
+  const conVars = { ...env, ...AJUSTES, WA_TOKEN: config.WA_TOKEN, WA_APP_SECRET: config.WA_APP_SECRET };
+  await env.CONVERSACIONES.put('wa:webhook:ultima', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+  await worker.fetch(new Request('https://asistente.falso/salud'), conVars, ctx);
+  await Promise.all(pendientes);
+  assert.ok(!pedidos.some((x) => x.url.endsWith('/111/subscriptions')), 'reciente: no reconecta');
+
+  await env.CONVERSACIONES.put('wa:webhook:ultima', new Date(Date.now() - 2 * 3600 * 1000).toISOString());
+  await worker.fetch(new Request('https://asistente.falso/salud'), conVars, ctx);
+  await Promise.all(pendientes);
+  assert.ok(pedidos.some((x) => x.url.endsWith('/111/subscriptions')), 'vieja: reconecta');
+});

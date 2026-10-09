@@ -43,6 +43,19 @@ function cabecerasCors(origen) {
     : { Vary: 'Origin' };
 }
 
+// Respaldo de la tarea de cada hora (el 9-oct la cron de Cloudflare no corrió): si la última reconexión buena del
+// webhook de WhatsApp tiene más de 65 minutos, la hace la visita a /salud, /chat o /datos (GitHub Actions visita
+// /salud cada hora). Como mucho un intento cada 10 minutos por isolate, para no gastar KV si Meta falla.
+const VIEJA_MS = 65 * 60 * 1000;
+let ultimoIntento = 0;
+function reconectarSiHaceFalta(env, ctx, origen, ultima) {
+  const ahora = Date.now();
+  if (ultima && ahora - Date.parse(ultima) < VIEJA_MS) return;
+  if (ahora - ultimoIntento < 10 * 60 * 1000) return;
+  ultimoIntento = ahora;
+  ctx.waitUntil(reconectarWebhookWhatsapp(env, origen).catch((e) => console.warn('Reconexión de respaldo:', e?.message)));
+}
+
 function json(datos, status, cors) {
   return new Response(JSON.stringify(datos), {
     status,
@@ -69,6 +82,9 @@ async function atender(request, env, ctx, url, origen, cors) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
   if (url.pathname === '/salud' && request.method === 'GET') {
+    // Última reconexión buena del webhook de WhatsApp (la tarea de cada hora); null si no ha corrido.
+    const reconectado = await env.CONVERSACIONES?.get('wa:webhook:ultima').catch(() => null) ?? null;
+    reconectarSiHaceFalta(env, ctx, url.origin, reconectado);
     return json({
       ok: true,
       ia: Boolean(proveedorActivo()),
@@ -77,8 +93,7 @@ async function atender(request, env, ctx, url, origen, cors) {
       whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
       // El tope de respuestas al mes que usa el bot (0 = sin tope): sirve para comprobar WA_CUPO_MENSUAL.
       cupo_whatsapp: cupoMensual().cupo,
-      // Última reconexión buena del webhook de WhatsApp (la tarea de cada hora); null si no ha corrido.
-      whatsapp_reconectado: await env.CONVERSACIONES?.get('wa:webhook:ultima').catch(() => null) ?? null,
+      whatsapp_reconectado: reconectado,
       instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
         && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
     }, 200, cors);
@@ -87,6 +102,9 @@ async function atender(request, env, ctx, url, origen, cors) {
   const rutas = { '/chat': atenderChat, '/datos': atenderDatos };
   const ruta = rutas[url.pathname];
   if (!ruta) return json({ error: 'No encontrado' }, 404, cors);
+  if (request.method === 'POST') {
+    reconectarSiHaceFalta(env, ctx, url.origin, await env.CONVERSACIONES?.get('wa:webhook:ultima').catch(() => null));
+  }
   if (request.method !== 'POST') return json({ error: 'Usa POST' }, 405, cors);
   if (!cors['Access-Control-Allow-Origin']) {
     // Sin Origin (un script) u origen ajeno: no se atiende. Un navegador siempre manda Origin en un POST a otro sitio,
