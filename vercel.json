@@ -25,7 +25,7 @@
             ]
         },
         {
-            "source": "/(opt|mini|wa|muebles|mesas|catalogo|hero|arquitectura|servicios|nosotros|links|assets|home|fonts)/(.*)",
+            "source": "/(opt|mini|wa|muebles|mesas|catalogo|hero|arquitectura|servicios|nosotros|links|assets|home|fonts)/(.+)",
             "headers": [
                 {
                     "key": "Cache-Control",
