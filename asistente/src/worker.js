@@ -16,7 +16,7 @@ import { configurar } from './lib/config.js';
 import { atenderChat, atenderDatos } from './chat.js';
 import { proveedorActivo } from './lib/llm.js';
 import { hojaConfigurada } from './lib/hoja.js';
-import { whatsappGet, whatsappPost, cupoMensual } from './canales/whatsapp.js';
+import { whatsappGet, whatsappPost, cupoMensual, diagnosticoWhatsapp } from './canales/whatsapp.js';
 import {
   instagramGet, instagramPost, instagramConectar, instagramDesautorizar, instagramBorrarDatos, renovarTokenInstagram,
 } from './canales/instagram.js';
@@ -59,6 +59,8 @@ async function atender(request, env, ctx, url, origen, cors) {
     // Las dos URL que pide Meta en la configuración de inicio de sesión de la app (firmadas con su clave).
     '/instagram/desautorizar': { POST: () => instagramDesautorizar(request, env) },
     '/instagram/borrar-datos': { POST: () => instagramBorrarDatos(request, env) },
+    // Solo para Jeremy (cabecera X-Clave = DIAG_CLAVE): cómo ve Meta el número y la suscripción del bot.
+    '/diagnostico/whatsapp': { GET: () => diagnosticoWhatsapp(request, url, env) },
   };
   const webhook = webhooks[url.pathname]?.[request.method];
   if (webhook) return webhook();

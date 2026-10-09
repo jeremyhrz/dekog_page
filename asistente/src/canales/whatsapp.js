@@ -343,3 +343,28 @@ async function procesar(valor, mensaje, env) {
   }
   await guardarEstado(env.CONVERSACIONES, clave, estado);
 }
+
+/**
+ * Diagnóstico para cuando el bot deja de recibir mensajes: le pregunta a Meta, con el token del bot, cómo están el
+ * número, la cuenta de WhatsApp y la suscripción de la app a esa cuenta. Solo responde con la cabecera
+ * X-Clave igual a DIAG_CLAVE (secreto del Worker); si no, 404. Nunca devuelve el token ni datos de clientes.
+ *   GET /diagnostico/whatsapp?telefono=<phone_number_id>&cuenta=<waba_id>
+ */
+export async function diagnosticoWhatsapp(request, url, env) {
+  if (!env.DIAG_CLAVE || request.headers.get('X-Clave') !== env.DIAG_CLAVE) return new Response('No encontrado', { status: 404 });
+  const telefono = (url.searchParams.get('telefono') ?? '').replace(/\D/g, '');
+  const cuenta = (url.searchParams.get('cuenta') ?? '').replace(/\D/g, '');
+  const pedir = async (ruta) => {
+    try {
+      const r = await fetch(`${graph()}/${ruta}`, { headers: { Authorization: `Bearer ${config.WA_TOKEN}` } });
+      return { http: r.status, ...(await r.json().catch(() => ({}))) };
+    } catch (e) {
+      return { error: e?.message ?? 'sin respuesta' };
+    }
+  };
+  return Response.json({
+    numero: telefono ? await pedir(`${telefono}?fields=display_phone_number,verified_name,name_status,status,quality_rating,code_verification_status,platform_type,messaging_limit_tier`) : null,
+    cuenta: cuenta ? await pedir(`${cuenta}?fields=name,account_review_status`) : null,
+    suscripcion: cuenta ? await pedir(`${cuenta}/subscribed_apps`) : null,
+  });
+}
