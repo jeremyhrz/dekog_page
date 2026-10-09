@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import Imagen from './Imagen';
+import { asistenteWhatsapp } from '../utils/whatsapp';
 
 export default function ProjectModal({ project, onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -75,7 +76,7 @@ export default function ProjectModal({ project, onClose }) {
 
   const handleWhatsApp = () => {
     const message = `Hola DEKOG, quiero consultar sobre un proyecto similar a ${project.titulo}`;
-    window.open(`https://wa.me/584244006086?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(asistenteWhatsapp(message), '_blank');
   };
 
   return ReactDOM.createPortal(

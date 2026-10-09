@@ -1,20 +1,21 @@
 import React from 'react';
 import './LinksPage.css';
 import { varianteHasta } from '../utils/imagenes';
+import { asistenteWhatsapp } from '../utils/whatsapp';
 
 const CARDS = [
   {
-    tag: 'ENLACE',
-    title: 'Sitio Web',
-    subtitle: 'www.dekog.net',
-    href: '/',
-    image: '/links/tarjeta-web.webp',
-    type: 'web',
-    span: 2,
+    tag: 'WHATSAPP · 24/7',
+    title: 'Asistente Dekog',
+    subtitle: 'MODELOS Y PRECIOS AL INSTANTE',
+    href: asistenteWhatsapp(),
+    image: '/links/vinedo.webp',
+    type: 'whatsapp',
+    span: 3,
   },
   {
     tag: 'CONTACTO',
-    title: 'Línea 01',
+    title: 'Línea 1',
     subtitle: 'ASESORÍAS Y VENTAS',
     href: 'https://wa.me/584145847791?text=Hola',
     image: '/links/manongo1.webp',
@@ -23,7 +24,7 @@ const CARDS = [
   },
   {
     tag: 'CONTACTO',
-    title: 'Línea 02',
+    title: 'Línea 2',
     subtitle: 'ASESORÍAS Y VENTAS',
     href: 'https://wa.me/584244006086?text=Hola',
     image: '/links/manongo2.webp',
@@ -31,12 +32,12 @@ const CARDS = [
     span: 1,
   },
   {
-    tag: 'CONTACTO',
-    title: 'Asistente 24/7',
-    subtitle: 'MODELOS Y PRECIOS AL INSTANTE',
-    href: 'https://wa.me/584124423350?text=Hola',
-    image: '/links/vinedo.webp',
-    type: 'whatsapp',
+    tag: 'ENLACE',
+    title: 'Sitio Web',
+    subtitle: 'www.dekog.net',
+    href: '/',
+    image: '/links/tarjeta-web.webp',
+    type: 'web',
     span: 1,
   },
   {
@@ -46,7 +47,8 @@ const CARDS = [
     href: 'https://drive.google.com/file/d/1sTpDlNajdFht5YtRc7kBNWWN0eb5Wm6D/view',
     image: '/links/camas-catalogo.webp',
     type: 'catalog',
-    span: 2,
+    span: 1,
+    posicion: 'left center', // el texto de la portada está a la izquierda
   },
   {
     tag: 'CATÁLOGO',
@@ -55,16 +57,17 @@ const CARDS = [
     href: 'https://drive.google.com/file/d/177KJwPkHzjgh88FgSTqLXcRNWTrR3byE/view',
     image: '/links/mobiliario-catalogo.webp',
     type: 'catalog',
-    span: 2,
+    span: 1,
+    posicion: 'left center',
   },
   {
     tag: 'UBICACIÓN',
-    title: 'Sede Mañongo',
-    subtitle: 'CÓMO LLEGAR',
-    href: 'https://www.google.com/maps/dir/Av.+168+Salvador+Feo+La+Cruz+Este+-+Oeste,+Naguanagua+2005,+Carabobo/Centro+Comercial+Via+Veneto,+local+V29,+Nivel+Venezia,+Avenida+168+Salvador+Feo+La+Cruz+Este+-+Oeste,+CC+V%C3%ADa+Veneto,+Naguanagua+2005,+Carabobo/@10.233883,-67.9997324,20z',
+    title: 'Showroom Vía Veneto',
+    subtitle: 'NIVEL ROMA · LOCAL R17',
+    href: 'https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&entry=ttu&g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D',
     image: '/links/manongo-ubicacion.webp',
     type: 'map',
-    span: 3,
+    span: 1,
   }
 ];
 
@@ -99,7 +102,7 @@ export default function LinksPage() {
               : {
                   backgroundImage: `url("${fondo}")`,
                   backgroundSize: 'cover',
-                  backgroundPosition: 'center',
+                  backgroundPosition: c.posicion ?? 'center',
                   backgroundRepeat: 'no-repeat',
                 };
 
