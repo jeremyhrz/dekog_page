@@ -41,6 +41,12 @@ export async function firmaValida(cuerpoCrudo, cabecera, ...secretos) {
   return false;
 }
 
+/** El cliente pidió el monto en bolívares, o la respuesta dice que lo muestra «abajo». */
+export function pideBolivares(textoCliente, respuesta) {
+  return /bol[ií]var|\bbs\b|\btasa\b|cu[aá]nto (es|ser[ií]a|queda|sale) en/i.test(textoCliente ?? '')
+    || /abajo en bol[ií]var/i.test(respuesta ?? '');
+}
+
 /**
  * "• Toronto · Queen 1,60x1,90 M · box nube: REF 670 = Bs 653.058,87 (tasa BCV euro 29/09/2026)"
  * "• Mesa Kenia · 2 × REF 170: REF 340 = Bs …"

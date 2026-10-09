@@ -24,6 +24,7 @@ import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import {
   verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse, eleccionDe, fichaElegida, listaDeVitrina, textoDeVitrinaWa,
+  pideBolivares,
 } from './meta.js';
 
 const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${config.WA_API_VERSION || 'v25.0'}`;
@@ -299,7 +300,9 @@ async function procesar(valor, mensaje, env) {
   // mismo producto, repetir la misma foto se siente robótico. Con vitrina, los modelos van en la lista.
   const nuevos = vitrina ? [] : productosNuevos(estado, r.productos);
   const [principal] = nuevos;
-  const cuerpo = [respuesta, nuevos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  // Pidió el monto en bolívares (o la respuesta lo promete) del MISMO producto: la foto no se repite, el precio sí.
+  const repetidos = !vitrina && !nuevos.length && pideBolivares(texto, respuesta) ? r.productos : [];
+  const cuerpo = [respuesta, [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
 
   let enviado = false;
   if (vitrina) {

@@ -29,7 +29,7 @@ import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import {
-  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse,
+  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse, pideBolivares,
   eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram,
 } from './meta.js';
 
@@ -299,7 +299,9 @@ async function procesar(evento, env) {
   const nuevos = vitrina ? [] : productosNuevos(estado, r.productos);
   const [principal] = nuevos;
   if (principal) await enviarImagen(env, igsid, fotoParaCanales(principal.id));
-  let cuerpo = [respuesta, nuevos.map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  // Pidió el monto en bolívares (o la respuesta lo promete) del MISMO producto: la foto no se repite, el precio sí.
+  const repetidos = !vitrina && !nuevos.length && pideBolivares(texto, respuesta) ? r.productos : [];
+  let cuerpo = [respuesta, [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
   if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp: ${r.whatsapp.url}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
   if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
