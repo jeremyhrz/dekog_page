@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
 import Imagen from './Imagen';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { elegirWhatsapp } from '../utils/whatsapp';
 
 export default function Cart({ carrito, setCarrito, abierto, setAbierto }) {
   const total = carrito.reduce((s, p) => s + (p.precio * p.cant), 0);
@@ -19,7 +19,7 @@ export default function Cart({ carrito, setCarrito, abierto, setAbierto }) {
   const sendWA = () => {
     const items = carrito.map(p => `• ${p.cant}x ${p.nombre} (REF ${p.precio} c/u)`).join('\n');
     const mensaje = `¡Hola Dekog Home! 👋\n\nQuiero solicitar información sobre estos productos:\n\n${items}\n\n*Total estimado: REF ${total}*\n\n¿Podrían confirmarme disponibilidad? Gracias.`;
-    window.open(asistenteWhatsapp(mensaje), '_blank');
+    elegirWhatsapp(mensaje);
   };
 
   if (!abierto) return null;

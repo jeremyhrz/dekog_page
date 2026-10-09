@@ -1,0 +1,177 @@
+<!doctype html>
+<!--
+  /links (el enlace de la bio de Instagram) como página propia, sin el JavaScript del resto de la web: abre al instante
+  aunque la señal sea mala. vercel.json reescribe /links a este archivo. En `npm run dev` se ve la versión de React
+  (src/pages/LinksPage.jsx): si cambias una tarjeta aquí, cámbiala también allá.
+  Las fotos de abajo cargan a medida que se baja (loading="lazy"), y las tres tarjetas de WhatsApp comparten una sola.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DEKOG · Enlaces</title>
+  <meta name="description" content="Asistente por WhatsApp, líneas de asesoría, web, catálogos y ubicación de Dekog.">
+  <meta name="theme-color" content="#E8E3DD">
+  <link rel="icon" type="image/png" href="/258894739_605232457186188_7067910400417702663_n.png">
+  <link rel="preload" href="/fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" as="image" href="/opt/links/vinedo.webp-800.webp" imagesrcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" imagesizes="(min-width: 1152px) 1104px, 100vw" fetchpriority="high">
+  <style>
+    @font-face {
+      font-family: 'Playfair Display';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 400 900;
+      src: url('/fonts/playfair-display-latin-wght-normal.woff2') format('woff2');
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #E8E3DD;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Fondo travertino: degradado suave con un grano casi imperceptible. */
+    .g-bg { position: fixed; inset: 0; background: radial-gradient(circle at 50% 30%, #F5F5F0 0%, #E8E3DD 100%); z-index: -1; }
+    .g-bg::after {
+      content: ''; position: absolute; inset: 0; opacity: 0.025; mix-blend-mode: multiply; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    main { display: flex; flex-direction: column; align-items: center; padding: 60px 0; width: 100%; }
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif; font-size: clamp(2.8rem, 6vw, 4.5rem); font-weight: 400;
+      color: #1F1F24; margin: 0; letter-spacing: 0.25em; text-transform: uppercase; text-align: center;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); padding-left: 0.25em;
+    }
+    .g-subtitle {
+      font-size: clamp(0.6rem, 1.5vw, 0.7rem); color: #6C6B6E; letter-spacing: 0.2em; text-align: center;
+      margin: 14px 0 0; text-transform: uppercase;
+    }
+    .g-grid {
+      display: grid; grid-template-columns: 1fr; gap: 24px; width: 100%; max-width: 72rem; margin: 48px auto 0; padding: 0 24px;
+    }
+    @media (min-width: 768px) { .g-grid { grid-template-columns: repeat(2, 1fr); } .g-ancho { grid-column: span 2; } }
+    @media (min-width: 1024px) { .g-grid { grid-template-columns: repeat(3, 1fr); } .g-ancho { grid-column: span 3; } }
+    .g-card {
+      position: relative; display: block; height: 330px; border-radius: 20px; text-decoration: none;
+      transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); -webkit-tap-highlight-color: transparent;
+    }
+    .g-screen {
+      position: relative; width: 100%; height: 100%; border-radius: 20px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.03); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      background: #141416; transition: border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    .g-foto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+    .g-izq { object-position: left center; }
+    .g-velo { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(11, 11, 13, 0.55) 0%, rgba(11, 11, 13, 0.9) 100%); }
+    .g-tag {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10; white-space: nowrap;
+      background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      color: #fff; font-size: 10px; padding: 5px 14px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .g-texto {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 5; width: 88%; max-width: 260px;
+      background: rgba(11, 11, 13, 0.82); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      padding: 13px 20px; border-radius: 16px; text-align: center; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .g-t { font-family: 'Playfair Display', Georgia, serif; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; color: #fff; line-height: 1.2; }
+    .g-s { font-size: 0.6rem; color: #fff; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.75; }
+    footer { margin-top: 60px; padding: 0 25px 25px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .g-redes { display: flex; gap: 20px; color: rgba(31, 31, 36, 0.45); }
+    .g-redes a { color: inherit; display: flex; align-items: center; transition: color 0.3s ease; }
+    .g-copy { font-size: 0.6rem; color: #1F1F24; opacity: 0.45; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; }
+    @media (hover: hover) and (pointer: fine) {
+      .g-card:hover { transform: translateY(-4px) scale(1.01); }
+      .g-card:hover .g-screen { border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 28px 56px rgba(0, 0, 0, 0.35); }
+      .g-redes a:hover { color: #1F1F24; }
+    }
+    @media (max-width: 768px) { h1 { font-size: 2.8rem; } .g-card { height: 280px; } }
+    @media (max-width: 420px) { .g-card { height: 260px; } }
+    @media (prefers-reduced-motion: reduce) { .g-card, .g-screen, .g-redes a { transition: none !important; } }
+  </style>
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <div class="g-bg" aria-hidden="true"></div>
+  <main>
+    <h1>Dekog</h1>
+    <p class="g-subtitle">Diseñamos · Construimos · Amoblamos</p>
+
+    <div class="g-grid">
+      <a class="g-card g-ancho" href="https://wa.me/584124423350?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Asistente Dekog por WhatsApp, 24/7: modelos y precios al instante">
+        <span class="g-tag" aria-hidden="true">WhatsApp · 24/7</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1152px) 1104px, 100vw" alt="" fetchpriority="high" decoding="async" width="1200" height="900">
+          <div class="g-texto"><div class="g-t">Asistente Dekog</div><div class="g-s">Modelos y precios al instante</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://wa.me/584145847791?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 1 por WhatsApp: asesorías y ventas">
+        <span class="g-tag" aria-hidden="true">Contacto</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="900">
+          <div class="g-texto"><div class="g-t">Línea 1</div><div class="g-s">Asesorías y ventas</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://wa.me/584244006086?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 2 por WhatsApp: asesorías y ventas">
+        <span class="g-tag" aria-hidden="true">Contacto</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="900">
+          <div class="g-texto"><div class="g-t">Línea 2</div><div class="g-s">Asesorías y ventas</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="/" aria-label="Sitio web: www.dekog.net">
+        <span class="g-tag" aria-hidden="true">Enlace</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/tarjeta-web.webp-800.webp" srcset="/opt/links/tarjeta-web.webp-800.webp 800w, /opt/links/tarjeta-web.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="960">
+          <div class="g-texto"><div class="g-t">Sitio Web</div><div class="g-s">www.dekog.net</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://drive.google.com/file/d/1sTpDlNajdFht5YtRc7kBNWWN0eb5Wm6D/view" target="_blank" rel="noopener noreferrer" aria-label="Catálogo de camas">
+        <span class="g-tag" aria-hidden="true">Catálogo</span>
+        <div class="g-screen">
+          <img class="g-foto g-izq" src="/opt/links/camas-catalogo.webp-800.webp" alt="" loading="lazy" decoding="async" width="800" height="570">
+          <div class="g-texto"><div class="g-t">Camas</div><div class="g-s">Ver colección</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://drive.google.com/file/d/177KJwPkHzjgh88FgSTqLXcRNWTrR3byE/view" target="_blank" rel="noopener noreferrer" aria-label="Catálogo de mobiliario">
+        <span class="g-tag" aria-hidden="true">Catálogo</span>
+        <div class="g-screen">
+          <img class="g-foto g-izq" src="/opt/links/mobiliario-catalogo.webp-800.webp" alt="" loading="lazy" decoding="async" width="800" height="568">
+          <div class="g-texto"><div class="g-t">Mobiliario</div><div class="g-s">Ver colección</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&amp;entry=ttu&amp;g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" aria-label="Cómo llegar al showroom: CC Vía Veneto, Nivel Roma, Local R17">
+        <span class="g-tag" aria-hidden="true">Ubicación</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/manongo-ubicacion.webp-800.webp" srcset="/opt/links/manongo-ubicacion.webp-800.webp 800w, /opt/links/manongo-ubicacion.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="960">
+          <div class="g-velo"></div>
+          <div class="g-texto"><div class="g-t">Showroom Vía Veneto</div><div class="g-s">Nivel Roma · Local R17</div></div>
+        </div>
+      </a>
+    </div>
+
+    <footer>
+      <nav class="g-redes" aria-label="Redes sociales">
+        <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Dekog Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+        </a>
+        <a href="https://www.facebook.com/dekog.home" target="_blank" rel="noopener noreferrer" aria-label="Facebook de Dekog Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+        </a>
+      </nav>
+      <p class="g-copy">Copyright © <span id="anio">2026</span> Dekog Home</p>
+    </footer>
+  </main>
+  <script>document.getElementById('anio').textContent = new Date().getFullYear();</script>
+</body>
+</html>

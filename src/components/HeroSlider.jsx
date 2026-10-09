@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { anchosDe, recorteMovil, variante } from '../utils/imagenes';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { propsWhatsapp } from '../utils/whatsapp';
 
 // En un teléfono en vertical la foto apaisada se ve recortada al centro: ahí va su recorte vertical,
 // nítido y liviano. En lo demás, el ancho que cubre la pantalla (object-cover sobre 85–90vh de alto).
@@ -157,7 +157,7 @@ export default function HeroSlider({ slides, onAddToCart, setCategoria }) {
                 </button>
               ) : (
                 <a
-                  href={asistenteWhatsapp(`Hola, quiero más información sobre ${slide.nombre}`)}
+                  {...propsWhatsapp(`Hola, quiero más información sobre ${slide.nombre}`)}
                   target="_blank" rel="noopener noreferrer"
                   className="btn-primary flex items-center justify-center bg-white text-black px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 w-full sm:w-auto shadow-lg"
                 >

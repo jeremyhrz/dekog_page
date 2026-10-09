@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChevronRight, Compass, Box, FileText, HardHat, ClipboardCheck, CheckCircle2, Users, Handshake, Award, Search, PenTool, CalendarClock, Hammer, PackageCheck, ShieldCheck } from 'lucide-react';
 import Imagen from './Imagen';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { propsWhatsapp } from '../utils/whatsapp';
 
 export default function ArquitecturaSection() {
   const servicios = [
@@ -172,7 +172,7 @@ export default function ArquitecturaSection() {
             </h2>
             <p className="text-sm text-gray-400 mb-6">Hagamos realidad tu espacio ideal.</p>
             <a
-              href={asistenteWhatsapp('Hola, quiero cotizar un proyecto de arquitectura')}
+              {...propsWhatsapp('Hola, quiero cotizar un proyecto de arquitectura')}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block border border-white text-white px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-300"

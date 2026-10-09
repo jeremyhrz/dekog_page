@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Clock, MessageCircle, Send, CheckCircle, Instagram, Facebook, ArrowRight } from 'lucide-react';
 import Imagen from '../components/Imagen';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { elegirWhatsapp, propsWhatsapp } from '../utils/whatsapp';
 
 export default function Contacto() {
   const [formData, setFormData] = useState({
@@ -35,7 +35,7 @@ export default function Contacto() {
       `Tipo de proyecto: ${formData.tipoProyecto}`,
       `Mensaje: ${formData.mensaje}`,
     ].join('\n');
-    window.open(asistenteWhatsapp(texto), '_blank', 'noopener,noreferrer');
+    elegirWhatsapp(texto);
     setIsSubmitted(true);
     setFormData({
       nombre: '',
@@ -52,9 +52,9 @@ export default function Contacto() {
       icon: Phone,
       title: 'Teléfono / WhatsApp',
       // \u00a0 (espacio que no corta): cada número queda entero en una línea, también en teléfonos.
-      details: ['Asistente 24/7: +58\u00a0412\u00a0442\u00a03350', 'Línea 1: +58\u00a0414\u00a0584\u00a07791', 'Línea 2: +58\u00a0424\u00a0400\u00a06086'],
-      action: asistenteWhatsapp(),
-      actionText: 'Escribir al asistente'
+      details: ['Línea 1: +58\u00a0414\u00a0584\u00a07791', 'Línea 2: +58\u00a0424\u00a0400\u00a06086'],
+      whatsapp: 'Hola, tengo una consulta sobre sus servicios.',
+      actionText: 'Escribir por WhatsApp'
     },
     {
       icon: Mail,
@@ -261,11 +261,9 @@ export default function Contacto() {
                             <p key={i} className="text-gray-600">{detail}</p>
                           ))}
                         </div>
-                        {info.action && (
+                        {(info.action || info.whatsapp) && (
                           <a
-                            href={info.action}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            {...(info.whatsapp ? propsWhatsapp(info.whatsapp) : { href: info.action, target: '_blank', rel: 'noopener noreferrer' })}
                             className="inline-block mt-4 text-[10px] font-bold uppercase tracking-widest text-black hover:text-gray-600 flex items-center gap-1"
                           >
                             {info.actionText} <ArrowRight size={12} />
@@ -306,7 +304,7 @@ export default function Contacto() {
                     <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">Facebook</span>
                   </a>
                   <a
-                    href={asistenteWhatsapp()}
+                    {...propsWhatsapp()}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 min-w-0 bg-white/10 hover:bg-white/20 rounded-xl px-2 py-4 sm:p-4 text-center transition-colors"
@@ -325,15 +323,15 @@ export default function Contacto() {
                 className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-8 text-center"
               >
                 <h3 className="text-xl font-black uppercase tracking-tight mb-4">¿Necesitas respuesta inmediata?</h3>
-                <p className="mb-6">Nuestro asistente por WhatsApp te responde al instante, a cualquier hora, y si lo necesitas te pasa con una asesora.</p>
+                <p className="mb-6">Escríbenos por WhatsApp: elige la Línea 1 o la Línea 2 y te atiende una asesora. Fuera de horario, el chat de esta página te responde al instante.</p>
                 <a
-                  href={asistenteWhatsapp()}
+                  {...propsWhatsapp()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-primary bg-white text-black px-8 py-3 text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2"
                 >
                   <MessageCircle size={16} />
-                  Asistente por WhatsApp
+                  WhatsApp
                 </a>
               </motion.div>
             </motion.div>
@@ -385,7 +383,7 @@ export default function Contacto() {
             {[
               {
                 question: '¿Cuál es el tiempo de respuesta para consultas?',
-                answer: 'Por WhatsApp, nuestro asistente te responde al instante y a cualquier hora, y si lo necesitas te pasa con una asesora. Las asesoras atienden de lunes a sábado, de 9:00 a. m. a 6:00 p. m.'
+                answer: 'Nuestras asesoras responden por WhatsApp (Línea 1 o Línea 2) de lunes a sábado, de 9:00 a. m. a 6:00 p. m. Fuera de ese horario, el chat de esta página te responde al instante, a cualquier hora.'
               },
               {
                 question: '¿Ofrecen consultas gratuitas?',

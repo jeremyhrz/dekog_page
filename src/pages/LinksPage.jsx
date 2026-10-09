@@ -1,7 +1,7 @@
 import React from 'react';
 import './LinksPage.css';
 import { varianteHasta } from '../utils/imagenes';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { asistenteWhatsapp, lineaWhatsapp } from '../utils/whatsapp';
 
 const CARDS = [
   {
@@ -12,6 +12,24 @@ const CARDS = [
     image: '/links/vinedo.webp',
     type: 'whatsapp',
     span: 3,
+  },
+  {
+    tag: 'CONTACTO',
+    title: 'Línea 1',
+    subtitle: 'ASESORÍAS Y VENTAS',
+    href: lineaWhatsapp(1),
+    image: '/links/vinedo.webp', // la misma foto que el asistente: se baja una vez
+    type: 'whatsapp',
+    span: 1,
+  },
+  {
+    tag: 'CONTACTO',
+    title: 'Línea 2',
+    subtitle: 'ASESORÍAS Y VENTAS',
+    href: lineaWhatsapp(2),
+    image: '/links/vinedo.webp', // la misma foto que el asistente: se baja una vez
+    type: 'whatsapp',
+    span: 1,
   },
   {
     tag: 'ENLACE',
@@ -50,7 +68,6 @@ const CARDS = [
     image: '/links/manongo-ubicacion.webp',
     type: 'map',
     span: 1,
-    clase: 'lg:col-span-3', // en escritorio cierra a todo lo ancho; en tablet va al lado de Mobiliario
   }
 ];
 

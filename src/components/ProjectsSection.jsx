@@ -4,7 +4,7 @@ import { proyectosData, categories } from '../data/proyectosData';
 import ProjectModal from './ProjectModal';
 import { motion } from 'framer-motion';
 import ImageWithSkeleton from './ImageWithSkeleton';
-import { asistenteWhatsapp } from '../utils/whatsapp';
+import { elegirWhatsapp } from '../utils/whatsapp';
 
 import './ProjectsSection.css';
 
@@ -21,7 +21,7 @@ const ProjectsSection = () => {
   // Handle WhatsApp quote
   const handleProjectQuote = (projectName) => {
     const message = `Hola DEKOG, me interesa un proyecto como ${projectName}`;
-    window.open(asistenteWhatsapp(message), '_blank');
+    elegirWhatsapp(message);
   };
 
   return (
@@ -138,7 +138,7 @@ const ProjectsSection = () => {
           </div>
           <button
             className="cta-btn"
-            onClick={() => window.open(asistenteWhatsapp('Hola DEKOG, tengo un proyecto en mente y me gustaría una asesoría.'), '_blank')}
+            onClick={() => elegirWhatsapp('Hola DEKOG, tengo un proyecto en mente y me gustaría una asesoría.')}
           >
             COTIZA TU PROYECTO
           </button>
