@@ -10,13 +10,14 @@
  *
  * /chat y /datos solo aceptan llamadas desde dekog.net, sus links de prueba de
  * Vercel y la web en desarrollo local (CORS). Los webhooks se validan con la
- * firma de Meta. Una tarea semanal renueva el token de Instagram.
+ * firma de Meta. Una tarea semanal renueva el token de Instagram y otra, cada
+ * hora, reconecta el webhook de WhatsApp (ver reconectarWebhookWhatsapp).
  */
 import { configurar } from './lib/config.js';
 import { atenderChat, atenderDatos } from './chat.js';
 import { proveedorActivo } from './lib/llm.js';
 import { hojaConfigurada } from './lib/hoja.js';
-import { whatsappGet, whatsappPost, cupoMensual, diagnosticoWhatsapp } from './canales/whatsapp.js';
+import { whatsappGet, whatsappPost, cupoMensual, diagnosticoWhatsapp, reconectarWebhookWhatsapp } from './canales/whatsapp.js';
 import {
   instagramGet, instagramPost, instagramConectar, instagramDesautorizar, instagramBorrarDatos, renovarTokenInstagram,
 } from './canales/instagram.js';
@@ -124,6 +125,8 @@ export default {
 
   async scheduled(evento, env, ctx) {
     configurar(env);
-    ctx.waitUntil(renovarTokenInstagram(env));
+    // Los lunes a las 9:00 UTC, el token de Instagram; cada hora, la reconexión del webhook de WhatsApp.
+    if (evento.cron === '0 9 * * 1') ctx.waitUntil(renovarTokenInstagram(env));
+    else ctx.waitUntil(reconectarWebhookWhatsapp(env));
   },
 };

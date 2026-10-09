@@ -344,47 +344,84 @@ async function procesar(valor, mensaje, env) {
   await guardarEstado(env.CONVERSACIONES, clave, estado);
 }
 
+// Los mismos campos que tenía la app el 9-oct (si se manda solo «messages», Meta deja solo ese).
+const CAMPOS_WEBHOOK = 'account_alerts,account_review_update,account_update,calls,message_template_quality_update,'
+  + 'message_template_status_update,messages,phone_number_name_update,phone_number_quality_update,security';
+
+async function pedirMeta(ruta, { token = config.WA_TOKEN, metodo = 'GET', cuerpo } = {}) {
+  try {
+    const r = await fetch(`${graph()}/${ruta}`, { method: metodo, body: cuerpo, headers: { Authorization: `Bearer ${token}` } });
+    return { http: r.status, ...(await r.json().catch(() => ({}))) };
+  } catch (e) {
+    return { error: { message: e?.message ?? 'sin respuesta' } };
+  }
+}
+
+/**
+ * Vuelve a suscribir el webhook de WhatsApp de la app (los mismos datos que ya tiene) y la app a la cuenta de WhatsApp.
+ * El 9-oct Meta dejó de entregar los mensajes durante horas aunque todo figuraba «activo», y esto lo destrabó al
+ * instante: la tarea de cada hora lo repite, así una caída así dura como mucho una hora. Si falla dos horas seguidas,
+ * queda UN aviso «Sistema» al día en la hoja (llega por correo). Necesita WA_APP_ID, WA_WABA_ID y ASISTENTE_URL.
+ */
+export async function reconectarWebhookWhatsapp(env, origen = config.ASISTENTE_URL) {
+  const app = config.WA_APP_ID;
+  const cuenta = config.WA_WABA_ID;
+  if (!app || !cuenta || !origen || !config.WA_APP_SECRET || !config.WA_TOKEN) return null;
+  const webhook = await pedirMeta(`${app}/subscriptions`, {
+    token: `${app}|${config.WA_APP_SECRET}`,
+    metodo: 'POST',
+    cuerpo: new URLSearchParams({
+      object: 'whatsapp_business_account',
+      callback_url: `${origen}/whatsapp`,
+      verify_token: config.WA_VERIFY_TOKEN ?? '',
+      fields: CAMPOS_WEBHOOK,
+    }),
+  });
+  const suscripcion = await pedirMeta(`${cuenta}/subscribed_apps`, { metodo: 'POST' });
+  const ok = Boolean(webhook.success && suscripcion.success);
+  if (ok) return { ok, webhook, suscripcion };
+
+  console.error('No se pudo reconectar el webhook de WhatsApp:', webhook.error?.message ?? '', '|', suscripcion.error?.message ?? '');
+  const kv = env.CONVERSACIONES;
+  try {
+    // Un fallo suelto de Meta no avisa: solo el segundo seguido (el contador vence a las 3 horas).
+    const fallos = Number(await kv?.get('wa:webhook:fallos') ?? 0) + 1;
+    await kv?.put('wa:webhook:fallos', String(fallos), { expirationTtl: 3 * 3600 });
+    const hoy = hoyCaracas();
+    if (fallos >= 2 && !(await kv?.get(`wa:webhook:aviso:${hoy}`))) {
+      await kv?.put(`wa:webhook:aviso:${hoy}`, '1', { expirationTtl: 48 * 3600 });
+      await guardarCliente({
+        conversacion: `sistema-wa-${hoy}`,
+        cliente: { nombre: 'WhatsApp sin conexión', telefono: '', ciudad: '' },
+        interes: '',
+        resumen: `El asistente no pudo reconectarse con WhatsApp (${webhook.error?.message ?? suscripcion.error?.message ?? 'error de Meta'}). `
+          + 'Puede que no esté recibiendo mensajes: avísale a Jeremy.',
+        canal: 'Sistema',
+      });
+    }
+  } catch (e) {
+    console.warn('No se pudo registrar el fallo del webhook de WhatsApp:', e?.message);
+  }
+  return { ok, webhook, suscripcion };
+}
+
 /**
  * Diagnóstico para cuando el bot deja de recibir mensajes: le pregunta a Meta, con el token del bot, cómo están el
- * número, la cuenta de WhatsApp y la suscripción de la app a esa cuenta. Solo responde con la cabecera
- * X-Clave igual a DIAG_CLAVE (secreto del Worker); si no, 404. Nunca devuelve el token ni datos de clientes.
- *   GET /diagnostico/whatsapp?telefono=<phone_number_id>&cuenta=<waba_id>&app=<app_id>
- * Con app, también la configuración del webhook de la app (con su token de app: id|WA_APP_SECRET); con
- * reparar=1, además vuelve a apuntar el webhook de WhatsApp de la app a /whatsapp de este Worker (mismos campos).
+ * número, la cuenta de WhatsApp, la suscripción de la app y su webhook. Solo responde con la cabecera X-Clave igual a
+ * DIAG_CLAVE (secreto del Worker); si no, 404. Nunca devuelve el token ni datos de clientes.
+ *   GET /diagnostico/whatsapp            → estado
+ *   GET /diagnostico/whatsapp?reparar=1  → además, reconecta el webhook (reconectarWebhookWhatsapp)
  */
 export async function diagnosticoWhatsapp(request, url, env) {
   if (!env.DIAG_CLAVE || request.headers.get('X-Clave') !== env.DIAG_CLAVE) return new Response('No encontrado', { status: 404 });
+  const { WA_APP_ID: app, WA_WABA_ID: cuenta } = config;
+  const reparado = url.searchParams.get('reparar') === '1' ? await reconectarWebhookWhatsapp(env, url.origin) : null;
   const telefono = (url.searchParams.get('telefono') ?? '').replace(/\D/g, '');
-  const cuenta = (url.searchParams.get('cuenta') ?? '').replace(/\D/g, '');
-  const app = (url.searchParams.get('app') ?? '').replace(/\D/g, '');
-  const pedir = async (ruta, { token = config.WA_TOKEN, metodo = 'GET', cuerpo } = {}) => {
-    try {
-      const r = await fetch(`${graph()}/${ruta}`, { method: metodo, body: cuerpo, headers: { Authorization: `Bearer ${token}` } });
-      return { http: r.status, ...(await r.json().catch(() => ({}))) };
-    } catch (e) {
-      return { error: e?.message ?? 'sin respuesta' };
-    }
-  };
-  const tokenApp = app && config.WA_APP_SECRET ? `${app}|${config.WA_APP_SECRET}` : '';
-  const reparado = tokenApp && url.searchParams.get('reparar') === '1'
-    ? await pedir(`${app}/subscriptions`, {
-      token: tokenApp,
-      metodo: 'POST',
-      cuerpo: new URLSearchParams({
-        object: 'whatsapp_business_account',
-        callback_url: `${url.origin}/whatsapp`,
-        verify_token: config.WA_VERIFY_TOKEN ?? '',
-        // Los mismos campos que ya tenía la app (si se manda solo «messages», Meta deja solo ese).
-        fields: 'account_alerts,account_review_update,account_update,calls,message_template_quality_update,'
-          + 'message_template_status_update,messages,phone_number_name_update,phone_number_quality_update,security',
-      }),
-    })
-    : null;
   return Response.json({
-    webhook_app: tokenApp ? await pedir(`${app}/subscriptions`, { token: tokenApp }) : null,
     reparado,
-    numero: telefono ? await pedir(`${telefono}?fields=display_phone_number,verified_name,name_status,status,quality_rating,code_verification_status,platform_type,messaging_limit_tier`) : null,
-    cuenta: cuenta ? await pedir(`${cuenta}?fields=name,account_review_status`) : null,
-    suscripcion: cuenta ? await pedir(`${cuenta}/subscribed_apps`) : null,
+    webhook_app: app && config.WA_APP_SECRET ? await pedirMeta(`${app}/subscriptions`, { token: `${app}|${config.WA_APP_SECRET}` }) : null,
+    numero: telefono ? await pedirMeta(`${telefono}?fields=display_phone_number,verified_name,name_status,status,quality_rating,code_verification_status,platform_type,messaging_limit_tier`) : null,
+    cuenta: cuenta ? await pedirMeta(`${cuenta}?fields=name,account_review_status`) : null,
+    suscripcion: cuenta ? await pedirMeta(`${cuenta}/subscribed_apps`) : null,
   });
 }

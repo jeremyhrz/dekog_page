@@ -19,6 +19,13 @@ enabled = true
 binding = "CONVERSACIONES"
 id = "bd27d81ccb854efb9e0886d9f7fbae20"
 
-# Cada lunes 9:00 UTC renueva el token de 60 días de Instagram.
+# Lo que no es secreto: los ids públicos de la app y de la cuenta de WhatsApp, y la dirección de este Worker.
+[vars]
+WA_APP_ID = "1980801789282059"
+WA_WABA_ID = "1794140648401470"
+ASISTENTE_URL = "https://dekog-asistente.dekog-web.workers.dev"
+
+# Cada lunes 9:00 UTC renueva el token de 60 días de Instagram; a los 7 minutos de cada hora reconecta el webhook
+# de WhatsApp (el 9-oct Meta dejó de entregar mensajes durante horas y esto lo destrabó).
 [triggers]
-crons = ["0 9 * * 1"]
+crons = ["0 9 * * 1", "7 * * * *"]
