@@ -48,6 +48,7 @@ test('Reconectar: el webhook de la app con los mismos campos y la app a la cuent
   assert.match(suscripcion.url, /\/222\/subscribed_apps$/);
   assert.equal(suscripcion.metodo, 'POST');
   assert.equal(filasHoja.length, 0);
+  assert.match(await env.CONVERSACIONES.get('wa:webhook:ultima'), /^\d{4}-\d{2}-\d{2}T/);
 });
 
 test('Si Meta falla una hora no avisa; dos horas seguidas, UN aviso «Sistema» (y no otro el mismo día)', async () => {

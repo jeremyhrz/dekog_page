@@ -77,6 +77,8 @@ async function atender(request, env, ctx, url, origen, cors) {
       whatsapp: Boolean(env.WA_TOKEN && env.WA_APP_SECRET && env.WA_VERIFY_TOKEN),
       // El tope de respuestas al mes que usa el bot (0 = sin tope): sirve para comprobar WA_CUPO_MENSUAL.
       cupo_whatsapp: cupoMensual().cupo,
+      // Última reconexión buena del webhook de WhatsApp (la tarea de cada hora); null si no ha corrido.
+      whatsapp_reconectado: await env.CONVERSACIONES?.get('wa:webhook:ultima').catch(() => null) ?? null,
       instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
         && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
     }, 200, cors);

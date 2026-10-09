@@ -382,7 +382,12 @@ export async function reconectarWebhookWhatsapp(env, origen = config.ASISTENTE_U
   });
   const suscripcion = await pedirMeta(`${cuenta}/subscribed_apps`, { metodo: 'POST' });
   const ok = Boolean(webhook.success && suscripcion.success);
-  if (ok) return { ok, webhook, suscripcion };
+  if (ok) {
+    // La hora de la última reconexión buena, para verla en /salud (24 escrituras de KV al día, de las 1.000 gratis).
+    await env.CONVERSACIONES?.put('wa:webhook:ultima', new Date().toISOString(), { expirationTtl: 7 * 86400 })
+      .catch((e) => console.warn('No se pudo anotar la reconexión:', e?.message));
+    return { ok, webhook, suscripcion };
+  }
 
   console.error('No se pudo reconectar el webhook de WhatsApp:', webhook.error?.message ?? '', '|', suscripcion.error?.message ?? '');
   const kv = env.CONVERSACIONES;
