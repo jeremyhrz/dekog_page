@@ -24,10 +24,12 @@ export function kvEnMemoria() {
       return tipo === 'json' ? JSON.parse(v) : v;
     },
     async put(clave, valor) { datos.set(clave, String(valor)); },
+    async delete(clave) { datos.delete(clave); },
   };
 }
 
-/** Meta falso: guarda lo que se le envía y responde 200, salvo lo que `rechazar(cuerpo)` diga. */
+/** Meta falso: guarda lo que se le envía y responde 200, salvo lo que `rechazar(cuerpo)` diga (si devuelve un número,
+ * es el código de error de Meta; si devuelve true, 131009). */
 export function metaFalso({ rechazar = () => false } = {}) {
   const enviados = [];
   const fetchFalso = async (url, opciones = {}) => {
@@ -36,7 +38,8 @@ export function metaFalso({ rechazar = () => false } = {}) {
       return new Response(JSON.stringify({ promedio: 186.4321, moneda: 'EUR', fechaActualizacion: '2026-10-07T12:00:00-04:00' }));
     }
     const cuerpo = opciones.body ? JSON.parse(opciones.body) : null;
-    if (cuerpo && rechazar(cuerpo)) return new Response(JSON.stringify({ error: { code: 131009, message: 'rechazado (prueba)' } }), { status: 400 });
+    const motivo = cuerpo && rechazar(cuerpo);
+    if (motivo) return new Response(JSON.stringify({ error: { code: typeof motivo === 'number' ? motivo : 131009, message: 'rechazado (prueba)' } }), { status: 400 });
     if (cuerpo) enviados.push({ url: u, cuerpo });
     return new Response(JSON.stringify({ messages: [{ id: 'wamid.falso' }], recipient_id: 'x', message_id: 'm', username: 'cliente', name: 'Cliente' }));
   };

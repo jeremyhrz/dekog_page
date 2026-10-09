@@ -4,7 +4,8 @@
  *   POST /chat    → el chat de la web (ver chat.js)
  *   POST /datos   → formulario de contacto, directo a la hoja de clientes
  *   GET|POST /whatsapp   → webhook de WhatsApp (ver canales/whatsapp.js)
- *   GET|POST /instagram  → webhook de Instagram (ver canales/instagram.js)
+ *   GET|POST /instagram  → webhook de Instagram (ver canales/instagram.js), y /instagram/conectar,
+ *                          /instagram/desautorizar y /instagram/borrar-datos
  *   GET  /salud   → comprobación rápida de que está vivo y configurado
  *
  * /chat y /datos solo aceptan llamadas desde dekog.net, sus links de prueba de
@@ -16,7 +17,9 @@ import { atenderChat, atenderDatos } from './chat.js';
 import { proveedorActivo } from './lib/llm.js';
 import { hojaConfigurada } from './lib/hoja.js';
 import { whatsappGet, whatsappPost, cupoMensual } from './canales/whatsapp.js';
-import { instagramGet, instagramPost, instagramConectar, renovarTokenInstagram } from './canales/instagram.js';
+import {
+  instagramGet, instagramPost, instagramConectar, instagramDesautorizar, instagramBorrarDatos, renovarTokenInstagram,
+} from './canales/instagram.js';
 
 const ORIGENES_PERMITIDOS = [
   /^https:\/\/(www\.)?dekog\.net$/,
@@ -53,6 +56,9 @@ async function atender(request, env, ctx, url, origen, cors) {
     '/instagram': { GET: () => instagramGet(url), POST: () => instagramPost(request, env, ctx) },
     // La dueña de la cuenta da permiso desde su teléfono; nadie comparte la contraseña.
     '/instagram/conectar': { GET: () => instagramConectar(url, env) },
+    // Las dos URL que pide Meta en la configuración de inicio de sesión de la app (firmadas con su clave).
+    '/instagram/desautorizar': { POST: () => instagramDesautorizar(request, env) },
+    '/instagram/borrar-datos': { POST: () => instagramBorrarDatos(request, env) },
   };
   const webhook = webhooks[url.pathname]?.[request.method];
   if (webhook) return webhook();

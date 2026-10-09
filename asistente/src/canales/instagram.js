@@ -3,12 +3,19 @@
  *
  *   GET  /instagram  → verificación del webhook (IG_VERIFY_TOKEN)
  *   POST /instagram  → mensajes directos entrantes; 200 al instante y proceso en segundo plano
+ *   GET  /instagram/conectar      → la dueña autoriza la cuenta (ver instagramConectar)
+ *   POST /instagram/desautorizar  → Meta avisa que quitaron la app desde Instagram
+ *   POST /instagram/borrar-datos  → Meta pide borrar los datos de la cuenta
  *
  * Secretos: IG_TOKEN (token de 60 días de la cuenta de Dekog; el Worker lo
  * renueva cada semana y guarda el nuevo en KV), IG_APP_SECRET (firma; se
  * acepta también META_APP_SECRET), IG_VERIFY_TOKEN. Opcionales: IG_API_VERSION
  * (v25.0), IG_API_BASE (pruebas), IG_VITRINA=tarjetas (la vitrina manda además
- * un carrusel con fotos; sin ella, solo la lista en texto con respuestas rápidas).
+ * un carrusel con fotos; sin ella, solo la lista en texto con respuestas rápidas),
+ * IG_USUARIO (la cuenta que se puede conectar; por defecto dekog.home).
+ *
+ * Si Instagram deja de aceptar el token (venció, cambiaron la contraseña o quitaron
+ * el permiso), se borra de KV y queda UN aviso al día en la hoja, que llega por correo.
  *
  * Si el cliente escribe su número de WhatsApp, lo captura el servidor y va a
  * la hoja; la IA solo ve "[dato personal]". Si muestra interés sin dar número,
@@ -43,8 +50,35 @@ async function enviar(env, igsid, message) {
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     console.warn('Instagram rechazó el envío:', r.status, j?.error?.code, j?.error?.message);
+    if (j?.error?.code === 190) await avisarDesconexion(env, 'Instagram ya no acepta el permiso de la cuenta');
   }
   return r.ok;
+}
+
+const hoyCaracas = () => new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
+
+/**
+ * El bot quedó sin permiso en Instagram: se borra el token (así /salud deja de decir que está conectado) y queda
+ * UNA fila «Sistema» al día en la hoja, que llega por correo. Nunca lanza: corre dentro del envío de un mensaje.
+ */
+async function avisarDesconexion(env, motivo) {
+  console.error('Instagram desconectado:', motivo);
+  const kv = env.CONVERSACIONES;
+  const hoy = hoyCaracas();
+  try {
+    if (await kv?.get(`ig:aviso:${hoy}`)) return; // ya se avisó hoy
+    await kv?.put(`ig:aviso:${hoy}`, '1', { expirationTtl: 60 * 60 * 48 });
+    await kv?.delete('ig:token');
+  } catch (e) {
+    console.warn('No se pudo marcar la desconexión de Instagram en KV:', e?.message);
+  }
+  await guardarCliente({
+    conversacion: `sistema-ig-${hoy}`,
+    cliente: { nombre: 'Instagram desconectado', telefono: '', ciudad: '' },
+    interes: '',
+    resumen: `El asistente ya no puede responder en Instagram (${motivo}). Hay que volver a conectar la cuenta: avísale a Jeremy.`,
+    canal: 'Sistema',
+  }).catch(() => false);
 }
 
 // La doc de Instagram Login usa "attachments" para imágenes; la de Messenger, "attachment".
@@ -104,6 +138,11 @@ const OAUTH = () => config.IG_OAUTH_BASE || 'https://api.instagram.com';
 const AUTORIZAR = () => config.IG_AUTH_BASE || 'https://www.instagram.com';
 const DIAS_60 = 60 * 60 * 24 * 60;
 
+/** Las cuentas que se pueden conectar (IG_USUARIO, separadas por comas; por defecto dekog.home). */
+export function cuentasPermitidas() {
+  return (config.IG_USUARIO || 'dekog.home').split(',').map((c) => c.trim().replace(/^@/, '').toLowerCase()).filter(Boolean);
+}
+
 function redireccion(url) {
   return `${url.origin}/instagram/conectar`;
 }
@@ -155,14 +194,24 @@ export async function instagramConectar(url, env) {
     })}`).then((r) => r.json());
     if (!largo?.access_token) throw new Error(`no se obtuvo el token largo (${largo?.error?.code ?? 'sin token'})`);
 
-    await env.CONVERSACIONES.put('ig:token', largo.access_token, { expirationTtl: DIAS_60 });
+    // Antes de guardar nada: el enlace sirve con cualquier cuenta profesional, y otra cuenta pisaría el token de Dekog.
+    const yo = await fetch(`${graph()}/me?fields=username`, { headers: { Authorization: `Bearer ${largo.access_token}` } })
+      .then((r) => r.json()).catch(() => ({}));
+    const usuario = String(yo.username ?? '').toLowerCase().replace(/[^a-z0-9._]/g, '');
+    const [principal] = cuentasPermitidas();
+    if (!cuentasPermitidas().includes(usuario)) {
+      console.warn('Se intentó conectar otra cuenta de Instagram:', usuario || '(sin usuario)');
+      return pagina('Esa no es la cuenta de Dekog',
+        `Entraste con <b>@${usuario || '?'}</b>. Hay que conectar <b>@${principal}</b>: en Instagram cambia a @${principal} y vuelve a abrir el enlace.`, 403);
+    }
+
+    const segundos = Math.max(60, Math.min(Number(largo.expires_in) || DIAS_60, DIAS_60));
+    await env.CONVERSACIONES.put('ig:token', largo.access_token, { expirationTtl: segundos });
     const suscrito = await fetch(`${graph()}/me/subscribed_apps?subscribed_fields=messages`, {
       method: 'POST', headers: { Authorization: `Bearer ${largo.access_token}` },
     }).then((r) => r.json()).catch(() => ({}));
-    const yo = await fetch(`${graph()}/me?fields=username`, { headers: { Authorization: `Bearer ${largo.access_token}` } })
-      .then((r) => r.json()).catch(() => ({}));
-    console.log('Instagram conectado:', yo.username ?? datos.user_id, '| mensajes suscritos:', Boolean(suscrito?.success));
-    return pagina('✅ Instagram conectado', `La cuenta <b>@${yo.username ?? 'de Dekog'}</b> quedó conectada al asistente de Dekog. Ya puedes cerrar esta página.`);
+    console.log('Instagram conectado:', usuario, '| mensajes suscritos:', Boolean(suscrito?.success));
+    return pagina('✅ Instagram conectado', `La cuenta <b>@${usuario}</b> quedó conectada al asistente de Dekog. Ya puedes cerrar esta página.`);
   } catch (e) {
     console.error('No se pudo conectar Instagram:', e?.message);
     return pagina('No se pudo conectar', 'Hubo un problema al conectar Instagram. Avísale a Jeremy para revisarlo.', 502);
@@ -283,9 +332,61 @@ export async function renovarTokenInstagram(env) {
   const r = await fetch(`${RAIZ()}/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(actual)}`);
   const j = await r.json().catch(() => ({}));
   if (j.access_token) {
-    await env.CONVERSACIONES.put('ig:token', j.access_token);
-    console.log('Token de Instagram renovado; vence en', Math.round((j.expires_in ?? 0) / 86400), 'días');
+    // Con su vencimiento: si la renovación dejara de funcionar, el token desaparece de KV cuando vence y /salud
+    // dice la verdad (antes se guardaba sin vencimiento y seguía «conectado» con un token muerto).
+    const segundos = Math.max(60, Math.min(Number(j.expires_in) || DIAS_60, DIAS_60));
+    await env.CONVERSACIONES.put('ig:token', j.access_token, { expirationTtl: segundos });
+    console.log('Token de Instagram renovado; vence en', Math.round(segundos / 86400), 'días');
   } else {
     console.warn('No se pudo renovar el token de Instagram:', j?.error?.message ?? `HTTP ${r.status}`);
+    if (j?.error?.code === 190) await avisarDesconexion(env, 'no se pudo renovar el permiso de la cuenta');
   }
+}
+
+/** base64url → bytes. */
+function bytesDeBase64Url(texto) {
+  const b64 = texto.replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
+}
+
+/**
+ * El «signed_request» que Meta manda al desautorizar o al pedir el borrado: «firma.datos» en base64url, firmado con
+ * HMAC-SHA256 y la clave de la app. Devuelve los datos si la firma vale (con IG_APP_SECRET o META_APP_SECRET), o null.
+ */
+export async function leerSignedRequest(request) {
+  try {
+    const firmado = (await request.formData()).get('signed_request');
+    if (typeof firmado !== 'string' || !firmado.includes('.')) return null;
+    const [firma, datos] = firmado.split('.', 2);
+    for (const secreto of [config.IG_APP_SECRET, config.META_APP_SECRET].filter(Boolean)) {
+      const clave = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(secreto), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'],
+      );
+      if (await crypto.subtle.verify('HMAC', clave, bytesDeBase64Url(firma), new TextEncoder().encode(datos))) {
+        return JSON.parse(new TextDecoder().decode(bytesDeBase64Url(datos)));
+      }
+    }
+  } catch {
+    // cuerpo, base64 o JSON inválidos: como una firma que no vale
+  }
+  return null;
+}
+
+/** Quitaron la app desde Instagram: el token ya no sirve. Se borra y queda el aviso en la hoja. */
+export async function instagramDesautorizar(request, env) {
+  if (!(await leerSignedRequest(request))) return new Response('Firma inválida', { status: 400 });
+  await avisarDesconexion(env, 'quitaron el permiso desde Instagram');
+  return new Response('ok');
+}
+
+/**
+ * Pedido de borrado de datos de la cuenta que conectó la app. De esa cuenta solo se guarda el token: se borra.
+ * Meta exige responder con un código y una página donde se pueda consultar el pedido.
+ */
+export async function instagramBorrarDatos(request, env) {
+  if (!(await leerSignedRequest(request))) return Response.json({ error: 'Firma inválida' }, { status: 400 });
+  const codigo = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+  await avisarDesconexion(env, 'pidieron borrar los datos de la cuenta');
+  console.log('Instagram: pedido de borrado de datos atendido, código', codigo);
+  return Response.json({ url: `https://www.dekog.net/eliminacion-datos.html?codigo=${codigo}`, confirmation_code: codigo });
 }
