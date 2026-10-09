@@ -348,21 +348,39 @@ async function procesar(valor, mensaje, env) {
  * Diagnóstico para cuando el bot deja de recibir mensajes: le pregunta a Meta, con el token del bot, cómo están el
  * número, la cuenta de WhatsApp y la suscripción de la app a esa cuenta. Solo responde con la cabecera
  * X-Clave igual a DIAG_CLAVE (secreto del Worker); si no, 404. Nunca devuelve el token ni datos de clientes.
- *   GET /diagnostico/whatsapp?telefono=<phone_number_id>&cuenta=<waba_id>
+ *   GET /diagnostico/whatsapp?telefono=<phone_number_id>&cuenta=<waba_id>&app=<app_id>
+ * Con app, también la configuración del webhook de la app (con su token de app: id|WA_APP_SECRET); con
+ * reparar=1, además vuelve a apuntar el webhook de WhatsApp de la app a /whatsapp de este Worker (campo messages).
  */
 export async function diagnosticoWhatsapp(request, url, env) {
   if (!env.DIAG_CLAVE || request.headers.get('X-Clave') !== env.DIAG_CLAVE) return new Response('No encontrado', { status: 404 });
   const telefono = (url.searchParams.get('telefono') ?? '').replace(/\D/g, '');
   const cuenta = (url.searchParams.get('cuenta') ?? '').replace(/\D/g, '');
-  const pedir = async (ruta) => {
+  const app = (url.searchParams.get('app') ?? '').replace(/\D/g, '');
+  const pedir = async (ruta, { token = config.WA_TOKEN, metodo = 'GET', cuerpo } = {}) => {
     try {
-      const r = await fetch(`${graph()}/${ruta}`, { headers: { Authorization: `Bearer ${config.WA_TOKEN}` } });
+      const r = await fetch(`${graph()}/${ruta}`, { method: metodo, body: cuerpo, headers: { Authorization: `Bearer ${token}` } });
       return { http: r.status, ...(await r.json().catch(() => ({}))) };
     } catch (e) {
       return { error: e?.message ?? 'sin respuesta' };
     }
   };
+  const tokenApp = app && config.WA_APP_SECRET ? `${app}|${config.WA_APP_SECRET}` : '';
+  const reparado = tokenApp && url.searchParams.get('reparar') === '1'
+    ? await pedir(`${app}/subscriptions`, {
+      token: tokenApp,
+      metodo: 'POST',
+      cuerpo: new URLSearchParams({
+        object: 'whatsapp_business_account',
+        callback_url: `${url.origin}/whatsapp`,
+        verify_token: config.WA_VERIFY_TOKEN ?? '',
+        fields: 'messages',
+      }),
+    })
+    : null;
   return Response.json({
+    webhook_app: tokenApp ? await pedir(`${app}/subscriptions`, { token: tokenApp }) : null,
+    reparado,
     numero: telefono ? await pedir(`${telefono}?fields=display_phone_number,verified_name,name_status,status,quality_rating,code_verification_status,platform_type,messaging_limit_tier`) : null,
     cuenta: cuenta ? await pedir(`${cuenta}?fields=name,account_review_status`) : null,
     suscripcion: cuenta ? await pedir(`${cuenta}/subscribed_apps`) : null,
