@@ -143,7 +143,7 @@ function motivo(e) {
   return e?.status ? `HTTP ${e.status}` : (e?.name ?? 'error');
 }
 
-export async function atenderChat(cuerpo, ip) {
+export async function atenderChat(cuerpo, ip, env) {
   if (excedeLimite(ip)) {
     return { status: 429, datos: { error: 'Estás escribiendo muy rápido. Espera un momento e intenta de nuevo.' } };
   }
@@ -155,7 +155,9 @@ export async function atenderChat(cuerpo, ip) {
   const mensajes = limpios.map((m) => ({ ...m, content: ocultarDatosPersonales(m.content) }));
   // La web ya mostró el saludo de la dueña en su globo de bienvenida (no va en el historial). Si el cliente
   // mandó una foto, llega aparte (`imagen`, ya achicada en el navegador) y la IA la compara con el catálogo.
-  const datos = await pensar(mensajes, 'web', { yaSaludo: cuerpo?.saludado === true, imagen: imagenDeLaWeb(cuerpo?.imagen) });
+  const datos = await pensar(mensajes, 'web', {
+    yaSaludo: cuerpo?.saludado === true, imagen: imagenDeLaWeb(cuerpo?.imagen), kv: env?.CONVERSACIONES,
+  });
   // Si el cliente escribió un dato personal en el chat, se le ofrece el formulario.
   if (mensajes.at(-1).content !== limpios.at(-1).content) datos.formulario = true;
   return { status: 200, datos };
@@ -209,7 +211,7 @@ export function conOpcionDelSaludo(mensajes) {
  * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
  * ofrecer que lo contacten.
  */
-export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen = null } = {}) {
+export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen = null, kv = null } = {}) {
   // yaSaludo: el cliente ya vio el saludo de la dueña fuera del historial (el globo de bienvenida de la web). Se
   // antepone solo para entender «1», «2» o «3»; a la IA no le llega (su conversación empieza por el cliente).
   const conSaludo = yaSaludo && entrada[0]?.role === 'user';
@@ -244,7 +246,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   const hasta = Date.now() + (PRESUPUESTO_IA_MS[canal] ?? PRESUPUESTO_IA_MS.whatsapp);
   let salida;
   try {
-    salida = await responder(mensajes, canal, { hasta, imagen });
+    salida = await responder(mensajes, canal, { hasta, imagen, kv });
     const inventados = revisar(salida, salida.respuesta);
     const deOtraCategoria = ajenos(salida);
     const malSumados = incoherentes(salida);

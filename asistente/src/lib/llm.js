@@ -9,7 +9,7 @@
  */
 import { config } from './config.js';
 import { sistemaPara, ESQUEMA } from './prompt.js';
-import { hojasDeReferencia } from './imagen.js';
+import { hojasDeReferencia, olvidarHojas } from './imagen.js';
 
 // Plan gratis de Cloudflare: 10 ms de CPU por petición (si se pasa de forma sostenida, Cloudflare corta con el
 // error 1102, que llega al navegador SIN cabeceras CORS: «Se cortó la conexión»). Por eso Gemini va por su
@@ -76,7 +76,8 @@ function sinAdditionalProperties(nodo) {
 // cambiando de modelo.
 // Sin httpOptions.timeout: la librería lo manda a Google como X-Server-Timeout y Google corta con 504
 // respuestas que iban a llegar (pasó el 2026-10-07). El tope lo pone `hasta`, cancelando del lado del Worker.
-const MODELOS_RESPALDO = ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
+// gemini-3.5-flash es de otra familia que las lite: el 13-oct, con las lite saturadas (503), respondia.
+const MODELOS_RESPALDO = ['gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-flash-lite-latest'];
 const ESCALON_MS = 8000;
 const TOPE_MS = 30000;
 
@@ -170,10 +171,11 @@ function cuerpoGemini(mensajes, canal, fotos) {
   if (fotos) {
     // La foto del cliente va en su último mensaje, después de las hojas del catálogo con las que se compara.
     const dato = (f) => ({ inlineData: { mimeType: f.mime, data: f.datos } });
+    const archivo = (h) => ({ fileData: { mimeType: h.mime, fileUri: h.uri } });
     const ultimo = contents.at(-1);
     ultimo.parts = [
       ...(fotos.hojas.length
-        ? [{ text: 'Hojas de referencia del catálogo de Dekog: debajo de cada foto están su número (el id del producto en el CATÁLOGO) y su nombre.' }, ...fotos.hojas.map(dato)]
+        ? [{ text: 'Hojas de referencia del catálogo de Dekog: debajo de cada foto están su número (el id del producto en el CATÁLOGO) y su nombre.' }, ...fotos.hojas.map(archivo)]
         : []),
       { text: 'Foto que mandó el cliente:' },
       dato(fotos.cliente),
@@ -215,12 +217,21 @@ async function pedirGemini(modelo, cuerpo, signal) {
   }
 }
 
-async function conGemini(mensajes, canal, hasta, imagen) {
+async function conGemini(mensajes, canal, hasta, imagen, kv) {
   const principal = config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite';
   const modelos = [principal, ...MODELOS_RESPALDO.filter((m) => m !== principal)];
-  const fotos = imagen ? { cliente: imagen, hojas: await hojasDeReferencia() } : null;
+  const fotos = imagen ? { cliente: imagen, hojas: await hojasDeReferencia(kv) } : null;
   const cuerpo = cuerpoGemini(mensajes, canal, fotos); // uno solo para todos los modelos del escalonado
-  return escalonar(modelos, (modelo, signal) => pedirGemini(modelo, cuerpo, signal), { hasta });
+  try {
+    return await escalonar(modelos, (modelo, signal) => pedirGemini(modelo, cuerpo, signal), { hasta });
+  } catch (e) {
+    // Una hoja vencida o borrada en Gemini: se olvida (la próxima foto la sube de nuevo) y se responde sin hojas.
+    if (!fotos?.hojas.length || !/file/i.test(e?.message ?? '') || ![400, 403, 404].includes(e?.status)) throw e;
+    console.warn('Gemini no encontró las hojas de referencia; van de nuevo la próxima vez:', e.message);
+    await olvidarHojas(kv);
+    const sinHojas = cuerpoGemini(mensajes, canal, { ...fotos, hojas: [] });
+    return escalonar(modelos, (modelo, signal) => pedirGemini(modelo, sinHojas, signal), { hasta });
+  }
 }
 
 /** Respuestas fijas para revisar la pantalla sin clave ni costo. */
@@ -253,11 +264,12 @@ function dePrueba(mensajes) {
 /**
  * `hasta`: momento (Date.now()) en que se deja de esperar a la IA; sin él, TOPE_MS desde ahora.
  * `imagen`: la foto que mandó el cliente ({mime, datos}, lib/imagen.js), para reconocer el modelo (solo Gemini).
+ * `kv`: dónde se guarda la referencia de las hojas del catálogo en Gemini.
  */
-export async function responder(mensajes, canal = 'web', { hasta, imagen } = {}) {
+export async function responder(mensajes, canal = 'web', { hasta, imagen, kv } = {}) {
   const p = proveedorActivo();
   if (p === 'claude') return conClaude(mensajes, sistemaPara(canal));
-  if (p === 'gemini') return conGemini(mensajes, canal, hasta, imagen);
+  if (p === 'gemini') return conGemini(mensajes, canal, hasta, imagen, kv);
   if (p === 'prueba') return dePrueba(mensajes);
   throw new Error('No hay clave de IA configurada (ANTHROPIC_API_KEY o GEMINI_API_KEY).');
 }
