@@ -322,3 +322,27 @@ test('«Pásame el catálogo» sin categoría: sin promesa de «Ver modelos» y 
   assert.match(r.respuesta, /Catálogo de camas: https:\/\/drive\.google\.com/);
   assert.match(r.respuesta, /Catálogo de mobiliario \(sofás, puffs y mesas\): https:\/\/drive\.google\.com/);
 });
+
+test('Google saturado (503 en todos los modelos): si queda tiempo, una segunda vuelta con los que dieron 5xx', async () => {
+  const { escalonar } = await import('../src/lib/llm.js');
+  const error = (status) => Object.assign(new Error(`HTTP ${status}`), { status });
+  // Primera vuelta: 503, 429 y 503. En la segunda solo van los dos de 503, y el primero ya responde.
+  const pedidos = [];
+  const vistos = new Set();
+  const r = await escalonar(['a', 'b', 'c'], async (modelo) => {
+    pedidos.push(modelo);
+    if (modelo === 'b') throw error(429);
+    if (!vistos.has(modelo)) { vistos.add(modelo); throw error(503); }
+    return { modelo };
+  }, { hasta: Date.now() + 20000, escalonMs: 40, pausaMs: 5 });
+  assert.deepEqual(r, { modelo: 'a' });
+  assert.deepEqual(pedidos, ['a', 'b', 'c', 'a']);
+
+  // Sin tiempo para otra vuelta, o si nadie dio 5xx (cuota agotada), falla como antes: una sola vuelta.
+  let n = 0;
+  await assert.rejects(escalonar(['a', 'b'], async () => { n += 1; throw error(503); }, { hasta: Date.now() + 3000, escalonMs: 40, pausaMs: 5 }));
+  assert.equal(n, 2);
+  n = 0;
+  await assert.rejects(escalonar(['a', 'b'], async () => { n += 1; throw error(429); }, { hasta: Date.now() + 20000, escalonMs: 40, pausaMs: 5 }));
+  assert.equal(n, 2);
+});

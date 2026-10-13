@@ -79,6 +79,11 @@ function sinAdditionalProperties(nodo) {
 // gemini-3.5-flash es de otra familia que las lite: el 13-oct, con las lite saturadas (503), respondia.
 const MODELOS_RESPALDO = ['gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-flash-lite-latest'];
 const ESCALON_MS = 8000;
+// Los 503 de Google son picos de segundos (8 y 13-oct: los cuatro modelos a la vez). Si todos fallan con 5xx y queda
+// al menos este tiempo, se les da una vuelta más, más seguida, en vez de mandar el mensaje de emergencia.
+const MINIMO_SEGUNDA_VUELTA_MS = 5000;
+const PAUSA_SEGUNDA_VUELTA_MS = 1000;
+const SATURADO = new Set([500, 502, 503, 504]);
 const TOPE_MS = 30000;
 
 export function esReintentable(e) {
@@ -90,11 +95,17 @@ export function esReintentable(e) {
 
 /**
  * Pide lo mismo a varios modelos escalonados y devuelve la primera respuesta. `pedir(modelo, signal)` hace la
- * petición (y debe abandonarla si `signal` se cancela). Falla si todos fallan o si se llega a `hasta`.
+ * petición (y debe abandonarla si `signal` se cancela). Si todos fallan y los que dieron 5xx tienen tiempo, una
+ * segunda vuelta con ellos. Falla si todos fallan o si se llega a `hasta`.
  */
-export function escalonar(modelos, pedir, { hasta = Date.now() + TOPE_MS, escalonMs = ESCALON_MS } = {}) {
+export function escalonar(modelos, pedir, {
+  hasta = Date.now() + TOPE_MS, escalonMs = ESCALON_MS, pausaMs = PAUSA_SEGUNDA_VUELTA_MS,
+} = {}) {
   const cancelar = new AbortController();
   return new Promise((resolver, rechazar) => {
+    let lista = modelos;
+    let segundaVuelta = false;
+    const saturados = new Set();
     let siguiente = 0;
     let enCurso = 0;
     let fin = false;
@@ -116,23 +127,36 @@ export function escalonar(modelos, pedir, { hasta = Date.now() + TOPE_MS, escalo
     function lanzar() {
       clearTimeout(escalon);
       if (fin) return;
-      if (siguiente >= modelos.length) {
-        if (!enCurso) terminar(undefined, ultimoError);
+      if (siguiente >= lista.length) {
+        if (enCurso) return;
+        if (!segundaVuelta && saturados.size && hasta - Date.now() > MINIMO_SEGUNDA_VUELTA_MS) {
+          segundaVuelta = true;
+          lista = modelos.filter((m) => saturados.has(m));
+          siguiente = 0;
+          console.warn(`Todos los modelos fallaron; segunda vuelta con ${lista.join(', ')}`);
+          escalon = setTimeout(lanzar, pausaMs);
+          return;
+        }
+        terminar(undefined, ultimoError);
         return;
       }
-      const modelo = modelos[siguiente++];
+      const modelo = lista[siguiente++];
       enCurso++;
-      if (siguiente < modelos.length) escalon = setTimeout(lanzar, escalonMs);
+      // En la segunda vuelta queda poco tiempo: los modelos arrancan casi juntos.
+      if (siguiente < lista.length) escalon = setTimeout(lanzar, segundaVuelta ? escalonMs / 4 : escalonMs);
       Promise.resolve()
         .then(() => pedir(modelo, cancelar.signal))
         .then((datos) => {
-          if (!fin && modelo !== modelos[0]) console.log(`Respondió el modelo de respaldo ${modelo}`);
+          if (!fin && (modelo !== modelos[0] || segundaVuelta)) {
+            console.log(`Respondió ${segundaVuelta ? 'en la segunda vuelta' : 'el modelo de respaldo'} ${modelo}`);
+          }
           terminar(datos);
         })
         .catch((e) => {
           enCurso--;
           if (fin) return;
           ultimoError = e;
+          if (!segundaVuelta && SATURADO.has(Number(e?.status))) saturados.add(modelo);
           if (!esReintentable(e)) {
             terminar(undefined, e);
             return;
