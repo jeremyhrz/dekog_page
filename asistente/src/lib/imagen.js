@@ -48,7 +48,10 @@ let hojas = null;
 export function hojasDeReferencia() {
   hojas ??= Promise.all(['catalogo-camas.jpg', 'catalogo-muebles.jpg'].map(async (nombre) => {
     const r = await fetch(`${SITIO}/ia/${nombre}`, { cf: { cacheTtl: 86400, cacheEverything: true } });
-    if (!r.ok) throw new Error(`${nombre}: HTTP ${r.status}`);
+    // Sin la hoja, Vercel puede responder 200 con la portada (HTML): eso no se guarda como hoja.
+    if (!r.ok || !(r.headers.get('content-type') ?? '').startsWith('image/')) {
+      throw new Error(`${nombre}: HTTP ${r.status} ${r.headers.get('content-type') ?? ''}`);
+    }
     return { mime: 'image/jpeg', datos: Buffer.from(await r.arrayBuffer()).toString('base64') };
   })).catch((e) => {
     hojas = null; // se reintenta con la próxima foto
