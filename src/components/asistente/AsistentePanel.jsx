@@ -390,7 +390,7 @@ const paraLaIa = (lista) => lista
     content: i.foto ? `${NOTA_FOTO}${i.texto ? ` ${i.texto}` : ''}` : i.nota ? `${i.texto}\n\n${i.nota}` : i.texto,
   }));
 
-/** Achica la foto en el navegador: la que va a la IA (1280 px) y una miniatura para la burbuja (320 px). */
+/** Achica la foto en el navegador: la que va a la IA (1024 px) y una miniatura para la burbuja (320 px). */
 async function prepararFoto(archivo) {
   const url = URL.createObjectURL(archivo);
   try {
@@ -408,7 +408,8 @@ async function prepararFoto(archivo) {
       lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
       return lienzo.toDataURL('image/jpeg', calidad);
     };
-    return { mime: 'image/jpeg', datos: jpeg(1280, 0.82).split(',')[1], vista: jpeg(320, 0.7) };
+    // 1024 px basta: Gemini la reduce a ~768 px de todos modos, y una foto liviana sube rapido y gasta menos CPU.
+    return { mime: 'image/jpeg', datos: jpeg(1024, 0.78).split(',')[1], vista: jpeg(320, 0.7) };
   } finally {
     URL.revokeObjectURL(url);
   }

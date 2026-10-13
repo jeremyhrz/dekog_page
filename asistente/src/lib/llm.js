@@ -217,9 +217,13 @@ async function pedirGemini(modelo, cuerpo, signal) {
   }
 }
 
+// Para las fotos, el modelo más capaz primero: son pocas y reconocer el modelo exige más que contestar texto.
+const MODELO_FOTOS = 'gemini-3.5-flash';
+
 async function conGemini(mensajes, canal, hasta, imagen, kv) {
   const principal = config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite';
-  const modelos = [principal, ...MODELOS_RESPALDO.filter((m) => m !== principal)];
+  const orden = imagen ? [MODELO_FOTOS, principal, ...MODELOS_RESPALDO] : [principal, ...MODELOS_RESPALDO];
+  const modelos = [...new Set(orden)];
   const fotos = imagen ? { cliente: imagen, hojas: await hojasDeReferencia(kv) } : null;
   const cuerpo = cuerpoGemini(mensajes, canal, fotos); // uno solo para todos los modelos del escalonado
   try {
