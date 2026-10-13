@@ -27,6 +27,8 @@ import { guardarCliente } from '../lib/hoja.js';
 import { tasaBcv } from '../lib/bcv.js';
 import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
+import { descargarImagen } from '../lib/imagen.js';
+import { NOTA_FOTO } from '../lib/negocio.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import {
   verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse, pideBolivares,
@@ -260,14 +262,18 @@ async function procesar(evento, env) {
   estado.procesados.push(evento.message.mid);
 
   const texto = (evento.message.text ?? '').trim().slice(0, 800);
-  if (!texto) {
-    await enviar(env, igsid, { text: 'Por ahora solo puedo leer mensajes de texto 🙂 Escríbeme tu pregunta y te ayudo.' });
+  // Una foto: la IA la compara con el catálogo (lib/imagen.js). Instagram la manda como adjunto con su URL.
+  const adjunto = (evento.message.attachments ?? []).find((a) => a?.type === 'image' && a.payload?.url);
+  const imagen = adjunto ? await descargarImagen(adjunto.payload.url) : null;
+  if (!texto && !imagen) {
+    await enviar(env, igsid, { text: 'Por ahora solo puedo leer mensajes de texto y fotos 🙂 Escríbeme tu pregunta o mándame una foto del modelo y te ayudo.' });
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
 
   const telefono = extraerTelefono(texto); // se guarda en la hoja; la IA no lo ve
-  estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
+  const escrito = ocultarDatosPersonales(texto);
+  estado.mensajes.push({ role: 'user', content: imagen ? `${NOTA_FOTO}${escrito ? ` ${escrito}` : ''}` : escrito });
 
   // Tocó una respuesta rápida de la vitrina: se responde SIN IA.
   const eleccion = eleccionDe(evento.message.quick_reply?.payload);
@@ -290,7 +296,7 @@ async function procesar(evento, env) {
     return;
   }
 
-  const r = await pensar(estado.mensajes, 'instagram');
+  const r = await pensar(estado.mensajes, 'instagram', { imagen });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   const { vitrina } = r;
 

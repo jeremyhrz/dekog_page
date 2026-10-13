@@ -42,6 +42,9 @@ export const opcionesDelSaludo = {
 };
 
 // Qué línea recibe cada tipo de cliente: los de arquitectura van a la suya (confirmado por la dueña el 8-oct).
+// Lo que queda en el historial cuando el cliente manda una foto (la foto no se guarda): lib/imagen.js.
+export const NOTA_FOTO = '[Foto del cliente]';
+
 export const lineaPorArea = {
   home: '01',
   arquitectura: '02',

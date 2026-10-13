@@ -254,3 +254,48 @@ test('Un «2» suelto como PRIMER mensaje (sin el saludo antes): el saludo con s
   assert.equal((await pensar([{ role: 'user', content: ' 3. ' }], 'whatsapp')).respuesta, saludoWhatsapp);
   assert.notEqual((await pensar([{ role: 'user', content: '23' }], 'web')).respuesta, saludoInicial);
 });
+
+test('WhatsApp con foto: se descarga (con el token) y va a la IA; en el historial queda «[Foto del cliente]» y el pie', async () => {
+  const { NOTA_FOTO } = await import('../src/lib/negocio.js');
+  const fetchMeta = globalThis.fetch;
+  const pedidas = [];
+  globalThis.fetch = async (url, op = {}) => {
+    const u = String(url);
+    if (u.endsWith('/MEDIA1')) { pedidas.push(op.headers?.Authorization); return new Response(JSON.stringify({ url: 'https://media.falso/foto1', mime_type: 'image/jpeg' })); }
+    if (u === 'https://media.falso/foto1') { pedidas.push(op.headers?.Authorization); return new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), { headers: { 'content-type': 'image/jpeg' } }); }
+    return fetchMeta(url, op);
+  };
+  await wa({ type: 'image', image: { id: 'MEDIA1', mime_type: 'image/jpeg', caption: '¿tienen esta en queen?' } }, '584140000099');
+  globalThis.fetch = fetchMeta;
+  assert.equal(pedidas.length, 2);
+  assert.ok(pedidas.every((a) => /^Bearer /.test(a)), 'las dos descargas llevan el token');
+  assert.ok(!mensajes().some((m) => /No pude abrir esa foto/.test(m.text?.body ?? m.interactive?.body?.text ?? '')));
+  assert.ok(mensajes().length >= 1);
+  const guardado = await env.CONVERSACIONES.get('wa:PHONE123:584140000099', 'json');
+  assert.ok(guardado.mensajes[0].content.startsWith(`${NOTA_FOTO} ¿tienen esta en queen?`));
+});
+
+test('Foto que no se puede descargar: el cliente recibe «No pude abrir esa foto» con el botón de la asesora', async () => {
+  await wa({ type: 'image', image: { id: 'NOEXISTE' } }, '584140000098');
+  const [m] = mensajes();
+  assert.match(m.interactive?.body?.text ?? '', /No pude abrir esa foto/);
+});
+
+test('Foto desde la web: solo imágenes en base64 de tamaño razonable', async () => {
+  const { imagenDeLaWeb } = await import('../src/lib/imagen.js');
+  assert.deepEqual(imagenDeLaWeb({ mime: 'image/jpeg', datos: '/9j/4AAQSkZJRg==' }), { mime: 'image/jpeg', datos: '/9j/4AAQSkZJRg==' });
+  assert.equal(imagenDeLaWeb({ mime: 'text/html', datos: 'PGh0bWw+' }), null);
+  assert.equal(imagenDeLaWeb({ mime: 'image/jpeg', datos: 'no es base64!' }), null);
+  assert.equal(imagenDeLaWeb({ mime: 'image/jpeg', datos: 'A'.repeat(8 * 1024 * 1024) }), null);
+  assert.equal(imagenDeLaWeb(null), null);
+});
+
+test('Desglose del precio con adicionales: la cama, cada adicional y el total (tarjeta y línea de WhatsApp)', async () => {
+  const { tarjeta } = await import('../src/lib/catalogo.js');
+  const { lineaPrecio } = await import('../src/canales/meta.js');
+  const t = tarjeta(48, 'King', null, { box: 'nube', telaPremium: true });
+  assert.deepEqual(t.partes, [['cama', 665], ['box nube', 150], ['tela premium', 150]]);
+  assert.equal(t.ref, 965);
+  assert.match(lineaPrecio(t), /cama REF 665 \+ box nube REF 150 \+ tela premium REF 150 = REF 965/);
+  assert.equal(tarjeta(48, 'Queen', null, {}).partes, null);
+});
