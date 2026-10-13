@@ -10,7 +10,7 @@
             "destination": "/links.html"
         },
         {
-            "source": "/((?!wa/).*)",
+            "source": "/((?!wa/|ia/).*)",
             "destination": "/index.html"
         }
     ],
