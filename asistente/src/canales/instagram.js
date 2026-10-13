@@ -296,7 +296,7 @@ async function procesar(evento, env) {
     return;
   }
 
-  const r = await pensar(estado.mensajes, 'instagram', { imagen });
+  const r = await pensar(estado.mensajes, 'instagram', { imagen, kv: env.CONVERSACIONES });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   const { vitrina } = r;
 

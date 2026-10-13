@@ -311,7 +311,7 @@ async function procesar(valor, mensaje, env) {
     return;
   }
 
-  const r = await pensar(estado.mensajes, 'whatsapp', { imagen });
+  const r = await pensar(estado.mensajes, 'whatsapp', { imagen, kv: env.CONVERSACIONES });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Con asesora, manda su botón.
   const vitrina = r.whatsapp ? null : r.vitrina;

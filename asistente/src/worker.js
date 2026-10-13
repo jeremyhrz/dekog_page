@@ -121,7 +121,7 @@ async function atender(request, env, ctx, url, origen, cors) {
   } catch {
     return json({ error: 'JSON inválido' }, 400, cors);
   }
-  const { status, datos } = await ruta(cuerpo, request.headers.get('CF-Connecting-IP') ?? '');
+  const { status, datos } = await ruta(cuerpo, request.headers.get('CF-Connecting-IP') ?? '', env);
   return json(datos, status, cors);
 }
 
