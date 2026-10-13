@@ -83,11 +83,11 @@ async function avisarDesconexion(env, motivo) {
   }).catch(() => false);
 }
 
-// La doc de Instagram Login usa "attachments" para imágenes; la de Messenger, "attachment".
-// Se envía la forma oficial y, si Instagram la rechaza, la otra.
+// "attachment" (un objeto) es la forma que Instagram aceptó con la cuenta real (13-oct); "attachments" con un
+// objeto suelto la rechazaba con «attachments[0] must be a valid json object». Si un día la rechaza, va la lista.
 async function enviarImagen(env, igsid, url) {
   const imagen = { type: 'image', payload: { url } };
-  if (!(await enviar(env, igsid, { attachments: imagen }))) await enviar(env, igsid, { attachment: imagen });
+  if (!(await enviar(env, igsid, { attachment: imagen }))) await enviar(env, igsid, { attachments: [imagen] });
 }
 
 /**

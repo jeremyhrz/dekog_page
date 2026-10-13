@@ -134,7 +134,7 @@ test('Instagram: tocar un modelo → foto + precios sin IA ni asteriscos; «Ver 
   let antes = enviosIg().length;
   await ig({ text: 'Toronto', quick_reply: { payload: 'prod:48' } });
   const [imagen, texto] = enviosIg().slice(antes);
-  assert.equal(imagen.attachments.payload.url, 'https://www.dekog.net/wa/muebles/toronto.jpg');
+  assert.equal(imagen.attachment.payload.url, 'https://www.dekog.net/wa/muebles/toronto.jpg'); // la forma que Instagram acepta
   assert.match(texto.text, /REF 665 \(Bs [\d.]+,\d\d\)/);
   assert.doesNotMatch(texto.text, /\*/);
   antes = enviosIg().length;
