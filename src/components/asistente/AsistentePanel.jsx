@@ -62,16 +62,34 @@ const entra = (nuevo, reducir, opciones) => (nuevo
 
 /** La respuesta nueva aparece palabra por palabra. El texto completo está en el DOM desde el
  * principio (el lector de pantalla lo lee entero); solo cambia la opacidad de cada palabra. */
+// Un enlace dentro de la respuesta (los catálogos en PDF, por ejemplo) se puede tocar. Los largos se muestran como
+// «Abrir enlace»; la puntuación pegada al final no forma parte del enlace.
+const ENLACE = /^(https?:\/\/\S+?)([.,;:!?)]*)$/;
+function palabraOEnlace(p) {
+  const m = ENLACE.exec(p);
+  if (!m) return p;
+  return (
+    <>
+      <a href={m[1]} target="_blank" rel="noopener noreferrer" className="break-all font-semibold underline hover:no-underline">
+        {m[1].length > 40 ? 'Abrir enlace' : m[1]}
+      </a>
+      {m[2]}
+    </>
+  );
+}
+
 function TextoAnimado({ texto, animar }) {
   const entero = String(texto ?? '');
-  if (!animar) return entero;
   const partes = entero.split(/(\s+)/);
+  const conEnlaces = partes.some((p) => ENLACE.test(p));
   const palabras = partes.filter((p) => p.trim()).length;
-  if (palabras > 120) return entero;
+  if (!animar || palabras > 120) {
+    return conEnlaces ? partes.map((p, i) => <React.Fragment key={i}>{palabraOEnlace(p)}</React.Fragment>) : entero;
+  }
   const paso = Math.min(22, 700 / palabras);
   let k = 0;
   return partes.map((p, i) => (p.trim()
-    ? <span key={i} className="dk-palabra" style={{ '--d': `${Math.round(k++ * paso)}ms` }}>{p}</span>
+    ? <span key={i} className="dk-palabra" style={{ '--d': `${Math.round(k++ * paso)}ms` }}>{palabraOEnlace(p)}</span>
     : p));
 }
 

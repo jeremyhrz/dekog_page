@@ -45,6 +45,12 @@ export const opcionesDelSaludo = {
 // Lo que queda en el historial cuando el cliente manda una foto (la foto no se guarda): lib/imagen.js.
 export const NOTA_FOTO = '[Foto del cliente]';
 
+// Los catálogos en PDF (los mismos de dekog.net/links). Van cuando el cliente pide «el catálogo» sin decir de qué.
+export const catalogosPdf = [
+  ['Catálogo de camas', 'https://drive.google.com/file/d/1sTpDlNajdFht5YtRc7kBNWWN0eb5Wm6D/view'],
+  ['Catálogo de mobiliario (sofás, puffs y mesas)', 'https://drive.google.com/file/d/177KJwPkHzjgh88FgSTqLXcRNWTrR3byE/view'],
+];
+
 export const lineaPorArea = {
   home: '01',
   arquitectura: '02',

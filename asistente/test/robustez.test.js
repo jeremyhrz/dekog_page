@@ -307,3 +307,18 @@ test('Negritas de Markdown: en WhatsApp **x** pasa a *x*; en la web e Instagram 
   assert.equal(negritasPara('web', 'Es la **Berna**, en Queen *REF 1060*.'), 'Es la Berna, en Queen REF 1060.');
   assert.equal(negritasPara('instagram', 'Precio: 2 × REF 170'), 'Precio: 2 × REF 170');
 });
+
+test('«Pásame el catálogo» sin categoría: sin promesa de «Ver modelos» y con los dos catálogos en PDF', async () => {
+  const { pideCatalogo, sinPromesaDeVitrina } = await import('../src/chat.js');
+  assert.ok(pideCatalogo('Pasame el catalogo'));
+  assert.ok(pideCatalogo('¿me envías los catálogos?'));
+  assert.ok(!pideCatalogo('¿hacen modelos fuera del catálogo?'));
+  assert.equal(
+    sinPromesaDeVitrina('Claro que sí. Puedes explorar todo tocando Ver modelos aquí abajo. ¿Buscas alguna medida?'),
+    'Claro que sí. ¿Buscas alguna medida?',
+  );
+  const { pensar } = await import('../src/chat.js');
+  const r = await pensar([{ role: 'user', content: 'Pasame el catalogo' }], 'whatsapp', { yaSaludo: true });
+  assert.match(r.respuesta, /Catálogo de camas: https:\/\/drive\.google\.com/);
+  assert.match(r.respuesta, /Catálogo de mobiliario \(sofás, puffs y mesas\): https:\/\/drive\.google\.com/);
+});

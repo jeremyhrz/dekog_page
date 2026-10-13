@@ -12,6 +12,7 @@ import { productos } from '../../src/data/productos.js';
 import { fotoParaCanales, buscarProducto, tarjeta } from '../src/lib/catalogo.js';
 import { whatsappPost } from '../src/canales/whatsapp.js';
 import { instagramPost } from '../src/canales/instagram.js';
+import { HOJAS } from '../src/lib/imagen.js';
 
 const PUBLICO = fileURLToPath(new URL('../../public/', import.meta.url));
 const SITIO = 'https://www.dekog.net';
@@ -142,4 +143,14 @@ test('WhatsApp e Instagram: toda foto que sale es la copia JPEG de public/wa, nu
   for (const [donde, url] of fotos) revisarFoto(url, donde);
   assert.ok(fotos.some(([, url]) => url === `${SITIO}/wa/muebles/doha.jpg`));
   for (const crudo of crudos) assert.doesNotMatch(crudo, /dekog\.net\/(muebles|mesas)\/|\.png/i);
+});
+
+test('Hojas de referencia para reconocer fotos: las que pide el bot están en public/ia, son JPEG y no sobra ninguna', () => {
+  // Si scripts/hojas_catalogo_ia.py cambia cuántas hojas salen y HOJAS no, el bot se quedaría sin referencias.
+  const enDisco = readdirSync(join(PUBLICO, 'ia')).filter((f) => f.endsWith('.jpg')).sort();
+  assert.deepEqual([...HOJAS].sort(), enDisco);
+  for (const hoja of HOJAS) {
+    const bytes = readFileSync(join(PUBLICO, 'ia', hoja));
+    assert.ok(bytes[0] === 0xff && bytes[1] === 0xd8, `${hoja} no es JPEG`);
+  }
 });

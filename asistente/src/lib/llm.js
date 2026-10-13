@@ -175,7 +175,7 @@ function cuerpoGemini(mensajes, canal, fotos) {
     const ultimo = contents.at(-1);
     ultimo.parts = [
       ...(fotos.hojas.length
-        ? [{ text: 'Hojas de referencia del catálogo de Dekog: debajo de cada foto están su número (el id del producto en el CATÁLOGO) y su nombre.' }, ...fotos.hojas.map(archivo)]
+        ? [{ text: 'Hojas de referencia de Dekog. Las del catálogo: debajo de cada foto están su número (el id del producto en el CATÁLOGO) y su nombre. La última es de los proyectos de arquitectura de Dekog: cada foto dice «Proyecto · nombre».' }, ...fotos.hojas.map(archivo)]
         : []),
       { text: 'Foto que mandó el cliente:' },
       dato(fotos.cliente),
@@ -217,12 +217,14 @@ async function pedirGemini(modelo, cuerpo, signal) {
   }
 }
 
-// Para las fotos, el modelo más capaz primero: son pocas y reconocer el modelo exige más que contestar texto.
-const MODELO_FOTOS = 'gemini-3.5-flash';
+// Para las fotos, primero el que las reconoce bien Y rápido (13-oct, 27 fotos con las hojas de 10: 26/27 bien, en
+// ~6 s). gemini-3.5-flash va de respaldo porque su cuota gratis se agota (429), y 3.5-flash-lite tardaba hasta 16 s en
+// devolver 503: con él primero, una foto en WhatsApp se pasaba de los 24 s.
+const MODELOS_FOTOS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 
 async function conGemini(mensajes, canal, hasta, imagen, kv) {
   const principal = config.ASISTENTE_MODELO_GEMINI || 'gemini-3.5-flash-lite';
-  const orden = imagen ? [MODELO_FOTOS, principal, ...MODELOS_RESPALDO] : [principal, ...MODELOS_RESPALDO];
+  const orden = imagen ? [...MODELOS_FOTOS, principal, ...MODELOS_RESPALDO] : [principal, ...MODELOS_RESPALDO];
   const modelos = [...new Set(orden)];
   const fotos = imagen ? { cliente: imagen, hojas: await hojasDeReferencia(kv) } : null;
   const cuerpo = cuerpoGemini(mensajes, canal, fotos); // uno solo para todos los modelos del escalonado
