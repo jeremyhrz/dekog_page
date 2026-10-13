@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowUp, Banknote, BedDouble, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
+import { ArrowUp, Banknote, BedDouble, Camera, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp, nuevoId } from './comun';
 import { propsWhatsapp, textoDeEnlace } from '../../utils/whatsapp';
-import { saludoInicial } from '../../../asistente/src/lib/negocio.js';
+import { NOTA_FOTO, saludoInicial } from '../../../asistente/src/lib/negocio.js';
 import { ErrorDelAsistente, pedirAlAsistente } from './red';
 import './asistente.css';
 
@@ -116,6 +116,17 @@ function DatosTarjeta({ p, tasa }) {
             <span key={e} className="rounded-full bg-[#f4f0ec] px-2 py-0.5 text-[10px] font-semibold leading-tight text-neutral-700">{e}</span>
           ))}
         </p>
+      )}
+      {p.partes?.length > 1 && (
+        // De dónde sale el total: la cama y cada adicional con su monto (pedido de la dueña, 13-oct).
+        <ul className="mt-2 space-y-0.5 text-[11px] leading-snug text-neutral-600">
+          {p.partes.map(([nombre, monto], i) => (
+            <li key={nombre} className="flex justify-between gap-2">
+              <span className="first-letter:uppercase">{i ? `+ ${nombre}` : nombre}</span>
+              <span className="whitespace-nowrap">REF {monto.toLocaleString('es-VE')}</span>
+            </li>
+          ))}
+        </ul>
       )}
       {p.cantidad > 1 && (
         <p className="mt-1 text-[11px] text-neutral-500">{p.cantidad} × REF {p.unitario.toLocaleString('es-VE')}</p>
@@ -318,14 +329,27 @@ function Sugerencias({ onElegir, animar, reducir }) {
 }
 
 /** Caja de escritura con su propio estado: teclear no vuelve a pintar la conversación. */
-function CajaEscritura({ cargando, onEnviar, entradaRef, registrado, onPedirFormulario }) {
+function CajaEscritura({ cargando, onEnviar, onEnviarFoto, entradaRef, registrado, onPedirFormulario }) {
   const [texto, setTexto] = useState('');
+  const archivoRef = useRef(null);
+  // Una foto del modelo que le gusta (de la web, del catálogo o de cualquier lado): va con lo que haya escrito.
+  async function elegirFoto(e) {
+    const archivo = e.target.files?.[0];
+    e.target.value = '';
+    if (archivo && await onEnviarFoto(archivo, texto)) setTexto('');
+  }
   return (
     <div className="shrink-0 border-t border-black/[0.06] bg-white px-3 pt-2.5 sm:px-4">
       <form
         onSubmit={(e) => { e.preventDefault(); if (onEnviar(texto)) setTexto(''); }}
-        className="flex h-[52px] items-center gap-2 rounded-full bg-[#f4f0ec] pl-4 pr-1.5 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-black/15 sm:h-12"
+        className="flex h-[52px] items-center gap-2 rounded-full bg-[#f4f0ec] pl-1.5 pr-1.5 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-black/15 sm:h-12"
       >
+        <input ref={archivoRef} type="file" accept="image/*" className="hidden" onChange={elegirFoto} />
+        <button type="button" onClick={() => archivoRef.current?.click()} disabled={cargando}
+          aria-label="Mandar una foto del modelo" title="Mandar una foto del modelo"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-neutral-600 transition hover:bg-black/5 hover:text-black disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black">
+          <Camera size={19} strokeWidth={2} />
+        </button>
         <input
           ref={entradaRef}
           value={texto}
@@ -361,7 +385,34 @@ const esTactil = () => window.matchMedia('(pointer: coarse)').matches;
 const paraLaIa = (lista) => lista
   .filter((i) => !i.error && !i.registrado)
   // La nota de la vitrina («[Vitrina «Camas»: Toronto, …]») le dice al servidor y a la IA qué modelos vio.
-  .map((i) => ({ role: i.rol === 'cliente' ? 'user' : 'assistant', content: i.nota ? `${i.texto}\n\n${i.nota}` : i.texto }));
+  .map((i) => ({
+    role: i.rol === 'cliente' ? 'user' : 'assistant',
+    content: i.foto ? `${NOTA_FOTO}${i.texto ? ` ${i.texto}` : ''}` : i.nota ? `${i.texto}\n\n${i.nota}` : i.texto,
+  }));
+
+/** Achica la foto en el navegador: la que va a la IA (1280 px) y una miniatura para la burbuja (320 px). */
+async function prepararFoto(archivo) {
+  const url = URL.createObjectURL(archivo);
+  try {
+    const img = await new Promise((listo, fallo) => {
+      const i = new Image();
+      i.onload = () => listo(i);
+      i.onerror = fallo;
+      i.src = url;
+    });
+    const jpeg = (maximo, calidad) => {
+      const k = Math.min(1, maximo / Math.max(img.naturalWidth, img.naturalHeight));
+      const lienzo = document.createElement('canvas');
+      lienzo.width = Math.max(1, Math.round(img.naturalWidth * k));
+      lienzo.height = Math.max(1, Math.round(img.naturalHeight * k));
+      lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      return lienzo.toDataURL('image/jpeg', calidad);
+    };
+    return { mime: 'image/jpeg', datos: jpeg(1280, 0.82).split(',')[1], vista: jpeg(320, 0.7) };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 /** Burbuja de error: qué pasó, dicho para el cliente, y si tiene sentido «Reintentar». */
 function burbujaDeError(e) {
@@ -532,6 +583,28 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
     } catch { /* no es imprescindible */ }
   }, [abierto]);
 
+  // Las fotos que esperan respuesta: van solo con el pedido de su mensaje (no se guardan en la sesión).
+  const fotos = useRef(new WeakMap());
+
+  /** Una foto con lo que el cliente haya escrito como pie. Devuelve true si la aceptó. */
+  async function enviarFoto(archivo, pie) {
+    if (cargando) return false;
+    let foto;
+    try {
+      foto = await prepararFoto(archivo);
+    } catch {
+      setItems((a) => [...a, { rol: 'asistente', error: true, texto: 'No pude abrir esa foto. Prueba con otra o escríbeme qué modelo buscas.' }]);
+      return false;
+    }
+    const item = { rol: 'cliente', texto: pie.trim(), foto: { vista: foto.vista } };
+    fotos.current.set(item, { mime: foto.mime, datos: foto.datos });
+    const conNuevo = [...items, item];
+    setItems(conNuevo);
+    setCargando(true);
+    pedirRespuesta(conNuevo);
+    return true;
+  }
+
   /** Devuelve true si aceptó el mensaje (la caja de escritura se vacía solo entonces). */
   function enviar(mensaje) {
     const limpio = mensaje.trim();
@@ -547,7 +620,9 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
    * (ver red.js): el mensaje del cliente NO se repite, se reenvía la misma conversación. */
   async function pedirRespuesta(conversacionActual) {
     try {
-      const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual), saludado: true }, {
+      const ultimoCliente = [...conversacionActual].reverse().find((i) => i.rol === 'cliente');
+      const imagen = ultimoCliente === conversacionActual.at(-1) ? fotos.current.get(ultimoCliente) : undefined;
+      const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual), saludado: true, imagen }, {
         valida: (d) => typeof d.respuesta === 'string',
       });
       // Si pidió ver una categoría llega `vitrina`: hasta 10 tarjetas, el enlace al catálogo filtrado y la nota.
@@ -663,6 +738,9 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
               return (
                 <motion.div key={i} {...entra(nuevo, reducir, { y: 10, escala: 0.98, duracion: 0.3 })} style={{ transformOrigin: '100% 100%' }}
                   className="ml-auto w-fit max-w-[85%] whitespace-pre-line break-words rounded-[20px] rounded-tr-md bg-black px-4 py-2.5 text-[15px] leading-[1.5] text-white sm:text-[14.5px]">
+                  {m.foto?.vista && (
+                    <img src={m.foto.vista} alt="Tu foto" className={`${m.texto ? 'mb-2 ' : ''}max-h-56 w-auto rounded-xl`} />
+                  )}
                   {m.texto}
                 </motion.div>
               );
@@ -735,6 +813,7 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
         key={`caja-${conversacion}`} // «Nueva conversación» también vacía lo que estuviera escrito
         cargando={cargando}
         onEnviar={enviar}
+        onEnviarFoto={enviarFoto}
         entradaRef={entradaRef}
         registrado={registrado}
         onPedirFormulario={() => setFormularioAbierto(true)}

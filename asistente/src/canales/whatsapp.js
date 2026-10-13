@@ -17,11 +17,12 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { lineas } from '../lib/negocio.js';
+import { lineas, NOTA_FOTO } from '../lib/negocio.js';
 import { tasaBcv } from '../lib/bcv.js';
 import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
+import { descargarImagen } from '../lib/imagen.js';
 import {
   verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse, eleccionDe, fichaElegida, listaDeVitrina, textoDeVitrinaWa,
   pideBolivares,
@@ -165,10 +166,23 @@ export async function whatsappPost(request, env, ctx) {
   return new Response('ok');
 }
 
+/** La foto que mandó el cliente: Meta da primero su URL (con el token) y después los bytes; null si falla. */
+async function fotoDeWhatsapp(idMedia) {
+  if (!idMedia) return null;
+  const datos = await fetch(`${graph()}/${idMedia}`, { headers: { Authorization: `Bearer ${config.WA_TOKEN}` } })
+    .then((r) => r.json()).catch(() => ({}));
+  if (!datos?.url) {
+    console.warn('WhatsApp no dio la URL de la foto:', datos?.error?.message ?? 'sin url');
+    return null;
+  }
+  return descargarImagen(datos.url, { token: config.WA_TOKEN, mime: datos.mime_type });
+}
+
 function textoDe(mensaje) {
   if (mensaje.type === 'text') return mensaje.text?.body ?? '';
   if (mensaje.type === 'interactive') return mensaje.interactive?.button_reply?.title ?? mensaje.interactive?.list_reply?.title ?? '';
   if (mensaje.type === 'button') return mensaje.button?.text ?? '';
+  if (mensaje.type === 'image') return mensaje.image?.caption ?? ''; // el pie de la foto
   return '';
 }
 
@@ -251,10 +265,14 @@ async function procesar(valor, mensaje, env) {
   await enviar(env, phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
 
   const texto = textoDe(mensaje).trim().slice(0, 800);
-  if (!texto) {
-    // Nota de voz, foto, video…: en Venezuela la nota de voz es lo normal, y Dekog fabrica a partir de fotos. Se le
+  // Una foto (de la web, del catálogo o de cualquier lado): la IA la compara con el catálogo (lib/imagen.js).
+  const imagen = mensaje.type === 'image' ? await fotoDeWhatsapp(mensaje.image?.id) : null;
+  if (!texto && !imagen) {
+    // Nota de voz, video, sticker o una foto que no se pudo abrir: en Venezuela la nota de voz es lo normal. Se le
     // ofrece la asesora en el mismo mensaje (y se presenta si es lo primero que escribe).
-    const aviso = 'Por ahora no puedo escuchar audios ni ver fotos 🙏 Escríbeme tu pregunta y te ayudo, o habla directo con una asesora de Dekog.';
+    const aviso = mensaje.type === 'image'
+      ? 'No pude abrir esa foto 🙏 ¿Me la reenvías, o me escribes qué modelo buscas? También puedes hablar directo con una asesora de Dekog.'
+      : 'Por ahora no puedo escuchar audios ni ver videos 🙏 Escríbeme tu pregunta o mándame una foto del modelo que te gusta, o habla directo con una asesora de Dekog.';
     await enviar(env, phoneId, {
       ...base,
       type: 'interactive',
@@ -268,7 +286,8 @@ async function procesar(valor, mensaje, env) {
     return;
   }
 
-  estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
+  const escrito = ocultarDatosPersonales(texto);
+  estado.mensajes.push({ role: 'user', content: imagen ? `${NOTA_FOTO}${escrito ? ` ${escrito}` : ''}` : escrito });
 
   // Tocó una fila de la vitrina: se responde SIN IA (al instante y sin gastar Gemini), con UN mensaje.
   const eleccion = eleccionDeMensaje(mensaje);
@@ -292,7 +311,7 @@ async function procesar(valor, mensaje, env) {
     return;
   }
 
-  const r = await pensar(estado.mensajes, 'whatsapp');
+  const r = await pensar(estado.mensajes, 'whatsapp', { imagen });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Con asesora, manda su botón.
   const vitrina = r.whatsapp ? null : r.vitrina;

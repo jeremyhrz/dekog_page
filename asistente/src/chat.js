@@ -25,6 +25,7 @@ import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
 import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
+import { imagenDeLaWeb } from './lib/imagen.js';
 
 const MAX_MENSAJES = 16;
 // Tiempo total para la IA, contando una posible corrección. En la web el navegador espera hasta 40 s; en
@@ -152,8 +153,9 @@ export async function atenderChat(cuerpo, ip) {
     return { status: 503, datos: { error: 'El asistente no está disponible en este momento.' } };
   }
   const mensajes = limpios.map((m) => ({ ...m, content: ocultarDatosPersonales(m.content) }));
-  // La web ya mostró el saludo de la dueña en su globo de bienvenida (no va en el historial).
-  const datos = await pensar(mensajes, 'web', { yaSaludo: cuerpo?.saludado === true });
+  // La web ya mostró el saludo de la dueña en su globo de bienvenida (no va en el historial). Si el cliente
+  // mandó una foto, llega aparte (`imagen`, ya achicada en el navegador) y la IA la compara con el catálogo.
+  const datos = await pensar(mensajes, 'web', { yaSaludo: cuerpo?.saludado === true, imagen: imagenDeLaWeb(cuerpo?.imagen) });
   // Si el cliente escribió un dato personal en el chat, se le ofrece el formulario.
   if (mensajes.at(-1).content !== limpios.at(-1).content) datos.formulario = true;
   return { status: 200, datos };
@@ -207,7 +209,7 @@ export function conOpcionDelSaludo(mensajes) {
  * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
  * ofrecer que lo contacten.
  */
-export async function pensar(entrada, canal = 'web', { yaSaludo = false } = {}) {
+export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen = null } = {}) {
   // yaSaludo: el cliente ya vio el saludo de la dueña fuera del historial (el globo de bienvenida de la web). Se
   // antepone solo para entender «1», «2» o «3»; a la IA no le llega (su conversación empieza por el cliente).
   const conSaludo = yaSaludo && entrada[0]?.role === 'user';
@@ -219,7 +221,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false } = {}) 
   // Un «1», «2» o «3» suelto como primer mensaje (vio el menú en otra conversación que ya no se recuerda): el saludo
   // de nuevo, con sus opciones, en vez de que la IA adivine qué quiso decir.
   const primero = mensajes.filter((m) => m.role === 'user').length === 1 ? mensajes.at(-1)?.content ?? '' : null;
-  if (!yaSaludo && primero !== null && (esSoloSaludo(primero) || /^\s*[123]\s*[.)]?\s*$/.test(primero))) {
+  if (!imagen && !yaSaludo && primero !== null && (esSoloSaludo(primero) || /^\s*[123]\s*[.)]?\s*$/.test(primero))) {
     return {
       respuesta: canal === 'whatsapp' ? saludoWhatsapp : saludoInicial, productos: [], vitrina: null, whatsapp: null, tasa: null,
       formulario: false, emergencia: false, interes: '', resumen: '',
@@ -242,7 +244,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false } = {}) 
   const hasta = Date.now() + (PRESUPUESTO_IA_MS[canal] ?? PRESUPUESTO_IA_MS.whatsapp);
   let salida;
   try {
-    salida = await responder(mensajes, canal, { hasta });
+    salida = await responder(mensajes, canal, { hasta, imagen });
     const inventados = revisar(salida, salida.respuesta);
     const deOtraCategoria = ajenos(salida);
     const malSumados = incoherentes(salida);

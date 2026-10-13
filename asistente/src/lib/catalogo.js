@@ -238,6 +238,9 @@ export function numerosDelCliente(mensajes) {
 }
 
 /** 1500 → "1.500" como es-VE, sin Intl (los REF del catálogo son enteros); lo usan meta.js y la vitrina. */
+// Cómo se llama el precio sin adicionales en el desglose de la tarjeta.
+const BASE_DE = { Camas: 'cama', Sofás: 'sofá', Mesas: 'mesa' };
+
 export const miles = (n) => (Number.isInteger(n) ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : n.toLocaleString('es-VE'));
 
 // 1.003.955,00 como es-VE, sin Intl: crear un formateador de idioma en cada tarjeta cuesta CPU, y el plan
@@ -273,6 +276,10 @@ export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPre
   const unidades = Number.isInteger(cantidad) && cantidad > 1 ? Math.min(cantidad, MAX_CANTIDAD) : 1;
   const unitario = base + recargo + (tela ?? 0) + (conPuff ?? 0);
   const ref = unitario * unidades;
+  // Desglose para el cliente («la cama REF 550 + tela premium REF 120 = REF 670»): solo si hay algún adicional.
+  const adicionales = [[conBox ? nombresBox[conBox] : '', recargo], ['tela premium', tela ?? 0], ['puff', conPuff ?? 0]]
+    .filter(([nombre, monto]) => nombre && monto > 0);
+  const partes = adicionales.length ? [[BASE_DE[p.categoria] ?? 'base', base], ...adicionales] : null;
   return {
     id: p.id,
     nombre: p.nombre,
@@ -290,6 +297,7 @@ export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPre
     cantidad: unidades,
     unitario,
     ref,
+    partes,
     bs: tasa ? formatoBs(ref * tasa.valor) : null,
     imagen: SITIO + encodeURI(p.imagen),
   };

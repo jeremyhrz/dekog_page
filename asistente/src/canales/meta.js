@@ -58,7 +58,11 @@ export function lineaPrecio(p, tasa) {
   const cual = partes.filter(Boolean).join(' · ');
   const ref = `${p.desde ? 'desde ' : ''}REF ${miles(p.ref)}`;
   const bs = p.bs ? ` = Bs ${p.bs} (${tasa?.etiqueta ?? 'tasa BCV'} ${tasa?.fecha ?? ''})` : '';
-  return `• ${cual}: ${ref}${bs}`;
+  if (!p.partes) return `• ${cual}: ${ref}${bs}`;
+  // Con adicionales, de dónde sale el total: «cama REF 550 + tela premium REF 120 = REF 670».
+  const suma = p.partes.map(([nombre, monto]) => `${nombre} REF ${miles(monto)}`).join(' + ');
+  const veces = p.cantidad > 1 ? ` = REF ${miles(p.unitario)} × ${p.cantidad}` : '';
+  return `• ${cual}\n   ${suma}${veces} = ${ref}${bs}`;
 }
 
 /**
