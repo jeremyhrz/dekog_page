@@ -299,3 +299,11 @@ test('Desglose del precio con adicionales: la cama, cada adicional y el total (t
   assert.match(lineaPrecio(t), /cama REF 665 \+ box nube REF 150 \+ tela premium REF 150 = REF 965/);
   assert.equal(tarjeta(48, 'Queen', null, {}).partes, null);
 });
+
+test('Negritas de Markdown: en WhatsApp **x** pasa a *x*; en la web e Instagram se quitan los asteriscos', async () => {
+  const { negritasPara } = await import('../src/chat.js');
+  assert.equal(negritasPara('whatsapp', 'Es la **Berna**, en Queen **REF 1060**.'), 'Es la *Berna*, en Queen *REF 1060*.');
+  assert.equal(negritasPara('whatsapp', 'Es la *Toronto*.'), 'Es la *Toronto*.');
+  assert.equal(negritasPara('web', 'Es la **Berna**, en Queen *REF 1060*.'), 'Es la Berna, en Queen REF 1060.');
+  assert.equal(negritasPara('instagram', 'Precio: 2 × REF 170'), 'Precio: 2 × REF 170');
+});

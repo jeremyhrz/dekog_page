@@ -163,6 +163,13 @@ export async function atenderChat(cuerpo, ip, env) {
   return { status: 200, datos };
 }
 
+// La IA a veces escribe Markdown (**negrita**, sobre todo gemini-3.5-flash con las fotos). WhatsApp solo entiende
+// *negrita* con un asterisco; la web e Instagram no tienen formato, así que ahí se quitan los asteriscos.
+export function negritasPara(canal, texto) {
+  if (canal === 'whatsapp') return texto.replace(/\*\*([^*\n]+)\*\*/g, '*$1*');
+  return texto.replace(/\*{1,2}([^*\n]+)\*{1,2}/g, '$1');
+}
+
 /** «Toca el botón de hablar con asesora» (o «la asesora… botón»): la respuesta promete el botón de WhatsApp. */
 export function prometeBotonDeAsesora(texto) {
   return /bot[oó]n[^.!?\n]{0,60}asesor|asesor[^.!?\n]{0,60}bot[oó]n/i.test(texto ?? '');
@@ -344,7 +351,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
 
   // Solo hay algo «abajo» con bolívares si va una tarjeta, o la vitrina de la web (la de WhatsApp no lleva Bs).
   const conTarjeta = Boolean(productos.length || (vitrina && canal !== 'whatsapp'));
-  let respuesta = sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta });
+  let respuesta = negritasPara(canal, sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta }));
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
