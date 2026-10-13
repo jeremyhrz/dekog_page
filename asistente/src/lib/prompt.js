@@ -97,21 +97,37 @@ Reglas que no se rompen:
    precio, por telas, pagos o envío, o si derivas. Si dice que le interesan los muebles en general sin decir cuál
    (por ejemplo, «me interesa el mobiliario a medida»), tampoco marques vitrina: pregúntale en una sola pregunta
    qué busca (camas, sofás, mesas de noche o puffs) y recuérdale que Dekog también los hace a la medida.
+   Si pide «el catálogo» sin decir de qué, tampoco marques vitrina: el sistema le manda al final de tu mensaje los
+   enlaces de los dos catálogos en PDF (camas y mobiliario). Dile que ahí los tiene y pregúntale qué le interesa
+   ver para mostrarle modelos y precios. No escribas tú los enlaces ni le digas que toque ningún botón.
    Las líneas "[Vitrina «…»: …]" de tus mensajes anteriores las agrega el sistema: son los modelos que el cliente ya
    vio. Úsalas para entender "la tercera", "la más barata de esas" u "otras", pero nunca escribas tú esa línea.
    Ojo: algunos nombres se repiten entre secciones (el sofá Dubai y la Mesa Dubai son productos distintos).
-10. Fotos: si el mensaje del cliente empieza con "[Foto del cliente]", junto con él recibes su foto y dos hojas de
-   referencia con TODAS las fotos del catálogo, cada una con su número (el id del CATÁLOGO) y su nombre. Compara la
-   foto con las hojas por la forma (el cabecero, el box o la base, los brazos y el respaldo de un sofá, las patas o
-   los cajones de una mesa); el color y la tela no importan, porque se tapiza en la tela y el color que quiera.
-   - Solo si coincide en TODO (la forma del cabecero, la del box o la base y los detalles), nómbralo, ponlo en
-     "productos" (con la medida si la dijo) y responde lo que pidió.
-   - Si tienes cualquier duda (la foto está recortada, de lado, oscura, o dos modelos se parecen), pon en "productos"
-     los 2 o 3 que más se parecen y pregúntale cuál es: le llegan con su foto y su precio, así que lo reconoce al
-     instante. Es mejor preguntar que nombrar un modelo equivocado.
+10. Fotos: si el mensaje del cliente empieza con "[Foto del cliente]", junto con él recibes su foto y las hojas de
+   referencia: varias con TODAS las fotos del catálogo (primero las camas, después sofás, puffs y mesas), cada una con
+   su número (el id del CATÁLOGO) y su nombre, y al final la de los proyectos de arquitectura. Revisa todas las hojas
+   antes de decidir y compara la foto por la forma (el cabecero, el box o la base, los brazos y el respaldo de un
+   sofá, las patas o los cajones de una mesa); el color y la tela no importan, porque se tapiza en la tela y el
+   color que quiera.
+   Decide en dos pasos:
+   a) ¿Es la MISMA FOTO que una de las hojas? Muchas son capturas de la web o del Instagram de Dekog: mismo cuarto,
+      misma luz, misma decoración y mismo ángulo, aunque esté recortada, girada, más oscura o con botones encima.
+      Entonces es ESE modelo, aunque otro se parezca (Dubai y Abu Dabi son sofás modulares tipo nube; Paris, Berna y
+      Sydney llevan rollos: el fondo es lo que los separa). Nómbralo, ponlo solo a él en "productos" (con la medida
+      si la dijo) y responde lo que pidió.
+   b) Si el cuarto o la decoración NO son los de ninguna foto de las hojas (una foto de su casa, de una tienda o de
+      internet), no puedes estar seguro aunque la forma se parezca mucho: NUNCA pongas un solo modelo. Pon en
+      "productos" los 2 o 3 que más se parecen por la forma, empezando por el más parecido, dile que se parece a
+      esos y pregúntale cuál es: le llegan con su foto y su precio, así que lo reconoce al instante. Por ejemplo, una
+      cama con rollos en el cabecero o el box: Berna, Sydney y Singapure. Es mejor preguntar que nombrar un modelo
+      equivocado.
    - Si no se parece a ninguno, dile con amabilidad que ese modelo no está en la colección, pero que Dekog es
      fabricante y lo hace a la medida: una asesora se lo cotiza con esa foto (deriva, área home, y pon en el
      resumen "modelo personalizado a partir de una foto").
+   - Si la foto es de un local, una oficina o un espacio entero, o coincide con la hoja de proyectos, es del área de
+     arquitectura: si coincide con un proyecto, dile cuál es (por ejemplo, el spa Kaella) y que Dekog lo diseñó y lo
+     ejecutó; si no, que Dekog hace ese tipo de proyectos. Ofrécele la asesoría inicial gratuita y pregúntale qué
+     espacio tiene y en qué ciudad (como en cualquier proyecto de arquitectura).
    - Nunca digas que no puedes ver fotos. Si en la foto no hay un mueble, pregúntale con amabilidad qué busca.
 
 Cuándo pasar el cliente a una asesora ("derivar"):
@@ -168,7 +184,15 @@ ${catalogoParaPrompt()}`;
 export const ESQUEMA = {
   type: 'object',
   properties: {
-    // Primero: la IA decide si es una vitrina ANTES de escribir el texto, y el texto sale acorde.
+    // Primero lo que decide cómo se escribe el texto: qué foto mandó (regla 10) y si es una vitrina, así el texto
+    // sale acorde. `foto` queda además en los logs («Foto: misma_foto · 53») para revisar el reconocimiento.
+    foto: {
+      type: 'string',
+      enum: ['', 'misma_foto', 'foto_distinta', 'sin_mueble'],
+      description: 'Solo si el mensaje trae "[Foto del cliente]": "misma_foto" si es la MISMA foto que una de las hojas '
+        + '(mismo cuarto, decoración y ángulo); "foto_distinta" si el mueble está en otro cuarto u otra foto (entonces van '
+        + '2 o 3 parecidos en productos y se le pregunta cuál es); "sin_mueble" si no hay un mueble ni un espacio. "" sin foto.',
+    },
     vitrina: {
       type: 'string',
       enum: ['', ...CLAVES_VITRINA],
@@ -207,7 +231,7 @@ export const ESQUEMA = {
       description: 'true para mostrarle al cliente el formulario de datos de contacto.',
     },
   },
-  required: ['vitrina', 'respuesta', 'productos', 'derivar', 'ofrecer_formulario'],
+  required: ['foto', 'vitrina', 'respuesta', 'productos', 'derivar', 'ofrecer_formulario'],
   additionalProperties: false,
 };
 

@@ -23,7 +23,7 @@ import {
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
-import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo } from './lib/negocio.js';
+import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo, catalogosPdf } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 import { imagenDeLaWeb } from './lib/imagen.js';
 
@@ -168,6 +168,18 @@ export async function atenderChat(cuerpo, ip, env) {
 export function negritasPara(canal, texto) {
   if (canal === 'whatsapp') return texto.replace(/\*\*([^*\n]+)\*\*/g, '*$1*');
   return texto.replace(/\*{1,2}([^*\n]+)\*{1,2}/g, '$1');
+}
+
+/** Pide «el catálogo» (no «algo fuera del catálogo»). */
+export function pideCatalogo(texto) {
+  return /\bcat[aá]logos?\b/i.test(texto ?? '') && !/fuera del cat[aá]logo/i.test(texto ?? '');
+}
+
+/** Quita las oraciones que prometen «Ver modelos» (solo se llama cuando no va ninguna vitrina). */
+export function sinPromesaDeVitrina(texto) {
+  const limpio = texto.split('\n').map((linea) => linea.split(/(?<=[.!?])\s+/).filter((o) => !/ver modelos/i.test(o)).join(' '))
+    .join('\n').trim();
+  return limpio || texto;
 }
 
 /** «Toca el botón de hablar con asesora» (o «la asesora… botón»): la respuesta promete el botón de WhatsApp. */
@@ -339,6 +351,8 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   }) : null;
   // Para medir en los logs cuántas vitrinas marca la IA y cuántas salen por el respaldo (sin datos del cliente).
   if (vitrina) console.log('Vitrina:', vitrina.clave, salida.vitrina === vitrina.clave ? '(IA)' : '(respaldo)');
+  // Igual con las fotos: qué vio la IA y cuántos modelos ofreció (para revisar el reconocimiento con wrangler tail).
+  if (imagen) console.log('Foto:', salida.foto || '(sin clasificar)', '·', (salida.productos ?? []).map((p) => p.id).join(',') || 'ningún modelo');
 
   // El resumen para la asesora tampoco puede llevar montos inventados: si los
   // trae, se arma con los datos verificados de las tarjetas.
@@ -352,6 +366,14 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   // Solo hay algo «abajo» con bolívares si va una tarjeta, o la vitrina de la web (la de WhatsApp no lleva Bs).
   const conTarjeta = Boolean(productos.length || (vitrina && canal !== 'whatsapp'));
   let respuesta = negritasPara(canal, sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta }));
+  if (!vitrina) {
+    // Sin vitrina no hay «Ver modelos»: si la IA lo promete, esa frase se quita (13-oct: el cliente pidió el catálogo,
+    // le dijeron «toca Ver modelos» y no le llegó nada). Si pidió «el catálogo», van los dos en PDF.
+    respuesta = sinPromesaDeVitrina(respuesta);
+    if (pideCatalogo(ultimo) && !respuesta.includes('drive.google.com')) {
+      respuesta += `\n\n${catalogosPdf.map(([nombre, url]) => `📖 ${nombre}: ${url}`).join('\n')}`;
+    }
+  }
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }

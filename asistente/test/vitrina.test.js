@@ -127,7 +127,11 @@ test('la nota del historial: se lee bien y la IA no puede escribirla', () => {
 });
 
 test('ESQUEMA y prompt: el enum es el que entiende el servidor, va primero y cada canal sabe cómo se ve', () => {
-  assert.equal(Object.keys(ESQUEMA.properties)[0], 'vitrina');
+  // Lo que decide cómo se escribe el texto va antes que el texto: la vitrina y, con foto, qué foto es.
+  const campos = Object.keys(ESQUEMA.properties);
+  assert.ok(campos.indexOf('vitrina') < campos.indexOf('respuesta'));
+  assert.ok(campos.indexOf('foto') < campos.indexOf('respuesta'));
+  assert.ok(ESQUEMA.required.includes('foto'));
   assert.ok(ESQUEMA.required.includes('vitrina'));
   assert.deepEqual(ESQUEMA.properties.vitrina.enum, ['', ...CLAVES_VITRINA]);
   assert.match(sistemaPara('whatsapp'), /Ver modelos/);

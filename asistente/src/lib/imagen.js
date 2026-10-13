@@ -1,7 +1,7 @@
 /**
  * Fotos que mandan los clientes (WhatsApp, Instagram o el chat de la web) para que la IA reconozca el modelo.
  *
- * La IA recibe la foto junto con dos hojas de referencia (public/ia/, hechas por scripts/hojas_catalogo_ia.py) con
+ * La IA recibe la foto junto con las hojas de referencia (public/ia/, hechas por scripts/hojas_catalogo_ia.py) con
  * todas las fotos del catálogo, cada una con su número (el id del producto) y su nombre, y responde con ese id.
  * En el historial queda solo NOTA_FOTO (más el pie de foto): la foto no se guarda en KV ni se reenvía.
  */
@@ -48,9 +48,16 @@ export async function descargarImagen(url, { token, mime } = {}) {
 // servicio de archivos de Gemini, que las guarda 48 h, y cada foto manda solo su referencia. La referencia se guarda en
 // KV (la comparten todos los isolates) y en memoria, y se renueva a las 46 h.
 const ARCHIVOS_GEMINI = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
-const CLAVE_HOJAS = 'ia:hojas';
+// Con la versión en la clave: si cambian las hojas, las referencias viejas guardadas en KV no se reusan.
+const CLAVE_HOJAS = 'ia:hojas:v3';
 const DURAN_MS = 46 * 3600 * 1000;
-const HOJAS = ['catalogo-camas.jpg', 'catalogo-muebles.jpg'];
+// Las que escribe scripts/hojas_catalogo_ia.py: el catálogo en hojas de 10 (en una sola, la IA confundía modelos
+// parecidos) y al final los proyectos de arquitectura.
+export const HOJAS = [
+  ...[1, 2, 3, 4].map((n) => `catalogo-camas-${n}.jpg`),
+  ...[1, 2, 3, 4].map((n) => `catalogo-muebles-${n}.jpg`),
+  'catalogo-proyectos.jpg',
+];
 let enMemoria = null; // { hasta, hojas: [{ mime, uri }] }
 
 async function subirHoja(nombre) {
@@ -69,7 +76,7 @@ async function subirHoja(nombre) {
   return { mime: 'image/jpeg', uri: j.file.uri };
 }
 
-/** Las referencias de las dos hojas en Gemini ([{ mime, uri }]); [] si no se pudieron tener (la IA mira solo la foto). */
+/** Las referencias de las hojas en Gemini ([{ mime, uri }]); [] si no se pudieron tener (la IA mira solo la foto). */
 export async function hojasDeReferencia(kv) {
   if (enMemoria?.hasta > Date.now()) return enMemoria.hojas;
   try {
