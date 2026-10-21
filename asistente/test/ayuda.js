@@ -12,7 +12,12 @@ configurar({
   ASISTENTE_PROVEEDOR: 'prueba',
   WA_TOKEN: 'token-wa', WA_APP_SECRET: SECRETO_WA, WA_VERIFY_TOKEN: 'verifica-wa', WA_API_BASE: 'https://meta.falso',
   IG_TOKEN: 'token-ig', IG_APP_SECRET: SECRETO_IG, IG_VERIFY_TOKEN: 'verifica-ig', IG_API_BASE: 'https://ig.falso',
+  // Sin el mensaje de la promo (lib/promo.js), para que cada prueba cuente solo sus mensajes; promo.test.js la prende.
+  PROMO: 'no',
 });
+
+/** El texto que mandó el asistente a Instagram, sin la marca invisible del final (canales/instagram.js → MARCA). */
+export const sinMarca = (texto) => (typeof texto === 'string' ? texto.replace(/⁣$/, '') : texto);
 
 export function kvEnMemoria() {
   const datos = new Map();

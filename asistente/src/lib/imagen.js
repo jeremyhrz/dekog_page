@@ -35,6 +35,11 @@ export async function descargarImagen(url, { token, mime } = {}) {
     const r = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(10000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     if (Number(r.headers.get('content-length') ?? 0) > MAX_BYTES_FOTO) throw new Error('la foto pesa demasiado');
+    // Un reel o una historia en video (Instagram): ni se descarga.
+    if (!mime && /^(video|audio)\//i.test(r.headers.get('content-type') ?? '')) {
+      await r.body?.cancel().catch(() => {});
+      throw new Error('es un video, no una foto');
+    }
     const imagen = imagenValida(mime || r.headers.get('content-type'), await r.arrayBuffer());
     if (!imagen) throw new Error('no es una imagen que se pueda leer');
     return imagen;

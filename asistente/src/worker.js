@@ -20,6 +20,7 @@ import { hojaConfigurada } from './lib/hoja.js';
 import { whatsappGet, whatsappPost, cupoMensual, diagnosticoWhatsapp, reconectarWebhookWhatsapp } from './canales/whatsapp.js';
 import {
   instagramGet, instagramPost, instagramConectar, instagramDesautorizar, instagramBorrarDatos, renovarTokenInstagram,
+  seguimientosInstagram,
 } from './canales/instagram.js';
 
 const ORIGENES_PERMITIDOS = [
@@ -145,8 +146,10 @@ export default {
 
   async scheduled(evento, env, ctx) {
     configurar(env);
-    // Los lunes a las 9:00 UTC, el token de Instagram; cada hora, la reconexión del webhook de WhatsApp.
+    // Los lunes a las 9:00 UTC, el token de Instagram; cada 15 minutos, los clientes de Instagram que llevan 1 hora
+    // esperando a la asesora; cada hora (a los :07), la reconexión del webhook de WhatsApp.
     if (evento.cron === '0 9 * * 1') ctx.waitUntil(renovarTokenInstagram(env));
+    else if (evento.cron === '*/15 * * * *') ctx.waitUntil(seguimientosInstagram(env));
     else ctx.waitUntil(reconectarWebhookWhatsapp(env));
   },
 };

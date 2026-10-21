@@ -9,6 +9,13 @@
  *   interes, resumen — lo último que mostró interés, para la hoja
  *   resumenEnHoja, telefonoEnHoja — lo que ya se envió a la hoja, para actualizar
  *              la fila solo cuando hay algo nuevo
+ *   promoVista — id de la promoción cuyo mensaje ya recibió (lib/promo.js): una vez por promo
+ *   avisoSinLeer — día (Caracas) en que se le dijo que no se leen audios ni videos: uno al día
+ * Solo Instagram, donde una asesora puede escribir en el mismo chat (instagram.js):
+ *   humano     — cuándo escribió la asesora por última vez (el asistente se calla en ese chat)
+ *   esperaDesde — primer mensaje del cliente que la asesora todavía no ha respondido
+ *   seguimiento — cuándo se le pidieron sus datos por haber esperado 1 hora
+ *   datosTomados — cuándo dejó sus datos después de ese pedido (para no repetir la fila en la hoja)
  * Cada conversación se borra sola a los 30 días sin actividad.
  */
 const TREINTA_DIAS = 60 * 60 * 24 * 30;
@@ -38,6 +45,7 @@ export async function cargarEstado(kv, clave) {
   const estado = {
     mensajes: [], procesados: [], guardado: false, interes: '', resumen: '',
     resumenEnHoja: null, telefonoEnHoja: false, avisoCupo: '', ultimaTarjeta: '', hoy: { fecha: '', n: 0, avisado: false },
+    promoVista: '', avisoSinLeer: '', humano: 0, esperaDesde: 0, seguimiento: 0, datosTomados: 0,
     ...(guardado ?? {}),
   };
   estado.desde = estado.mensajes.length; // lo que se agregue después es de esta vuelta (no se guarda)
@@ -93,7 +101,41 @@ export function fusionar(actual, estado) {
     avisoCupo: estado.avisoCupo || actual.avisoCupo, // mes en que ya se le avisó del cupo agotado
     ultimaTarjeta: estado.ultimaTarjeta || actual.ultimaTarjeta, // última foto/precio mostrados
     hoy: (estado.hoy?.fecha ?? '') >= (actual.hoy?.fecha ?? '') ? estado.hoy : actual.hoy, // mensajes del cliente hoy
+    promoVista: estado.promoVista || actual.promoVista || '',
+    avisoSinLeer: [estado.avisoSinLeer ?? '', actual.avisoSinLeer ?? ''].sort().at(-1),
+    ...turnosDeLaAsesora(actual, estado),
   };
+}
+
+const mayor = (a, b) => Math.max(Number(a) || 0, Number(b) || 0);
+
+/**
+ * Lo de la asesora de Instagram al juntar dos vueltas: lo más reciente de cada cosa. La espera es la del primer mensaje
+ * del cliente que llegó DESPUÉS del último de la asesora (si ella escribió después, ya no espera).
+ */
+function turnosDeLaAsesora(actual, estado) {
+  const humano = mayor(actual.humano, estado.humano);
+  const esperas = [actual.esperaDesde, estado.esperaDesde].map(Number).filter((t) => t > humano);
+  return {
+    humano,
+    esperaDesde: esperas.length ? Math.min(...esperas) : 0,
+    seguimiento: mayor(actual.seguimiento, estado.seguimiento),
+    datosTomados: mayor(actual.datosTomados, estado.datosTomados),
+  };
+}
+
+/**
+ * El historial con los mensajes seguidos del mismo lado unidos en uno (mientras la asesora atiende, el cliente puede
+ * escribir varias veces seguidas, o ella mandar dos mensajes): la IA lo recibe alternado, como espera.
+ */
+export function unirSeguidos(mensajes) {
+  const unidos = [];
+  for (const m of mensajes) {
+    const previo = unidos.at(-1);
+    if (previo && previo.role === m.role) unidos[unidos.length - 1] = { role: m.role, content: `${previo.content}\n${m.content}` };
+    else unidos.push(m);
+  }
+  return unidos;
 }
 
 /**

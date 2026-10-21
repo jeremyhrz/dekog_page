@@ -4,6 +4,7 @@
 import { tarjeta, buscarProducto, miles, fotoParaCanales } from '../lib/catalogo.js';
 import { fichas } from '../lib/conocimiento.js';
 import { VITRINAS } from '../lib/vitrina.js';
+import { ofertasDe, describirPiezas } from '../lib/promo.js';
 
 /** GET de verificación: Meta manda hub.challenge y hay que devolverlo si el token coincide. */
 export function verificarSuscripcion(url, tokenEsperado) {
@@ -53,11 +54,14 @@ export function pideBolivares(textoCliente, respuesta) {
  * (REF con miles() de catalogo.js: 1.290 como es-VE, sin Intl.)
  */
 export function lineaPrecio(p, tasa) {
+  const bs = p.bs ? ` = Bs ${p.bs} (${tasa?.etiqueta ?? 'tasa BCV'} ${tasa?.fecha ?? ''})` : '';
+  // Una pieza en stock de la promoción: «• Toronto · Individual 1,00x1,90 M · 🏷️ oferta en stock (gris 02 en chenille
+  // paño): antes REF 405, ahora REF 330 = Bs …».
+  if (p.oferta) return `• ${p.nombre} · ${p.talla} · 🏷️ oferta en stock (${p.pieza}): antes REF ${miles(p.antes)}, ahora REF ${miles(p.ref)}${bs}`;
   const partes = [p.nombre, p.talla, p.box, p.tela, p.puff];
   if (p.cantidad > 1) partes.push(`${p.cantidad} × REF ${miles(p.unitario)}`);
   const cual = partes.filter(Boolean).join(' · ');
   const ref = `${p.desde ? 'desde ' : ''}REF ${miles(p.ref)}`;
-  const bs = p.bs ? ` = Bs ${p.bs} (${tasa?.etiqueta ?? 'tasa BCV'} ${tasa?.fecha ?? ''})` : '';
   if (!p.partes) return `• ${cual}: ${ref}${bs}`;
   // Con adicionales, de dónde sale el total: «cama REF 550 + tela premium REF 120 = REF 670».
   const suma = p.partes.map(([nombre, monto]) => `${nombre} REF ${miles(monto)}`).join(' + ');
@@ -92,9 +96,28 @@ export function conCola(texto, cola, maximo) {
 /** "Desde REF 405" (varias medidas) o "REF 1.855" (una sola). Sin toLocaleString: nada de ICU. */
 export const precioCorto = (t) => `${t.desde ? 'Desde ' : ''}REF ${miles(t.ref)}`;
 
+/** «· 🏷️ en oferta» si el modelo tiene piezas en stock con descuento (lib/promo.js). */
+const conOferta = (t) => (t.enOferta ? ' · 🏷️ en oferta' : '');
+
 /** La vitrina en texto (respaldo de WhatsApp y modo «texto» de Instagram). */
 export function vitrinaEnTexto(v) {
-  return [`${v.rotulo}:`, ...v.productos.map((t) => `• ${t.nombre} (${t.linea}): ${precioCorto(t)}`)].join('\n');
+  return [`${v.rotulo}:`, ...v.productos.map((t) => `• ${t.nombre} (${t.linea}): ${precioCorto(t)}${conOferta(t)}`)].join('\n');
+}
+
+/**
+ * «🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 (antes REF 405).» Las piezas del mismo
+ * precio van juntas («Matrimonial gris 01 en terciopelo / fucsia en terciopelo, a REF 580…»). '' si no tiene.
+ */
+export function ofertasDelModelo(id) {
+  const grupos = new Map();
+  for (const o of ofertasDe(id)) {
+    const clave = `${o.medida}|${o.antes}|${o.ahora}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(o);
+  }
+  if (!grupos.size) return '';
+  const lista = [...grupos.values()].map((g) => `${g[0].medida} ${describirPiezas(g)}, a REF ${miles(g[0].ahora)} (antes REF ${miles(g[0].antes)})`);
+  return `🏷️ En stock con descuento: ${lista.join('; ')}.`;
 }
 
 /** "prod:48" → { tipo: 'producto', id: 48 }; "mas:camas" → { tipo: 'mas', clave: 'camas' }; lo demás → null. */
@@ -123,11 +146,12 @@ export function fichaElegida(id, tasa) {
   const pregunta = medidas.length > 1 ? '¿Qué medida necesitas?' : '¿Quieres que una asesora te confirme la disponibilidad, o te muestro otro modelo?';
   const linea = (c, conBs) => `• ${c.talla ?? t.nombre}: REF ${miles(c.ref)}${conBs && c.bs ? ` (Bs ${c.bs})` : ''}`;
   const nota = tasa ? `Bs a la ${tasa.etiqueta} del ${tasa.fecha}.` : 'El monto en bolívares te lo confirma una asesora.';
+  const oferta = ofertasDelModelo(id); // sus piezas en stock con descuento, si tiene
   return {
     tarjeta: t,
     interes: t.nombre,
-    caption: [`*${t.nombre}* · ${t.tipo}`, frase, medidas.map((c) => linea(c, true)).join('\n'), nota, pregunta].filter(Boolean).join('\n'),
-    texto: [`${t.nombre} · ${t.tipo}`, frase, medidas.map((c) => linea(c, false)).join('\n'), pregunta].filter(Boolean).join('\n'),
+    caption: [`*${t.nombre}* · ${t.tipo}`, frase, medidas.map((c) => linea(c, true)).join('\n'), nota, oferta, pregunta].filter(Boolean).join('\n'),
+    texto: [`${t.nombre} · ${t.tipo}`, frase, medidas.map((c) => linea(c, false)).join('\n'), oferta, pregunta].filter(Boolean).join('\n'),
   };
 }
 
@@ -138,7 +162,7 @@ export function listaDeVitrina(v, texto) {
   const secciones = new Map();
   for (const t of v.productos) {
     if (!secciones.has(t.seccion)) secciones.set(t.seccion, []);
-    secciones.get(t.seccion).push({ id: `prod:${t.id}`, title: recortar(t.nombre, 24), description: recortar(`${precioCorto(t)} · ${t.linea}`, 72) });
+    secciones.get(t.seccion).push({ id: `prod:${t.id}`, title: recortar(t.nombre, 24), description: recortar(`${precioCorto(t)} · ${t.linea}${conOferta(t)}`, 72) });
   }
   const sections = [...secciones].map(([titulo, rows]) => ({ title: recortar(titulo, 24), rows }));
   if (v.mas) sections.push({ title: 'Más modelos', rows: [{ id: `mas:${v.clave}`, title: recortar(v.mas, 24), description: recortar(`Otros ${v.quedan} modelos`, 72) }] });
@@ -195,6 +219,25 @@ export function extraerTelefono(texto) {
     if (digitos.length >= 7 && digitos.length <= 15) return candidato.trim().startsWith('+') ? `+${digitos}` : digitos;
   }
   return '';
+}
+
+// Lo que rodea al nombre cuando el cliente deja sus datos («hola, soy María y mi número es…»).
+const RELLENO = new Set(['hola', 'buenas', 'buenos', 'dias', 'días', 'tardes', 'noches', 'gracias', 'ok', 'okey', 'dale', 'listo',
+  'claro', 'si', 'sí', 'aqui', 'aquí', 'te', 'dejo', 'mis', 'datos', 'mi', 'nombre', 'es', 'me', 'llamo', 'soy', 'y', 'el', 'la',
+  'numero', 'número', 'telefono', 'teléfono', 'tlf', 'whatsapp', 'wsp', 'ws', 'celular', 'cel', 'de', 'para', 'contacto']);
+
+/**
+ * El nombre que escribió el cliente al dejar sus datos en Instagram («María Pérez 0414…», «me llamo Ana»), o ''. Solo
+ * si dejó también un teléfono o dijo «me llamo», «mi nombre es» o «soy»: un «ok, gracias» suelto no es un nombre. Va
+ * solo a la hoja, nunca a la IA.
+ */
+export function nombreEscrito(texto, telefono = '') {
+  const s = String(texto ?? '');
+  if (!telefono && !/\b(me llamo|mi nombre es|soy)\b/i.test(s)) return '';
+  const palabras = s.replace(/\+?\d[\d\s().-]{5,}\d/g, ' ').replace(/[^\p{L}\s'-]/gu, ' ')
+    .split(/\s+/).filter((p) => p && !RELLENO.has(p.toLowerCase()));
+  const nombre = palabras.join(' ');
+  return palabras.length >= 1 && palabras.length <= 5 && nombre.length <= 60 ? nombre : '';
 }
 
 // Precalentado al cargar el Worker (ver chat.js): lo que usa el primer mensaje de WhatsApp o Instagram.

@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { MarcaD } from './asistente/LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp } from './asistente/comun';
 import { propsWhatsapp } from '../utils/whatsapp';
+import { PROMO } from '../../asistente/src/lib/promo.js';
 
 /**
  * AsistenteChat — botón flotante del asistente con IA de Dekog (esquina inferior derecha), su saludo
@@ -28,10 +29,11 @@ function cargarPanel() {
 const PanelPerezoso = lazy(cargarPanel);
 const precargar = () => { cargarPanel().catch(() => {}); };
 
-// Saludo: una vez por visita, a los 7 s, con un texto según la página (en /contacto no: tiene su formulario).
+// Saludo: una vez por visita, a los 7 s, con un texto según la página (en /contacto no: tiene su formulario). En el
+// inicio y en Home, mientras haya promo (asistente/src/lib/promo.js), la anuncia.
 const SALUDOS = {
-  '/': '¡Hola! 👋 ¿Buscas algo para tu espacio? Te ayudo con modelos y precios.',
-  '/home': '¿Sofá, cama o mesa? Te digo modelos y precios en REF y Bs al instante.',
+  '/': PROMO ? `¡Hola! 👋 ${PROMO.titulo} 🏷️ ¿Te ayudo a encontrar la tuya?` : '¡Hola! 👋 ¿Buscas algo para tu espacio? Te ayudo con modelos y precios.',
+  '/home': PROMO ? `${PROMO.titulo} 🏷️ Te digo modelos y precios en REF y Bs al instante.` : '¿Sofá, cama o mesa? Te digo modelos y precios en REF y Bs al instante.',
   '/arquitectura': '¿Tienes un proyecto en mente? Te ayudo a cotizarlo.',
   '/servicios': '¿Tienes un proyecto en mente? Te ayudo a cotizarlo.',
   '/proyectos': '¿Te gustó algún proyecto? Te ayudo a cotizar el tuyo.',

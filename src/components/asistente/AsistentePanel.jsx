@@ -6,6 +6,7 @@ import { AvatarDekog } from './LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp, nuevoId } from './comun';
 import { propsWhatsapp, textoDeEnlace } from '../../utils/whatsapp';
 import { NOTA_FOTO, saludoInicial } from '../../../asistente/src/lib/negocio.js';
+import { PROMO } from '../../../asistente/src/lib/promo.js';
 import { ErrorDelAsistente, pedirAlAsistente } from './red';
 import './asistente.css';
 
@@ -126,8 +127,13 @@ function DatosTarjeta({ p, tasa }) {
   const etiquetas = [p.tela && 'Tela premium', p.telaPorConfirmar && 'Tela por confirmar', p.puff && 'Con puff'].filter(Boolean);
   return (
     <>
+      {/* Pieza en stock de la promo (asistente/src/lib/promo.js): su precio de oferta; un modelo que tiene piezas así, la etiqueta. */}
+      {(p.oferta || p.enOferta) && (
+        <p className="mb-1"><span className="rounded-full bg-[#b3261e] px-2 py-0.5 text-[10px] font-bold uppercase leading-tight tracking-wide text-white">{p.oferta ? 'Oferta en stock' : 'Hay oferta'}</span></p>
+      )}
       <p className="truncate text-[12.5px] font-bold uppercase tracking-tight text-neutral-900">{p.nombre}</p>
       {detalle && <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-neutral-500">{detalle}</p>}
+      {p.oferta && p.pieza && <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-neutral-500">{p.pieza}</p>}
       {etiquetas.length > 0 && (
         <p className="mt-1.5 flex flex-wrap gap-1">
           {etiquetas.map((e) => (
@@ -150,7 +156,10 @@ function DatosTarjeta({ p, tasa }) {
         <p className="mt-1 text-[11px] text-neutral-500">{p.cantidad} × REF {p.unitario.toLocaleString('es-VE')}</p>
       )}
       {p.desde && <p className="mt-2 text-[9px] font-bold uppercase leading-none tracking-[0.18em] text-neutral-500">Desde</p>}
-      <p className={`${p.desde ? 'mt-1' : 'mt-2'} text-[17px] font-black leading-none text-black`}>
+      {p.oferta && p.antes && (
+        <p className="mt-2 text-[11px] leading-none text-neutral-500">Antes <s>REF {p.antes.toLocaleString('es-VE')}</s></p>
+      )}
+      <p className={`${p.desde || (p.oferta && p.antes) ? 'mt-1' : 'mt-2'} text-[17px] font-black leading-none ${p.oferta ? 'text-[#b3261e]' : 'text-black'}`}>
         <span className="text-[0.72em] font-light">REF </span>{p.ref.toLocaleString('es-VE')}
       </p>
       {p.bs && (
@@ -160,6 +169,26 @@ function DatosTarjeta({ p, tasa }) {
         </>
       )}
     </>
+  );
+}
+
+/** La promo vigente (asistente/src/lib/promo.js) debajo de la bienvenida: la misma imagen que mandan WhatsApp e
+ * Instagram y el botón al catálogo de ofertas en PDF. Sin promo (PROMO = null), no aparece. */
+function TarjetaPromo() {
+  return (
+    <div className="w-fit max-w-[88%] overflow-hidden rounded-[20px] rounded-tl-md bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04]">
+      <img src={PROMO.imagenWeb} alt={PROMO.titulo} width={720} height={720} loading="lazy" decoding="async"
+        className="block h-auto w-[248px] max-w-full bg-[#15120f] sm:w-[260px]" />
+      <div className="w-[248px] max-w-full px-4 pb-3.5 pt-3 sm:w-[260px]">
+        <p className="text-[14.5px] font-semibold leading-snug text-neutral-900 sm:text-[14px]">🏷️ {PROMO.titulo}</p>
+        <p className="mt-1 text-[13px] leading-snug text-neutral-600 sm:text-[12.5px]">Camas ya fabricadas, a precio especial y hasta agotar existencia.</p>
+        <a href={PROMO.enlace} target="_blank" rel="noopener noreferrer"
+          className="mt-3 inline-flex h-10 items-center gap-1.5 rounded-full bg-black px-4 text-[13.5px] font-semibold text-white transition hover:bg-neutral-800 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2">
+          Ver las ofertas
+          <ChevronRight size={16} aria-hidden="true" />
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -749,6 +778,8 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
             <div className="w-fit max-w-[88%] whitespace-pre-line break-words rounded-[20px] rounded-tl-md bg-white px-4 py-2.5 text-[15px] leading-[1.5] text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] sm:text-[14.5px]">
               {BIENVENIDA}
             </div>
+            {/* Con la bienvenida, la promo (pedido de la dueña, 21-oct: también en WhatsApp e Instagram). */}
+            {PROMO && <TarjetaPromo />}
           </motion.div>
 
           {items.map((m, i) => {
