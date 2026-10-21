@@ -26,7 +26,7 @@ import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVi
 import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo, catalogosPdf } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 import { imagenDeLaWeb } from './lib/imagen.js';
-import { promoActiva, pideOfertas, pideCatalogoDeOfertas } from './lib/promo.js';
+import { promoActiva, pideOfertas, pideCatalogoDeOfertas, ofertasDelModelo } from './lib/promo.js';
 
 const MAX_MENSAJES = 16;
 // Tiempo total para la IA, contando una posible corrección. En la web el navegador espera hasta 40 s; en
@@ -384,6 +384,10 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   // Preguntó por ofertas, descuentos o promociones (o la IA habla del catálogo de ofertas): va su enlace. Lo agrega el
   // servidor, no la IA, para que nunca llegue mal escrito (21-oct: la promo de la dueña).
   const promo = promoActiva();
+  // La IA a veces no dice que el modelo por el que preguntan tiene piezas en stock con descuento (21-oct: «¿Cuánto cuesta
+  // la Manila queen?» → REF 520, sin las tres a REF 420): si su respuesta no habla de ofertas, se agrega la línea.
+  const conOferta = !vitrina && !/oferta|stock|descuento/i.test(respuesta) && productos.find((p) => p.enOferta && !p.oferta);
+  if (promo && !salida.emergencia && conOferta) respuesta += `\n\n${ofertasDelModelo(conOferta.id, conOferta.talla ?? '')}`;
   if (promo && !salida.emergencia && (pideOfertas(ultimo) || /cat[aá]logo de ofertas/i.test(respuesta))
     && !respuesta.includes(promo.enlace)) {
     respuesta += `\n\n🏷️ Catálogo de ofertas: ${promo.enlace}`;

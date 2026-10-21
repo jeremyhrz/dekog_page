@@ -4,7 +4,7 @@
 import { tarjeta, buscarProducto, miles, fotoParaCanales } from '../lib/catalogo.js';
 import { fichas } from '../lib/conocimiento.js';
 import { VITRINAS } from '../lib/vitrina.js';
-import { ofertasDe, describirPiezas } from '../lib/promo.js';
+import { ofertasDelModelo } from '../lib/promo.js';
 
 /** GET de verificación: Meta manda hub.challenge y hay que devolverlo si el token coincide. */
 export function verificarSuscripcion(url, tokenEsperado) {
@@ -102,22 +102,6 @@ const conOferta = (t) => (t.enOferta ? ' · 🏷️ en oferta' : '');
 /** La vitrina en texto (respaldo de WhatsApp y modo «texto» de Instagram). */
 export function vitrinaEnTexto(v) {
   return [`${v.rotulo}:`, ...v.productos.map((t) => `• ${t.nombre} (${t.linea}): ${precioCorto(t)}${conOferta(t)}`)].join('\n');
-}
-
-/**
- * «🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 (antes REF 405).» Las piezas del mismo
- * precio van juntas («Matrimonial gris 01 en terciopelo / fucsia en terciopelo, a REF 580…»). '' si no tiene.
- */
-export function ofertasDelModelo(id) {
-  const grupos = new Map();
-  for (const o of ofertasDe(id)) {
-    const clave = `${o.medida}|${o.antes}|${o.ahora}`;
-    if (!grupos.has(clave)) grupos.set(clave, []);
-    grupos.get(clave).push(o);
-  }
-  if (!grupos.size) return '';
-  const lista = [...grupos.values()].map((g) => `${g[0].medida} ${describirPiezas(g)}, a REF ${miles(g[0].ahora)} (antes REF ${miles(g[0].antes)})`);
-  return `🏷️ En stock con descuento: ${lista.join('; ')}.`;
 }
 
 /** "prod:48" → { tipo: 'producto', id: 48 }; "mas:camas" → { tipo: 'mas', clave: 'camas' }; lo demás → null. */
