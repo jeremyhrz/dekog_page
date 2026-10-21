@@ -3,6 +3,7 @@
 // de contestar «solo puedo leer mensajes de texto y fotos». IA: proveedor «prueba». Fetch falso: no sale nada a internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg, sinMarca } from './ayuda.js';
 import { config } from '../src/lib/config.js';
 import { PROMO, OFERTAS, COPETES, ofertaElegida, ofertasDelModelo, pideOfertas, pideCatalogoDeOfertas } from '../src/lib/promo.js';
@@ -132,6 +133,26 @@ test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el ser
   assert.ok(r.respuesta.endsWith('🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 (antes REF 405); Matrimonial gris en sedoso, a REF 395 (antes REF 495).'), r.respuesta);
   config.PROMO = 'no';
   assert.doesNotMatch((await pensar([{ role: 'user', content: '¿Cuánto es la Toronto queen?' }], 'whatsapp')).respuesta, /En stock con descuento/);
+});
+
+test('dekog.net/ofertas abre el PDF de la promo y trae su vista previa (JPEG 1200 x 630); los rewrites van antes del comodín', () => {
+  const leer = (ruta) => readFileSync(new URL(`../../${ruta}`, import.meta.url));
+  const html = leer('public/ofertas.html').toString('utf8');
+  assert.equal(PROMO.enlace, 'https://www.dekog.net/ofertas');
+  assert.ok(html.includes(`location.replace('${PROMO.pdf}')`), 'el redireccionamiento lleva al PDF de promo.js');
+  assert.ok(html.includes(`href="${PROMO.pdf}"`), 'el botón de respaldo lleva al PDF de promo.js');
+  const imagen = /property="og:image" content="https:\/\/www\.dekog\.net\/([^"]+)"/.exec(html)[1];
+  const bytes = leer(`public/${imagen}`);
+  assert.deepEqual([...bytes.subarray(0, 3)], [0xff, 0xd8, 0xff], `${imagen} no es JPEG`);
+  let i = 2;
+  while (i < bytes.length && !(bytes[i] === 0xff && bytes[i + 1] === 0xc0)) i += 2 + bytes.readUInt16BE(i + 2);
+  assert.deepEqual([bytes.readUInt16BE(i + 7), bytes.readUInt16BE(i + 5)], [1200, 630], 'ancho y alto de la vista previa');
+  const { rewrites } = JSON.parse(leer('vercel.json').toString('utf8'));
+  const comodin = rewrites.findIndex((r) => r.destination === '/index.html');
+  for (const [origen, destino] of [['/ofertas', '/ofertas.html'], ['/a/:codigo', 'https://dekog-asistente.dekog-web.workers.dev/a/:codigo']]) {
+    const k = rewrites.findIndex((r) => r.source === origen && r.destination === destino);
+    assert.ok(k >= 0 && k < comodin, `${origen} va antes del comodín`);
+  }
 });
 
 test('Qué cuenta como pedir ofertas y como pedir el catálogo de ofertas', () => {

@@ -7,8 +7,9 @@
  *   - a cada cliente le manda UNA vez por promo, después de la bienvenida, un mensaje con la imagen y el enlace;
  *   - conoce cada pieza en stock (medida, color, tela, precio normal y de oferta) y la muestra en la tarjeta.
  *
- * Otra promo: cambiar `id` (así cada cliente vuelve a ver el mensaje), el enlace, la imagen (promo/generar_flyer.py en
- * dekog_trabajo) y la lista de piezas. Sin promo: PROMO = null, y todo vuelve a «por ahora no hay promociones».
+ * Otra promo: cambiar `id` (así cada cliente vuelve a ver el mensaje), el PDF (`pdf` aquí y en public/ofertas.html), las
+ * imágenes (promo/generar_flyer.py en dekog_trabajo) y la lista de piezas. Sin promo: PROMO = null, y todo vuelve a «por
+ * ahora no hay promociones».
  */
 import { config } from './config.js';
 
@@ -16,7 +17,10 @@ export const PROMO = {
   id: 'stock-2026-10',
   titulo: 'Hasta 20 % de descuento en mobiliario en stock',
   hasta: 20,
-  enlace: 'https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/view?usp=sharing',
+  // El enlace que se manda: una página de dekog.net (public/ofertas.html) que abre el PDF de Drive al instante y le da a
+  // Instagram y WhatsApp una vista previa con la imagen de la promo (la del PDF salía rota en Instagram, 21-oct).
+  enlace: 'https://www.dekog.net/ofertas',
+  pdf: 'https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/view?usp=sharing',
   // JPEG de verdad (WhatsApp rechaza una imagen cuyo tipo no coincide con la extensión) y una WebP liviana para la web.
   imagen: 'https://www.dekog.net/promo/promo-stock.jpg',
   imagenWeb: '/promo/promo-stock.webp',
