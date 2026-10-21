@@ -34,6 +34,7 @@ import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { descargarImagen } from '../lib/imagen.js';
 import { NOTA_FOTO } from '../lib/negocio.js';
 import { promoActiva, textoDeLaPromo } from '../lib/promo.js';
+import { enlaceCorto } from '../lib/enlaces.js';
 import {
   cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos, unirSeguidos,
 } from './memoria.js';
@@ -543,7 +544,8 @@ async function procesar(evento, env) {
   // Pidió el monto en bolívares (o la respuesta lo promete) del MISMO producto: la foto no se repite, el precio sí.
   const repetidos = !vitrina && !nuevos.length && pideBolivares(texto, respuesta) ? r.productos : [];
   let cuerpo = [respuesta, [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
-  if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp: ${r.whatsapp.url}`;
+  // El enlace a la asesora, corto (lib/enlaces.js): el largo, con el resumen, Instagram lo mostraba a medias en gris.
+  if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp 👉 ${await enlaceCorto(env.CONVERSACIONES, r.whatsapp.url)}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
   if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su enlace.
