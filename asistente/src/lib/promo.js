@@ -111,6 +111,29 @@ export function describirPiezas(piezas) {
   return piezas.map((o) => `${[o.color, o.tela].filter(Boolean).join(' en ')}${o.nota ? ` (${o.nota})` : ''}`).join(' / ');
 }
 
+const conPuntos = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // 1060 → «1.060», como miles() de catalogo.js
+
+/**
+ * «🏷️ En stock con descuento: Queen gris 02 en chenille paño / gris oscuro en lino, a REF 420 (antes REF 520).» Las piezas
+ * del mismo precio van juntas. Con `medida` («Queen 1,60x1,90 M»), solo las de esa medida si las hay; si no, todas las
+ * del modelo. '' si el modelo no tiene piezas en oferta.
+ */
+export function ofertasDelModelo(id, medida = '') {
+  const todas = ofertasDe(id);
+  const m = plano(medida);
+  const deEsaMedida = m ? todas.filter((o) => m.startsWith(plano(o.medida))) : [];
+  const grupos = new Map();
+  for (const o of deEsaMedida.length ? deEsaMedida : todas) {
+    const clave = `${o.medida}|${o.antes}|${o.ahora}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(o);
+  }
+  if (!grupos.size) return '';
+  const lista = [...grupos.values()]
+    .map((g) => `${g[0].medida} ${describirPiezas(g)}, a REF ${conPuntos(g[0].ahora)} (antes REF ${conPuntos(g[0].antes)})`);
+  return `🏷️ En stock con descuento: ${lista.join('; ')}.`;
+}
+
 const linea = (o) => `- ${o.id ? `[${o.id}] ` : ''}${o.modelo} · ${o.medida} · ${describirPiezas([o])}: REF ${o.antes} → REF ${o.ahora}`
   + `${o.id ? '' : ' (no está en el CATÁLOGO: solo existe esta pieza; no la pongas en "productos")'}`;
 

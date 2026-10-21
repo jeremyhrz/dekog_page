@@ -5,7 +5,7 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg, sinMarca } from './ayuda.js';
 import { config } from '../src/lib/config.js';
-import { PROMO, OFERTAS, COPETES, ofertaElegida, pideOfertas, pideCatalogoDeOfertas } from '../src/lib/promo.js';
+import { PROMO, OFERTAS, COPETES, ofertaElegida, ofertasDelModelo, pideOfertas, pideCatalogoDeOfertas } from '../src/lib/promo.js';
 import { tarjeta, montosInventados, buscarProducto } from '../src/lib/catalogo.js';
 import { lineaPrecio, fichaElegida, nombreEscrito } from '../src/canales/meta.js';
 import { unirSeguidos } from '../src/canales/memoria.js';
@@ -121,6 +121,17 @@ test('WhatsApp e Instagram: la línea del precio de la pieza y la ficha del mode
   assert.match(ficha.caption, /🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 \(antes REF 405\); Matrimonial gris en sedoso, a REF 395 \(antes REF 495\)\./);
   assert.match(ficha.texto, /En stock con descuento/);
   assert.doesNotMatch(fichaElegida(1, TASA).caption, /En stock con descuento/); // un sofá sin piezas en oferta
+});
+
+test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el servidor agrega la línea', async () => {
+  assert.equal(ofertasDelModelo(31, 'Queen 1,60x1,90 M'),
+    '🏷️ En stock con descuento: Queen gris 02 en chenille paño / gris oscuro en lino / gris 01 en terciopelo, a REF 420 (antes REF 520).');
+  assert.equal(ofertasDelModelo(1), ''); // un sofá sin piezas en oferta
+  // La IA de prueba responde la Toronto Queen sin hablar de ofertas: no hay Toronto Queen en stock, van las de otras medidas.
+  const r = await pensar([{ role: 'user', content: '¿Cuánto es la Toronto queen?' }], 'whatsapp');
+  assert.ok(r.respuesta.endsWith('🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 (antes REF 405); Matrimonial gris en sedoso, a REF 395 (antes REF 495).'), r.respuesta);
+  config.PROMO = 'no';
+  assert.doesNotMatch((await pensar([{ role: 'user', content: '¿Cuánto es la Toronto queen?' }], 'whatsapp')).respuesta, /En stock con descuento/);
 });
 
 test('Qué cuenta como pedir ofertas y como pedir el catálogo de ofertas', () => {
