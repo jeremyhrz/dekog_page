@@ -10,7 +10,11 @@
             "destination": "/links.html"
         },
         {
-            "source": "/((?!wa/|ia/).*)",
+            "source": "/a/:codigo",
+            "destination": "https://dekog-asistente.dekog-web.workers.dev/a/:codigo"
+        },
+        {
+            "source": "/((?!wa/|ia/|a/).*)",
             "destination": "/index.html"
         }
     ],
