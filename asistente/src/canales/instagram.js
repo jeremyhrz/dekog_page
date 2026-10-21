@@ -325,7 +325,9 @@ async function procesarEco(evento, env) {
   const kv = env.CONVERSACIONES;
   const clave = `ig:${igsid}`;
   const estado = await cargarEstado(kv, clave);
-  estado.humano = Date.now();
+  // Después de lo que ya escribió el cliente, aunque llegue en el mismo milisegundo: con horas iguales no se sabría si
+  // ella ya le respondió (y se le pedirían los datos sin hacer falta).
+  estado.humano = Math.max(Date.now(), (Number(estado.esperaDesde) || 0) + 1);
   estado.mensajes.push({ role: 'assistant', content: ocultarDatosPersonales(sinMarca(texto)).slice(0, 800) });
   await guardarEstado(kv, clave, estado);
   console.log('Instagram: una asesora escribió en un chat; el asistente se calla ahí');
@@ -355,8 +357,9 @@ async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, 
     estado.mensajes.push({ role: 'user', content: [imagen ? NOTA_FOTO : '', nota, escrito].filter(Boolean).join(' ') });
   }
   if (!(estado.esperaDesde > estado.humano)) {
-    estado.esperaDesde = ahora;
-    await programarSeguimiento(env, igsid, ahora + ESPERA_MS);
+    // Siempre después del último mensaje de la asesora (en el mismo milisegundo, 1 ms después): si no, la espera no cuenta.
+    estado.esperaDesde = Math.max(ahora, (Number(estado.humano) || 0) + 1);
+    await programarSeguimiento(env, igsid, estado.esperaDesde + ESPERA_MS);
   }
   const telefono = extraerTelefono(texto);
   const nombre = nombreEscrito(texto, telefono);
