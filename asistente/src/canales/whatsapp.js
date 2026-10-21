@@ -23,6 +23,7 @@ import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import { descargarImagen } from '../lib/imagen.js';
+import { promoActiva, promoParaWhatsapp, promoParaWhatsappSinBoton, textoDeLaPromo } from '../lib/promo.js';
 import {
   verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse, eleccionDe, fichaElegida, listaDeVitrina, textoDeVitrinaWa,
   pideBolivares,
@@ -104,10 +105,17 @@ const CAMPOS_DE_CUENTA = new Set([
   'security', // cambios del PIN o de la verificación del número: la única alarma si alguien los toca
 ]);
 
-// Lo que el cliente manda sin texto: con estos se le ofrece la asesora; el resto (reacciones, ediciones, avisos
-// del sistema, tipos nuevos) se ignora sin responder ni gastar cupo ni escrituras de KV.
-const SIN_TEXTO = new Set(['image', 'audio', 'video', 'document', 'sticker', 'location', 'contacts']);
+// Lo que el cliente manda sin texto: con estos se le ofrece la asesora (un aviso al día, salvo la foto que no se pudo
+// abrir); el resto (stickers, reacciones, ediciones, avisos del sistema, tipos nuevos) se ignora sin responder ni gastar
+// cupo ni escrituras de KV. Un sticker es un «👍» o un «gracias»: contestarle «no puedo ver videos» sobraba (21-oct).
+const SIN_TEXTO = new Set(['image', 'audio', 'video', 'document', 'location', 'contacts']);
 const CON_TEXTO = new Set(['text', 'interactive', 'button']);
+const AVISO_SIN_TEXTO = {
+  audio: 'Por ahora no puedo escuchar notas de voz 🙏 Escríbeme tu pregunta y te respondo al instante, o habla directo con una asesora de Dekog.',
+  video: 'Por ahora no puedo ver videos 🙏 Si es de un modelo, mándame una foto o una captura y te digo cuál es, o habla directo con una asesora de Dekog.',
+  location: 'Recibí tu ubicación 📍 El costo y el día de la entrega te los confirma una asesora de Dekog.',
+  otro: 'Por ahora no puedo abrir archivos ni contactos 🙏 Escríbeme qué necesitas, o habla directo con una asesora de Dekog.',
+};
 
 // Tope por cliente y por día: alguien que manda cientos de mensajes, o el contestador automático de otra empresa
 // respondiéndole al bot, se comería en una tarde el cupo del mes, las escrituras de KV y la IA de todos.
@@ -191,6 +199,26 @@ function eleccionDeMensaje(mensaje) {
   return eleccionDe(mensaje.interactive?.list_reply?.id ?? mensaje.interactive?.button_reply?.id ?? mensaje.button?.payload);
 }
 
+const promoMandada = new Set(); // en esta instancia: dos mensajes seguidos del cliente se atienden a la vez
+
+/**
+ * La promo (lib/promo.js) UNA vez por cliente y por promo, después de la bienvenida: la imagen, el texto y el botón
+ * «Ver ofertas» en un solo mensaje (1 del cupo). Si Meta rechaza el botón, la imagen con el enlace; si tampoco, el texto.
+ */
+async function enviarPromoSiToca(env, phoneId, base, clave, estado) {
+  const promo = promoActiva();
+  if (!promo || estado.promoVista === promo.id) return;
+  estado.promoVista = promo.id;
+  const marca = `${clave}|${promo.id}`;
+  // Otra vuelta del mismo cliente pudo mandarla hace un instante: se mira la memoria justo antes.
+  if (promoMandada.has(marca) || (await cargarEstado(env.CONVERSACIONES, clave)).promoVista === promo.id) return;
+  promoMandada.add(marca);
+  if (promoMandada.size > 500) promoMandada.delete(promoMandada.values().next().value);
+  if (await enviar(env, phoneId, { ...base, ...promoParaWhatsapp(promo) })) return;
+  if (await enviar(env, phoneId, { ...base, ...promoParaWhatsappSinBoton(promo) })) return;
+  await enviar(env, phoneId, { ...base, type: 'text', text: { body: textoDeLaPromo(promo, { formato: true }), preview_url: true } });
+}
+
 /** Envía la vitrina como UNA lista; si Meta la rechaza, el mismo contenido en texto. Siempre 1 mensaje del cupo. */
 async function enviarVitrina(env, phoneId, base, v, texto) {
   const ok = await enviar(env, phoneId, { ...base, type: 'interactive', interactive: listaDeVitrina(v, texto) });
@@ -261,6 +289,14 @@ async function procesar(valor, mensaje, env) {
     return;
   }
 
+  // Nota de voz, video, ubicación o archivo cuando ya se le avisó hoy que no se pueden leer: silencio, sin «escribiendo…»
+  // (si sigue mandando audios, no se le repite el mismo aviso cada vez; 21-oct).
+  const sinLeer = !CON_TEXTO.has(mensaje.type) && mensaje.type !== 'image';
+  if (sinLeer && estado.avisoSinLeer === hoy) {
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
+
   // "Leído" y "escribiendo…" mientras piensa (no consume cupo).
   await enviar(env, phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
 
@@ -268,11 +304,14 @@ async function procesar(valor, mensaje, env) {
   // Una foto (de la web, del catálogo o de cualquier lado): la IA la compara con el catálogo (lib/imagen.js).
   const imagen = mensaje.type === 'image' ? await fotoDeWhatsapp(mensaje.image?.id) : null;
   if (!texto && !imagen) {
-    // Nota de voz, video, sticker o una foto que no se pudo abrir: en Venezuela la nota de voz es lo normal. Se le
-    // ofrece la asesora en el mismo mensaje (y se presenta si es lo primero que escribe).
-    const aviso = mensaje.type === 'image'
+    // Nota de voz, video, ubicación, archivo o una foto que no se pudo abrir: en Venezuela la nota de voz es lo normal.
+    // Se le ofrece la asesora en el mismo mensaje (y se presenta si es lo primero que escribe). Salvo la foto, UN aviso
+    // al día (arriba).
+    const foto = mensaje.type === 'image';
+    if (!foto) estado.avisoSinLeer = hoy;
+    const aviso = foto
       ? 'No pude abrir esa foto 🙏 ¿Me la reenvías, o me escribes qué modelo buscas? También puedes hablar directo con una asesora de Dekog.'
-      : 'Por ahora no puedo escuchar audios ni ver videos 🙏 Escríbeme tu pregunta o mándame una foto del modelo que te gusta, o habla directo con una asesora de Dekog.';
+      : AVISO_SIN_TEXTO[mensaje.type] ?? AVISO_SIN_TEXTO.otro;
     await enviar(env, phoneId, {
       ...base,
       type: 'interactive',
@@ -282,6 +321,7 @@ async function procesar(valor, mensaje, env) {
         action: { name: 'cta_url', parameters: { display_text: 'Hablar con asesora', url: asesora } },
       },
     });
+    await enviarPromoSiToca(env, phoneId, base, clave, estado);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
@@ -345,6 +385,8 @@ async function procesar(valor, mensaje, env) {
     const conEnlace = r.whatsapp ? `${cuerpo}\n\nHabla con una asesora: ${r.whatsapp.url}` : cuerpo;
     await enviar(env, phoneId, { ...base, type: 'text', text: { body: recortar(conEnlace, 4096), preview_url: false } });
   }
+  // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su botón.
+  await enviarPromoSiToca(env, phoneId, base, clave, estado);
   // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
   estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
@@ -447,8 +489,9 @@ export async function diagnosticoWhatsapp(request, url, env) {
   return Response.json({
     reparado,
     webhook_app: app && config.WA_APP_SECRET ? await pedirMeta(`${app}/subscriptions`, { token: `${app}|${config.WA_APP_SECRET}` }) : null,
-    numero: telefono ? await pedirMeta(`${telefono}?fields=display_phone_number,verified_name,name_status,status,quality_rating,code_verification_status,platform_type,messaging_limit_tier`) : null,
-    cuenta: cuenta ? await pedirMeta(`${cuenta}?fields=name,account_review_status`) : null,
+    // El nombre «Dekog Home» arriba del chat solo sale con name_status APPROVED (lo revisa Meta: ver CONTEXTO_DEKOG.md).
+    numero: telefono ? await pedirMeta(`${telefono}?fields=display_phone_number,verified_name,name_status,new_name_status,status,quality_rating,code_verification_status,platform_type,messaging_limit_tier,is_official_business_account`) : null,
+    cuenta: cuenta ? await pedirMeta(`${cuenta}?fields=name,account_review_status,business_verification_status`) : null,
     suscripcion: cuenta ? await pedirMeta(`${cuenta}/subscribed_apps`) : null,
   });
 }

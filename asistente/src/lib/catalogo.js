@@ -6,6 +6,7 @@
 import { productos } from '../../../src/data/productos.js';
 import { recargosBox, nombresBox, porcentajesValidos, recargosTelaPremium, puffsOpcionales } from './negocio.js';
 import { fichas } from './conocimiento.js';
+import { promoActiva, montosDeLaPromo, ofertasDe, ofertaElegida, describirPiezas } from './promo.js';
 
 const SITIO = 'https://www.dekog.net';
 // Líneas de camas que cobran el box alta gama o el nube aparte (Clásicas y Kids), cada una con sus recargos.
@@ -168,11 +169,16 @@ function leerMonto(texto) {
   return Number(limpio);
 }
 
+// Los montos de la promoción vigente (lib/promo.js): valen en un texto que habla de la oferta o del stock.
+const montosDePromo = new Set(montosDeLaPromo());
+const HABLA_DE_LA_PROMO = /oferta|promo|descuento|rebaja|stock|antes|ahora|copete|en vez de/i;
+
 /**
  * Montos del texto que la IA no debería haber escrito:
  *   - REF, $, USD o "dólares" que no correspondan al catálogo (de los productos
  *     citados si se indican, o de todo el catálogo), salvo montos que el propio
- *     cliente escribió (un presupuesto, por ejemplo);
+ *     cliente escribió (un presupuesto, por ejemplo) y los de las piezas de la
+ *     promoción vigente cuando el texto habla de ella;
  *   - cualquier monto en bolívares (esos los calcula el sistema);
  *   - porcentajes no confirmados por Dekog.
  */
@@ -181,6 +187,7 @@ export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
   // Se consultan los conjuntos de cada producto citado en vez de unirlos en uno nuevo en cada mensaje.
   const conjuntos = citados.length ? citados.map(montosDe) : [montosDelCatalogo];
   const permitidos = new Set(delCliente);
+  if (promoActiva() && HABLA_DE_LA_PROMO.test(texto)) conjuntos.push(montosDePromo);
   const malos = [];
   const revisar = (crudo, coincidencia) => {
     const n = leerMonto(crudo);
@@ -196,10 +203,19 @@ export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
     for (const m of texto.matchAll(patron)) revisar(m[1], m[0]);
   }
   for (const m of texto.matchAll(/(?:\bBs\.?|bol[ií]vares)\s*\d[\d.,]*|\d[\d.,]*\s*(?:\bBs\b\.?|bol[ií]vares)/gi)) malos.push(m[0].trim());
+  const promo = promoActiva();
   for (const m of texto.matchAll(/(\d+(?:[.,]\d+)?)\s*%/g)) {
-    // El 50 % confirmado es el del anticipo: pegado a un descuento, una promoción o Cashea sería inventado.
-    const cerca = texto.slice(Math.max(0, m.index - 50), m.index + m[0].length + 50);
-    if (!porcentajesValidos.includes(leerMonto(m[1])) || /descuento|promoci|rebaja|oferta|cashea|inicial|cuota/i.test(cerca)) malos.push(m[0]);
+    // El 50 % confirmado es el del anticipo: pegado a un descuento, una promoción o Cashea sería inventado. El «hasta
+    // 20 %» de la promoción vigente vale, salvo junto a Cashea. Se mira la misma oración (sin cruzar . ! ? ; ni saltos):
+    // «hasta 20 % en stock; con el 50 % de anticipo te la apartamos» tiene los dos bien.
+    const antes = texto.slice(Math.max(0, m.index - 50), m.index).split(/[.!?;\n]/).pop();
+    const despues = texto.slice(m.index + m[0].length, m.index + m[0].length + 50).split(/[.!?;\n]/)[0];
+    const cerca = `${antes}${m[0]}${despues}`;
+    const n = leerMonto(m[1]);
+    const deCashea = /cashea|inicial|cuota/i.test(cerca);
+    const delAnticipo = porcentajesValidos.includes(n) && !deCashea && !/descuento|promoci|rebaja|oferta|\boff\b/i.test(cerca);
+    const deLaPromo = Boolean(promo) && n === promo.hasta && !deCashea;
+    if (!delAnticipo && !deLaPromo) malos.push(m[0]);
   }
   return [...new Set(malos)];
 }
@@ -218,6 +234,7 @@ export function totalesIncoherentes(texto, tarjetas) {
   const conExtras = (tarjetas ?? []).filter((t) => t && !t.desde && (t.recargo || t.recargoTela || t.recargoPuff || t.cantidad > 1));
   if (!conExtras.length) return [];
   const validos = new Set(preciosDeLista);
+  if (promoActiva()) montosDePromo.forEach((n) => validos.add(n)); // «y la Toronto individual en stock está a REF 330»
   for (const t of conExtras) {
     [t.recargo, t.recargoTela, t.recargoPuff, t.unitario, t.ref].filter(Boolean).forEach((n) => validos.add(n));
   }
@@ -257,15 +274,52 @@ export function formatoBs(n) {
 }
 
 /**
+ * Tarjeta de una pieza en stock de la promoción vigente: su precio de oferta tal cual está (sin box, tela ni puff
+ * aparte, y de a una: es una pieza ya fabricada), el de antes y de qué color y tela es.
+ */
+function tarjetaDeOferta(p, talla, piezas, tasa) {
+  const [pieza] = piezas;
+  const medida = talla ?? (p.tallas ?? []).find((t) => normalizar(t.nombre).startsWith(normalizar(pieza.medida)));
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    tipo: p.subcategoria ?? p.categoria,
+    talla: medida?.nombre ?? pieza.medida,
+    desde: false,
+    box: null,
+    recargo: 0,
+    tela: null,
+    recargoTela: 0,
+    telaPorConfirmar: false,
+    puff: null,
+    recargoPuff: 0,
+    cantidad: 1,
+    unitario: pieza.ahora,
+    ref: pieza.ahora,
+    partes: null,
+    oferta: true,
+    enOferta: true,
+    antes: pieza.antes,
+    pieza: describirPiezas(piezas),
+    bs: tasa ? formatoBs(pieza.ahora * tasa.valor) : null,
+    imagen: SITIO + encodeURI(p.imagen),
+  };
+}
+
+/**
  * Tarjeta de producto. El precio en bolívares lo calcula el servidor con la
  * tasa del día (la IA nunca escribe montos en Bs) e incluye el box elegido
  * (solo Camas Clásicas y Kids), la tela premium (camas, según la medida), el
- * puff a juego (sofás que lo ofrecen) y la cantidad.
+ * puff a juego (sofás que lo ofrecen) y la cantidad. Con `oferta` (el precio de
+ * una pieza en stock de la promoción vigente, de ese modelo y esa medida), la
+ * tarjeta es la de esa pieza; si no coincide con ninguna, la normal.
  */
-export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPremium = false, puff = false } = {}) {
+export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPremium = false, puff = false, oferta = 0 } = {}) {
   const p = buscarProducto(id);
   if (!p) return null;
   const talla = elegirTalla(p, tallaPedida);
+  const piezas = oferta ? ofertaElegida(p.id, talla?.nombre ?? '', oferta) : [];
+  if (piezas.length) return tarjetaDeOferta(p, talla, piezas, tasa);
   const base = talla ? talla.precio : p.precio;
   const porBox = boxDe(p);
   const conBox = porBox && Object.hasOwn(porBox, box) ? box : '';
@@ -298,6 +352,8 @@ export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPre
     unitario,
     ref,
     partes,
+    // Hay piezas de este modelo en stock con descuento (la vitrina y la ficha lo avisan).
+    enOferta: ofertasDe(p.id).length > 0,
     bs: tasa ? formatoBs(ref * tasa.valor) : null,
     imagen: SITIO + encodeURI(p.imagen),
   };

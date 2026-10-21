@@ -26,6 +26,7 @@ import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVi
 import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo, catalogosPdf } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 import { imagenDeLaWeb } from './lib/imagen.js';
+import { promoActiva, pideOfertas, pideCatalogoDeOfertas } from './lib/promo.js';
 
 const MAX_MENSAJES = 16;
 // Tiempo total para la IA, contando una posible corrección. En la web el navegador espera hasta 40 s; en
@@ -208,6 +209,14 @@ export function esSoloSaludo(texto) {
 
 const NUMERO_DE_OPCION = { 1: 1, uno: 1, 2: 2, dos: 2, 3: 3, tres: 3 };
 
+/** Lo que eligió la IA para un producto (box, cantidad, tela, puff y pieza en oferta), como lo pide tarjeta(). */
+const opcionesDe = (p) => ({
+  box: p.box, cantidad: p.cantidad, telaPremium: p.tela_premium === true, puff: p.con_puff === true, oferta: Number(p.oferta) || 0,
+});
+
+/** «Toronto Individual 1,00x1,90 M oferta en stock», para la hoja y el resumen de la asesora. */
+const queEs = (p) => [p.nombre, p.talla, p.box, p.tela, p.puff, p.oferta ? `oferta en stock (${p.pieza})` : ''].filter(Boolean);
+
 /**
  * Si el cliente respondió al saludo con el número de una opción («2», «la 3», «opción 1», «2️⃣»), el historial con
  * ese mensaje cambiado por lo que dice la opción; si no, el mismo historial.
@@ -256,9 +265,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   const categoria = categoriaPedida(ultimo);
   const ajenos = (s) => (categoria ? fueraDeCategoria(s.productos, categoria, ultimo) : []);
   // Las tarjetas que mostraría esta salida (sin tasa: solo importan los REF) y los totales del texto que las contradicen.
-  const tarjetasDe = (s) => (s.productos ?? []).slice(0, 3).map((p) => tarjeta(p.id, p.talla, null, {
-    box: p.box, cantidad: p.cantidad, telaPremium: p.tela_premium === true, puff: p.con_puff === true,
-  })).filter(Boolean);
+  const tarjetasDe = (s) => (s.productos ?? []).slice(0, 3).map((p) => tarjeta(p.id, p.talla, null, opcionesDe(p))).filter(Boolean);
   const incoherentes = (s) => totalesIncoherentes(s.respuesta ?? '', tarjetasDe(s));
   const boxAltaGama = (s) => recargoDeBoxEnAltaGama(s.respuesta, s.productos);
 
@@ -333,12 +340,11 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   salida = { ...salida, respuesta: quitarNotas(salida.respuesta) };
 
   const tasa = await tasaPromesa;
+  // Sin tarjetas repetidas: la IA a veces pone el mismo modelo dos veces (21-oct: «Paris» + «Paris Queen en oferta» + «Paris»).
   const productos = (salida.productos ?? [])
     .slice(0, 3)
-    .map((p) => tarjeta(p.id, p.talla, tasa, {
-      box: p.box, cantidad: p.cantidad, telaPremium: p.tela_premium === true, puff: p.con_puff === true,
-    }))
-    .filter(Boolean);
+    .map((p) => tarjeta(p.id, p.talla, tasa, opcionesDe(p)))
+    .filter((t, i, todas) => t && todas.findIndex((o) => o && o.id === t.id && o.talla === t.talla && o.ref === t.ref) === i);
 
   // Pidió VER una categoría («quiero ver camas») o ver más: hasta 10 modelos que no haya visto y el enlace al catálogo.
   // No cuando pasa a una asesora ni en una respuesta de emergencia. En WhatsApp la lista no lleva Bs (van al elegir).
@@ -359,7 +365,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   let resumen = salida.derivar?.resumen ?? '';
   if (resumen && revisar(salida, resumen).length) {
     resumen = productos
-      .map((p) => [p.nombre, p.talla, p.box, p.tela, p.puff, p.cantidad > 1 ? `${p.cantidad} unidades` : '', `REF ${p.ref}`].filter(Boolean).join(' · '))
+      .map((p) => [...queEs(p), p.cantidad > 1 ? `${p.cantidad} unidades` : '', `REF ${p.ref}`].filter(Boolean).join(' · '))
       .join(' | ') || 'Consulta desde el asistente';
   }
 
@@ -368,11 +374,19 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   let respuesta = negritasPara(canal, sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta }));
   if (!vitrina) {
     // Sin vitrina no hay «Ver modelos»: si la IA lo promete, esa frase se quita (13-oct: el cliente pidió el catálogo,
-    // le dijeron «toca Ver modelos» y no le llegó nada). Si pidió «el catálogo», van los dos en PDF.
+    // le dijeron «toca Ver modelos» y no le llegó nada). Si pidió «el catálogo», van los dos en PDF; si pidió «el
+    // catálogo de ofertas», solo el de la promo (abajo).
     respuesta = sinPromesaDeVitrina(respuesta);
-    if (pideCatalogo(ultimo) && !respuesta.includes('drive.google.com')) {
+    if (pideCatalogo(ultimo) && !pideCatalogoDeOfertas(ultimo) && !catalogosPdf.some(([, url]) => respuesta.includes(url))) {
       respuesta += `\n\n${catalogosPdf.map(([nombre, url]) => `📖 ${nombre}: ${url}`).join('\n')}`;
     }
+  }
+  // Preguntó por ofertas, descuentos o promociones (o la IA habla del catálogo de ofertas): va su enlace. Lo agrega el
+  // servidor, no la IA, para que nunca llegue mal escrito (21-oct: la promo de la dueña).
+  const promo = promoActiva();
+  if (promo && !salida.emergencia && (pideOfertas(ultimo) || /cat[aá]logo de ofertas/i.test(respuesta))
+    && !respuesta.includes(promo.enlace)) {
+    respuesta += `\n\n🏷️ Catálogo de ofertas: ${promo.enlace}`;
   }
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
@@ -392,7 +406,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
     formulario: Boolean(salida.ofrecer_formulario),
     emergencia: Boolean(salida.emergencia),
     // Lo que se guarda en la hoja como "le interesa" y "resumen".
-    interes: productos.map((p) => [p.nombre, p.talla, p.box, p.tela, p.puff].filter(Boolean).join(' ')).join(', '),
+    interes: productos.map((p) => queEs(p).join(' ')).join(', '),
     resumen,
   };
 }
@@ -435,10 +449,14 @@ try {
     categoriaPedida(muestra);
     fueraDeCategoria([{ id: 48 }, { id: 18 }], 'Camas', muestra);
     montosInventados(`REF 550, 999 $, 10 USD, 5 dólares, Bs 100, 10%${extra}`, { ids: [48], delCliente: [] });
+    montosInventados(`Hasta 20 % de descuento: la Toronto en stock a REF 330 en vez de REF 405${extra}`, { ids: [48], delCliente: [] });
+    pideOfertas(muestra);
+    pideCatalogoDeOfertas(muestra);
     totalesIncoherentes(`total REF 670${extra}`, [tarjeta(48, 'Queen', null, { box: 'nube' })]);
     recargoDeBoxEnAltaGama(`el box nube tiene un recargo de REF 120${extra}`, [{ id: 52 }]);
   }
   tarjeta(48, 'Queen 1,60x1,90 M', { valor: 984.26 }, { box: 'nube', cantidad: 2, telaPremium: true });
+  tarjeta(48, 'Individual', { valor: 984.26 }, { oferta: 330 });
   enlaceWhatsapp('home', 'Cama Toronto · Queen', 'web');
   calentarVitrina(); // «quiero ver camas», «muéstrame otras» y la nota del historial (lib/vitrina.js)
 } catch { /* solo es una optimización */ }

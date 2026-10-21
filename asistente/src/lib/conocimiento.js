@@ -5,6 +5,7 @@
  * (con sus mensajes). Los colores son los que se ven en las fotos de los muestrarios: el asistente
  * los da como referencia y el tono exacto se confirma con la muestra.
  */
+import { PROMO } from './promo.js';
 
 export const telas = {
   incluidas: [
@@ -137,7 +138,9 @@ export const politicas = [
   'Formas de pago: Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo en dólares o divisas, tarjetas Visa y Mastercard, y Cashea. Los datos para pagar los da una asesora.',
   'El precio en REF es el mismo con cualquier forma de pago, salvo Cashea: la app de Cashea solo trabaja con la tasa BCV del dólar, así que el monto se ajusta de la tasa BCV del euro a la del dólar. Con Cashea, la inicial y las cuotas dependen del nivel de cada usuario y las indica la propia app.',
   'Anticipo: con el 50 % se empieza a fabricar el pedido; si el modelo está en stock, con el 50 % se aparta.',
-  'Descuentos y promociones: por ahora no hay ninguna vigente. Cuando las haya, se anuncian por las redes sociales de Dekog (Instagram @dekog.home).',
+  PROMO
+    ? `Descuentos y promociones: hay una promoción vigente, ${PROMO.titulo.toLowerCase()}: piezas ya fabricadas, en la medida, el color y la tela que se indican, hasta agotar existencia (ver PROMOCIÓN VIGENTE). Fuera de esas piezas no hay otros descuentos: lo demás se fabrica a pedido al precio del catálogo.`
+    : 'Descuentos y promociones: por ahora no hay ninguna vigente. Cuando las haya, se anuncian por las redes sociales de Dekog (Instagram @dekog.home).',
   'Fabricación de camas, sofás y mesas: unos 15 días hábiles; una mesa de noche personalizada, unos 20 días hábiles. Si es urgente, una asesora consulta la disponibilidad: se puede llegar a entregar en 3 días.',
   'Envíos a todo el país; el costo depende de la ubicación y el día de entrega se coordina según la disponibilidad del equipo de despacho y del cliente. En Valencia la entrega o la instalación tampoco van incluidas: son un servicio aparte cuyo costo depende de la dirección y de si es casa o edificio. El monto exacto lo da una asesora.',
   'Garantía estructural: Camas Clásicas 12 meses; Camas Alta Gama y Camas Kids 18 meses; muebles (sofás, puffs, mesas y peinadora) 6 meses.',

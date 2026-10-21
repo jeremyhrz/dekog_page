@@ -1,7 +1,7 @@
 // WhatsApp, Instagram y la web de punta a punta con un Meta falso dentro del proceso. IA: proveedor «prueba».
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, filaWa, avisoIg } from './ayuda.js';
+import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, filaWa, avisoIg, sinMarca } from './ayuda.js';
 import { config } from '../src/lib/config.js';
 import { whatsappPost } from '../src/canales/whatsapp.js';
 import { instagramPost } from '../src/canales/instagram.js';
@@ -15,7 +15,8 @@ afterEach(() => { delete config.IG_VITRINA; });
 
 const mensajesWa = () => meta.enviados.filter((e) => e.url.endsWith('/PHONE123/messages') && e.cuerpo.type).map((e) => e.cuerpo);
 const cupoWa = () => Number([...env.CONVERSACIONES.datos].find(([k]) => k.startsWith('wa:cupo:PHONE123:'))?.[1] ?? 0);
-const enviosIg = () => meta.enviados.filter((e) => e.url.endsWith('/me/messages')).map((e) => e.cuerpo.message);
+const enviosIg = () => meta.enviados.filter((e) => e.url.endsWith('/me/messages'))
+  .map((e) => (e.cuerpo.message.text ? { ...e.cuerpo.message, text: sinMarca(e.cuerpo.message.text) } : e.cuerpo.message));
 const estadoWa = () => JSON.parse(env.CONVERSACIONES.datos.get('wa:PHONE123:584140000001'));
 const filasDe = (m) => m.interactive.action.sections.flatMap((s) => s.rows);
 const bytes = (s) => new TextEncoder().encode(s).length;

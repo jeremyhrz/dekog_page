@@ -48,9 +48,10 @@ function existeExacto(ruta) {
   return listados.get(carpeta).has(ruta.slice(carpeta.length + 1));
 }
 
-/** Una URL de foto para canales: el archivo de public/ que serviría Vercel, revisado como lo recibiría WhatsApp. */
+/** Una URL de foto para canales: el archivo de public/ que serviría Vercel, revisado como lo recibiría WhatsApp. Las de
+ * los productos son las copias de public/wa; la imagen de la promo (lib/promo.js), la de public/promo. */
 function revisarFoto(url, quien = url) {
-  assert.match(url ?? '', /^https:\/\/www\.dekog\.net\/wa\/[^?#]+\.jpg$/, quien);
+  assert.match(url ?? '', /^https:\/\/www\.dekog\.net\/(wa|promo)\/[^?#]+\.jpg$/, quien);
   const relativa = decodeURI(url.slice(SITIO.length + 1)); // wa/muebles/toronto.jpg
   const ruta = join(PUBLICO, ...relativa.split('/'));
   assert.ok(existeExacto(ruta), `${quien}: falta public/${relativa} (python scripts/optimizar_imagenes.py)`);
@@ -94,8 +95,9 @@ test('fotoParaCanales: la ruta de la original en /wa con .jpg, codificada como l
 let env;
 let meta;
 const usar = (opciones) => { meta = metaFalso(opciones); globalThis.fetch = meta.fetchFalso; };
-beforeEach(() => { env = { CONVERSACIONES: kvEnMemoria() }; usar(); });
-afterEach(() => { delete config.IG_VITRINA; });
+// Con la promo prendida: su imagen también tiene que ser un JPEG de verdad (va en la cabecera de un botón de WhatsApp).
+beforeEach(() => { env = { CONVERSACIONES: kvEnMemoria() }; usar(); delete config.PROMO; });
+afterEach(() => { delete config.IG_VITRINA; config.PROMO = 'no'; });
 const wa = (msg, telefono) => entregar(whatsappPost, avisoWa(msg, telefono), SECRETO_WA, env);
 const ig = (msg, igsid) => entregar(instagramPost, avisoIg(msg, igsid), SECRETO_IG, env);
 
@@ -142,6 +144,8 @@ test('WhatsApp e Instagram: toda foto que sale es la copia JPEG de public/wa, nu
   assert.ok(fotos.length >= 14, `solo ${fotos.length} fotos`); // 2 de WhatsApp + 1 cabecera + 9 tarjetas + 3 de Instagram
   for (const [donde, url] of fotos) revisarFoto(url, donde);
   assert.ok(fotos.some(([, url]) => url === `${SITIO}/wa/muebles/doha.jpg`));
+  assert.ok(fotos.some(([donde, url]) => donde === 'WhatsApp: cabecera del botón' && url === `${SITIO}/promo/promo-stock.jpg`));
+  assert.ok(fotos.some(([donde, url]) => donde === 'Instagram: imagen' && url === `${SITIO}/promo/promo-stock.jpg`));
   for (const crudo of crudos) assert.doesNotMatch(crudo, /dekog\.net\/(muebles|mesas)\/|\.png/i);
 });
 

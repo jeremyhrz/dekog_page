@@ -20,6 +20,10 @@
  * Si el cliente escribe su número de WhatsApp, lo captura el servidor y va a
  * la hoja; la IA solo ve "[dato personal]". Si muestra interés sin dar número,
  * queda en la hoja igual, con su @usuario.
+ *
+ * Asesoras (21-oct): cuando una asesora escribe en un chat desde la cuenta de Dekog, el asistente se calla en ese chat
+ * (PAUSA_ASESORA_MS desde su último mensaje). Si el cliente le escribe y pasa 1 hora sin que ella responda, el asistente
+ * le pide su nombre y su WhatsApp (tarea programada cada 15 minutos) y, cuando los deja, van a la hoja (y al correo).
  */
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
@@ -29,30 +33,54 @@ import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { descargarImagen } from '../lib/imagen.js';
 import { NOTA_FOTO } from '../lib/negocio.js';
-import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
+import { promoActiva, textoDeLaPromo } from '../lib/promo.js';
 import {
-  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, presentarse, pideBolivares,
-  eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram,
+  cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos, unirSeguidos,
+} from './memoria.js';
+import {
+  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, nombreEscrito, presentarse, pideBolivares,
+  eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram, recortar,
 } from './meta.js';
 
 const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
 const graph = () => `${RAIZ()}/${config.IG_API_VERSION || 'v25.0'}`;
-const MAX_BYTES = 1000; // límite de Instagram por mensaje de texto
+// Límite de Instagram por mensaje de texto: 1000 bytes, menos los 3 de la MARCA que va al final.
+const MAX_BYTES = 1000 - 3;
 
 async function tokenActual(env) {
   return (await env.CONVERSACIONES?.get('ig:token')) || config.IG_TOKEN;
 }
 
+/*
+ * Instagram avisa también lo que se manda DESDE la cuenta de Dekog (los «ecos»): las respuestas del asistente y lo que
+ * escribe una asesora en la app. El aviso no dice quién lo mandó, así que cada texto del asistente termina con un
+ * carácter invisible (MARCA): un eco de texto sin ella lo escribió una persona. Por si Instagram quitara la marca, la
+ * pausa solo funciona después de ver un eco que la conserva (ig:marca en KV, se renueva cada semana); si un eco de un
+ * texto del asistente vuelve sin ella, se desactiva sola. Así el asistente nunca se calla por error.
+ */
+export const MARCA = '⁣'; // INVISIBLE SEPARATOR: no se ve en ningún teléfono
+const propios = new Set(); // ids (mid) y textos de lo que mandó el asistente desde esta instancia
+function recordar(valor) {
+  if (!valor) return;
+  propios.add(valor);
+  if (propios.size > 400) propios.delete(propios.values().next().value);
+}
+const sinMarca = (texto) => String(texto ?? '').replaceAll(MARCA, '').trim();
+
 async function enviar(env, igsid, message) {
+  const texto = typeof message.text === 'string' ? message.text : null;
   const r = await fetch(`${graph()}/me/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${await tokenActual(env)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ recipient: { id: igsid }, message }),
+    body: JSON.stringify({ recipient: { id: igsid }, message: texto === null ? message : { ...message, text: `${texto}${MARCA}` } }),
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     console.warn('Instagram rechazó el envío:', r.status, j?.error?.code, j?.error?.message);
     if (j?.error?.code === 190) await avisarDesconexion(env, 'Instagram ya no acepta el permiso de la cuenta');
+  } else {
+    recordar((await r.json().catch(() => ({})))?.message_id);
+    recordar(sinMarca(texto));
   }
   return r.ok;
 }
@@ -235,11 +263,203 @@ export async function instagramPost(request, env, ctx) {
   for (const entrada of aviso.entry ?? []) {
     for (const evento of entrada.messaging ?? []) {
       const m = evento.message;
-      if (!m || m.is_echo || m.is_deleted || m.is_self) continue; // ecos de nuestras propias respuestas
-      ctx.waitUntil(procesar(evento, env).catch((e) => console.error('Error con un mensaje de Instagram:', e)));
+      if (!m || m.is_deleted || m.is_self) continue;
+      // Lo que salió desde la cuenta de Dekog: las respuestas del asistente o una asesora escribiendo (ver procesarEco).
+      if (m.is_echo) ctx.waitUntil(procesarEco(evento, env).catch((e) => console.error('Error con un eco de Instagram:', e?.message)));
+      else ctx.waitUntil(procesar(evento, env).catch((e) => console.error('Error con un mensaje de Instagram:', e)));
     }
   }
   return new Response('ok');
+}
+
+// ── La asesora en el chat ────────────────────────────────────────────────────────────────────────────────────────
+const HORA_MS = 60 * 60 * 1000;
+const PAUSA_ASESORA_MS = 24 * HORA_MS; // el asistente se calla en el chat desde el último mensaje de la asesora
+const ESPERA_MS = HORA_MS; // sin respuesta de la asesora en 1 hora, se le piden sus datos al cliente
+const CLAVE_SEGUIMIENTOS = 'ig:seguimientos';
+const SEGUIMIENTO = '¡Hola de nuevo! 🙏 Disculpa la espera: nuestras asesoras están atendiendo a otros clientes. Para no '
+  + 'hacerte esperar más, déjame aquí tu nombre y tu número de WhatsApp y una asesora de Dekog te escribe apenas se desocupe 💛';
+const GRACIAS_POR_LOS_DATOS = '¡Gracias! 💛 Ya le pasé tus datos a una asesora de Dekog: te escribe muy pronto.';
+
+let marcaVista = false;
+async function marcaComprobada(env) {
+  if (!marcaVista) marcaVista = Boolean(await env.CONVERSACIONES?.get('ig:marca').catch(() => null));
+  return marcaVista;
+}
+
+/** Un eco volvió con la MARCA: Instagram la conserva y la pausa por asesora puede funcionar. */
+async function confirmarMarca(env) {
+  if (await marcaComprobada(env)) return;
+  marcaVista = true;
+  await env.CONVERSACIONES?.put('ig:marca', new Date().toISOString(), { expirationTtl: 7 * 86400 })
+    .catch((e) => console.warn('No se pudo anotar la marca de Instagram:', e?.message));
+  console.log('Instagram conserva la marca invisible del asistente: la pausa por asesora queda activa');
+}
+
+/**
+ * Un mensaje que salió desde la cuenta de Dekog. Si es un texto del asistente (con la MARCA), nada. Si es un texto sin
+ * ella, lo escribió una asesora: el asistente se calla en ese chat y lo que ella dijo queda en el historial. Fotos y
+ * stickers sin texto no cuentan (no se sabe quién los mandó).
+ */
+async function procesarEco(evento, env) {
+  const igsid = evento.recipient?.id; // en un eco, el destinatario es el cliente
+  const texto = typeof evento.message.text === 'string' ? evento.message.text : '';
+  if (!igsid || !sinMarca(texto)) return;
+  if (texto.includes(MARCA)) {
+    await confirmarMarca(env);
+    return;
+  }
+  if (propios.has(evento.message.mid) || propios.has(sinMarca(texto))) {
+    // Un texto del asistente volvió sin la marca: Instagram la quitó. Sin ella no se distingue a la asesora, así que la
+    // pausa se apaga hasta que la marca vuelva a verse.
+    console.warn('Instagram devolvió un mensaje del asistente sin la marca invisible: la pausa por asesora se desactiva');
+    marcaVista = false;
+    await env.CONVERSACIONES?.delete('ig:marca').catch(() => {});
+    return;
+  }
+  if (!(await marcaComprobada(env))) {
+    console.log('Instagram: escribieron desde la cuenta de Dekog, pero la marca aún no se comprobó; el asistente sigue');
+    return;
+  }
+  const kv = env.CONVERSACIONES;
+  const clave = `ig:${igsid}`;
+  const estado = await cargarEstado(kv, clave);
+  estado.humano = Date.now();
+  estado.mensajes.push({ role: 'assistant', content: ocultarDatosPersonales(sinMarca(texto)).slice(0, 800) });
+  await guardarEstado(kv, clave, estado);
+  console.log('Instagram: una asesora escribió en un chat; el asistente se calla ahí');
+}
+
+/** Anota que a ese cliente hay que pedirle sus datos a esa hora si sigue esperando (lo revisa seguimientosInstagram). */
+async function programarSeguimiento(env, igsid, cuando) {
+  const kv = env.CONVERSACIONES;
+  if (!kv) return;
+  try {
+    const lista = (await kv.get(CLAVE_SEGUIMIENTOS, 'json')) ?? {};
+    lista[igsid] = cuando;
+    await kv.put(CLAVE_SEGUIMIENTOS, JSON.stringify(lista), { expirationTtl: 3 * 86400 });
+  } catch (e) {
+    console.warn('No se pudo programar el seguimiento de Instagram:', e?.message);
+  }
+}
+
+/**
+ * La asesora está atendiendo este chat: el asistente no responde. Lo que escribe el cliente queda en el historial (sin
+ * datos personales) y, si quedó esperando, se programa el pedido de datos para dentro de 1 hora. Si ya se le pidieron y
+ * los está dando, van a la hoja (llega el correo a Dekog) y se le confirma, una sola vez.
+ */
+async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, ahora }) {
+  const escrito = ocultarDatosPersonales(texto);
+  if (escrito || nota || imagen) {
+    estado.mensajes.push({ role: 'user', content: [imagen ? NOTA_FOTO : '', nota, escrito].filter(Boolean).join(' ') });
+  }
+  if (!(estado.esperaDesde > estado.humano)) {
+    estado.esperaDesde = ahora;
+    await programarSeguimiento(env, igsid, ahora + ESPERA_MS);
+  }
+  const telefono = extraerTelefono(texto);
+  const nombre = nombreEscrito(texto, telefono);
+  if (estado.seguimiento > estado.humano && estado.datosTomados < estado.seguimiento && (telefono || nombre)) {
+    const usuario = await nombreDeUsuario(env, igsid);
+    const ok = await guardarCliente({
+      // Fila propia del día: la hoja solo manda el correo con las filas NUEVAS, y este cliente quizá ya tenía la suya.
+      conversacion: `ig-${igsid}-espera-${hoyCaracas()}`,
+      cliente: { nombre: [nombre, usuario].filter(Boolean).join(' · '), telefono, ciudad: '' },
+      interes: estado.interes,
+      resumen: [estado.resumen, 'Esperó más de 1 hora a la asesora en Instagram y dejó sus datos: escríbele.'].filter(Boolean).join(' · '),
+      canal: 'Instagram',
+    });
+    if (ok) {
+      estado.datosTomados = ahora;
+      await enviar(env, igsid, { text: GRACIAS_POR_LOS_DATOS });
+    }
+  }
+  await guardarEstado(env.CONVERSACIONES, clave, estado);
+}
+
+/**
+ * Tarea programada (cada 15 minutos): a los clientes que llevan 1 hora esperando a la asesora sin respuesta se les
+ * piden su nombre y su WhatsApp, una vez por espera. Instagram deja escribirle hasta 24 h después de su último mensaje.
+ */
+export async function seguimientosInstagram(env, ahora = Date.now()) {
+  const kv = env.CONVERSACIONES;
+  if (!kv) return;
+  const lista = (await kv.get(CLAVE_SEGUIMIENTOS, 'json').catch(() => null)) ?? {};
+  const vencidos = Object.keys(lista).filter((igsid) => lista[igsid] <= ahora);
+  if (!vencidos.length) return;
+  for (const igsid of vencidos) {
+    delete lista[igsid];
+    const clave = `ig:${igsid}`;
+    const estado = await cargarEstado(kv, clave);
+    const esperando = estado.esperaDesde > estado.humano && estado.seguimiento < estado.esperaDesde;
+    if (!esperando || ahora - estado.esperaDesde > 23 * HORA_MS) continue;
+    if (await enviar(env, igsid, { text: SEGUIMIENTO })) {
+      estado.seguimiento = ahora;
+      await guardarEstado(kv, clave, estado);
+      console.log('Instagram: un cliente esperó 1 hora a la asesora; se le pidieron sus datos');
+    }
+  }
+  await kv.put(CLAVE_SEGUIMIENTOS, JSON.stringify(lista), { expirationTtl: 3 * 86400 })
+    .catch((e) => console.warn('No se pudo actualizar los seguimientos de Instagram:', e?.message));
+}
+
+// ── El mensaje de la promo (lib/promo.js), una vez por cliente y por promo ───────────────────────────────────────────
+const promoMandada = new Set(); // en esta instancia: dos mensajes seguidos del cliente se atienden a la vez
+
+async function enviarPromoSiToca(env, igsid, clave, estado) {
+  const promo = promoActiva();
+  if (!promo || estado.promoVista === promo.id) return;
+  estado.promoVista = promo.id;
+  const marca = `${clave}|${promo.id}`;
+  // Otra vuelta del mismo cliente pudo mandarla hace un instante: se mira la memoria justo antes.
+  if (promoMandada.has(marca) || (await cargarEstado(env.CONVERSACIONES, clave)).promoVista === promo.id) return;
+  promoMandada.add(marca);
+  if (promoMandada.size > 500) promoMandada.delete(promoMandada.values().next().value);
+  await enviarImagen(env, igsid, promo.imagen);
+  await enviar(env, igsid, { text: textoDeLaPromo(promo) });
+}
+
+// ── Lo que mandó el cliente ─────────────────────────────────────────────────────────────────────────────────────────
+const PUBLICACION = new Set(['ig_post', 'share', 'post']); // «share» es el tipo viejo (Meta lo retira desde feb-2026)
+const REEL = new Set(['ig_reel', 'reel', 'story', 'ig_story']);
+const SIN_LEER = new Set(['audio', 'video', 'file']);
+const AVISO_SIN_LEER = 'Por ahora no puedo escuchar notas de voz ni ver videos 🙏 Escríbeme tu pregunta y te respondo al '
+  + 'instante, o mándame una foto del modelo que te gusta.';
+
+/** El pie de una publicación compartida (si Instagram lo manda), sin teléfonos, correos ni usuarios. */
+function tituloDe(adjunto) {
+  const t = ocultarDatosPersonales(String(adjunto?.payload?.title ?? '')).replaceAll('[dato personal]', '').replace(/\s+/g, ' ').trim();
+  return t ? `: «${recortar(t, 160)}»` : '';
+}
+
+/**
+ * Qué mandó, además del texto: una foto, una publicación o un reel compartidos, o la respuesta a una historia de Dekog
+ * (con su imagen si se puede abrir, para reconocer el modelo), o algo que no se puede leer (audio, video, archivo).
+ * `ignorar`: una mención en una historia o un tipo que Instagram no soporta (no se responde nada).
+ */
+async function contenidoDe(m) {
+  const adjuntos = Array.isArray(m.attachments) ? m.attachments : [];
+  if (m.is_unsupported || adjuntos.some((a) => a?.type === 'story_mention')) return { ignorar: true };
+  const foto = adjuntos.find((a) => a?.type === 'image' && a.payload?.url);
+  const publicacion = adjuntos.find((a) => PUBLICACION.has(a?.type));
+  const reel = adjuntos.find((a) => REEL.has(a?.type));
+  const historia = m.reply_to?.story;
+  let url = foto?.payload?.url ?? '';
+  let nota = '';
+  if (publicacion) {
+    nota = `(compartió una publicación de Instagram${tituloDe(publicacion)})`;
+    url ||= publicacion.payload?.url ?? '';
+  } else if (reel) {
+    nota = `(compartió un reel de Instagram${tituloDe(reel)})`;
+  } else if (historia) {
+    nota = '(respondió a una historia de Dekog)';
+    url ||= historia.url ?? '';
+  }
+  return {
+    imagen: url ? await descargarImagen(url) : null,
+    nota,
+    sinLeer: adjuntos.some((a) => SIN_LEER.has(a?.type)),
+  };
 }
 
 async function nombreDeUsuario(env, igsid) {
@@ -262,18 +482,33 @@ async function procesar(evento, env) {
   estado.procesados.push(evento.message.mid);
 
   const texto = (evento.message.text ?? '').trim().slice(0, 800);
-  // Una foto: la IA la compara con el catálogo (lib/imagen.js). Instagram la manda como adjunto con su URL.
-  const adjunto = (evento.message.attachments ?? []).find((a) => a?.type === 'image' && a.payload?.url);
-  const imagen = adjunto ? await descargarImagen(adjunto.payload.url) : null;
-  if (!texto && !imagen) {
-    await enviar(env, igsid, { text: 'Por ahora solo puedo leer mensajes de texto y fotos 🙂 Escríbeme tu pregunta o mándame una foto del modelo y te ayudo.' });
+  // Una foto, una publicación compartida o la respuesta a una historia: la IA compara la imagen con el catálogo
+  // (lib/imagen.js). Instagram la manda como adjunto con su URL.
+  const { imagen, nota, sinLeer, ignorar } = await contenidoDe(evento.message);
+  if (ignorar) return;
+  const ahora = Date.now();
+
+  // Una asesora está atendiendo este chat: el asistente no le responde al cliente.
+  if (estado.humano && ahora - estado.humano < PAUSA_ASESORA_MS) {
+    await atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, ahora });
+    return;
+  }
+
+  if (!texto && !imagen && !nota) {
+    // Nota de voz, video o archivo: UN aviso al día y después silencio. Un sticker o un GIF que no se pudo abrir: nada.
+    // (Hasta el 21-oct salía «Por ahora solo puedo leer mensajes de texto y fotos» con cada publicación compartida, cada
+    // sticker y cada audio, y a la dueña no le gustaba que se repitiera.)
+    if (!sinLeer || estado.avisoSinLeer === hoyCaracas()) return;
+    estado.avisoSinLeer = hoyCaracas();
+    await enviar(env, igsid, { text: presentarse(AVISO_SIN_LEER, estado.mensajes.length === 0) });
+    await enviarPromoSiToca(env, igsid, clave, estado);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
 
   const telefono = extraerTelefono(texto); // se guarda en la hoja; la IA no lo ve
   const escrito = ocultarDatosPersonales(texto);
-  estado.mensajes.push({ role: 'user', content: imagen ? `${NOTA_FOTO}${escrito ? ` ${escrito}` : ''}` : escrito });
+  estado.mensajes.push({ role: 'user', content: [imagen ? NOTA_FOTO : '', nota, escrito].filter(Boolean).join(' ') });
 
   // Tocó una respuesta rápida de la vitrina: se responde SIN IA.
   const eleccion = eleccionDe(evento.message.quick_reply?.payload);
@@ -296,7 +531,7 @@ async function procesar(evento, env) {
     return;
   }
 
-  const r = await pensar(estado.mensajes, 'instagram', { imagen, kv: env.CONVERSACIONES });
+  const r = await pensar(unirSeguidos(estado.mensajes), 'instagram', { imagen, kv: env.CONVERSACIONES });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   const { vitrina } = r;
 
@@ -311,6 +546,8 @@ async function procesar(evento, env) {
   if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp: ${r.whatsapp.url}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
   if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
+  // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su enlace.
+  await enviarPromoSiToca(env, igsid, clave, estado);
   // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
   estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
