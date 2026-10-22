@@ -30,7 +30,11 @@
             "destination": "https://dekog-asistente.dekog-web.workers.dev/a/:codigo"
         },
         {
-            "source": "/((?!wa/|ia/|a/).*)",
+            "source": "/a/:codigo/",
+            "destination": "https://dekog-asistente.dekog-web.workers.dev/a/:codigo"
+        },
+        {
+            "source": "/((?!wa/|ia/).*)",
             "destination": "/index.html"
         }
     ],

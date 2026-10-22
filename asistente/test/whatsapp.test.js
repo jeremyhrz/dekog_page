@@ -1,8 +1,9 @@
 // WhatsApp (22-oct): el cupo de Meta se cuenta con UNA escritura por vuelta (KV admite 1 por segundo en la misma clave),
 // la vitrina no se descarta cuando además pasa a una asesora, el pie de foto ya no corta los precios en Bs y el texto de
 // un video o un documento se responde. La memoria se guarda antes de la hoja y de la IA, un cliente que vuelve abre otra
-// fila de la hoja y uno sin número recibe a las asesoras. IA: proveedor «prueba» o un Gemini falso. Fetch falso: no sale
-// nada a internet.
+// fila de la hoja y uno sin número recibe a las asesoras (y su número, si llega después, va a la hoja). El historial
+// guarda lo que de verdad le llegó del texto. IA: proveedor «prueba» o un Gemini falso. Fetch falso: no sale nada a
+// internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SECRETO_WA, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa } from './ayuda.js';
@@ -10,6 +11,8 @@ import { kvConLimite } from './kv-limite.js';
 import { config } from '../src/lib/config.js';
 import { whatsappPost, textoConCola } from '../src/canales/whatsapp.js';
 import { olvidarEnCurso } from '../src/canales/memoria.js';
+import { catalogosPdf } from '../src/lib/negocio.js';
+import { PROMO } from '../src/lib/promo.js';
 
 const HOJA = { HOJA_URL: 'https://hoja.falsa', HOJA_SECRETO: 'clave-hoja' };
 let env;
@@ -159,7 +162,11 @@ test('Vitrina y pase a la vez: UNA lista con las dos asesoras enteras dentro, au
   assert.ok(cuerpo.length <= 1024, `${cuerpo.length} caracteres`);
   assert.match(cuerpo, /…\n\nHabla con una asesora por WhatsApp 👇\n\nLínea 1 \(0414-584 7791\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]+\n\nLínea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]+\n\n/);
   assert.match(cuerpo, /: https:\/\/www\.dekog\.net\/\?categoria=camas#catalogo$/);
-  assert.match((await estadoWa('584140000209')).mensajes.at(-1).content, /\[Vitrina «Camas»: [^\]]+\]$/);
+  const guardado = (await estadoWa('584140000209')).mensajes.at(-1).content;
+  assert.match(guardado, /\[Vitrina «Camas»: [^\]]+\]$/);
+  // En el historial, el texto tal como entró en la lista (recortado), no la respuesta entera.
+  const delTexto = guardado.slice(0, guardado.lastIndexOf('\n\n[Vitrina «'));
+  assert.ok(delTexto.endsWith('…') && cuerpo.startsWith(`${delTexto}\n\nHabla con una asesora`), delTexto);
 });
 
 // ── El pie de foto no corta los precios ──────────────────────────────────────────────────────────────────────────
@@ -181,6 +188,31 @@ test('Pie de foto: con un texto largo se recorta el texto de la IA, nunca las l�
   assert.match(pie, /…\n\n• Manila · Queen [^\n]+ahora REF 420 = Bs [\d.]+,\d\d \([^)]+\)\n• Paris · Queen [^\n]+ahora REF 750 = Bs [\d.]+,\d\d \([^)]+\)\n• Florida · Queen [^\n]+ahora REF 680 = Bs [\d.]+,\d\d \([^)]+\)$/);
 });
 
+test('Pie de foto: si recorta el enlace del catálogo de ofertas, el historial no lo da por dicho y llega en la vuelta siguiente', async () => {
+  delete config.PROMO;
+  const tel = '584140000224';
+  // Ya conversaban y ya le llegó el mensaje de la promo (con su botón): solo salen sus respuestas.
+  await env.CONVERSACIONES.put(`wa:PHONE123:${tel}`, JSON.stringify({
+    mensajes: [{ role: 'user', content: 'Hola' }, { role: 'assistant', content: '¡Hola! Soy el asistente virtual de Dekog 👋 ¿En qué te ayudo?' }],
+    procesados: [], promoVista: PROMO.id,
+  }));
+  conIa({ respuesta: SOBRE_LAS_OFERTAS, productos: OFERTAS_QUEEN });
+  await wa(textoWa('¿Qué camas queen tienen en oferta?'), tel);
+  const [foto] = mensajesWa();
+  assert.equal(foto.type, 'image');
+  assert.ok(!foto.image.caption.includes(PROMO.enlace), 'con las tres líneas de precio, el enlace no cabe en el pie');
+  // En el historial, lo que le llegó: el texto del pie, sin las líneas de precio (la IA nunca ve bolívares) ni el enlace.
+  const dicho = (await estadoWa(tel)).mensajes.at(-1).content;
+  assert.ok(foto.image.caption.startsWith(`${dicho}\n\n• Manila · Queen`), dicho);
+  assert.ok(!dicho.includes(PROMO.enlace), dicho);
+  // Vuelve a preguntar por ofertas: ahora sí le llega el enlace (antes el historial lo daba por mandado).
+  conIa({ respuesta: 'En matrimonial también hay camas en stock con descuento, como la Noa y la Aurora. ¿Quieres que te cuente de alguna?' });
+  await wa(textoWa('¿Y en matrimonial qué tienen en oferta?'), tel);
+  const [, respuesta] = mensajesWa();
+  assert.equal(respuesta.type, 'text');
+  assert.ok(respuesta.text.body.endsWith(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}`), respuesta.text.body);
+});
+
 test('Pie de foto: si los precios y las asesoras no le dejan lugar al texto, va todo en UN mensaje de texto, sin foto', async () => {
   delete config.PROMO;
   // Enlaces cortos larguísimos: así la cola (tres líneas de precio y las dos asesoras) no cabe en un pie de foto.
@@ -200,17 +232,32 @@ test('textoConCola: la cola siempre entera; un párrafo con un enlace va entero 
   const texto = 'Te cuento de las piezas en stock.\n\n🏷️ Catálogo de ofertas:\nhttps://www.dekog.net/ofertas';
   const cola = '• Manila · Queen: REF 420 = Bs 42.000,00';
   for (let maximo = cola.length + 3; maximo <= texto.length + cola.length + 2; maximo++) {
-    const r = textoConCola(texto, cola, maximo);
-    assert.ok(r.length <= maximo && r.endsWith(`\n\n${cola}`), `${maximo}: ${r}`);
-    const delTexto = r.slice(0, -cola.length - 2);
-    assert.ok(delTexto === texto || (delTexto.endsWith('…') && !/Catálogo|http/.test(delTexto)), `${maximo}: ${delTexto}`);
+    const { mensaje: r, dicho } = textoConCola(texto, cola, maximo);
+    assert.ok(r.length <= maximo && r === `${dicho}\n\n${cola}`, `${maximo}: ${r}`);
+    // Entero, sin el párrafo del enlace (el de antes completo, sin «…») o cortado antes del enlace, con «…».
+    assert.ok([texto, 'Te cuento de las piezas en stock.'].includes(dicho) || (dicho.endsWith('…') && !/Catálogo|http/.test(dicho)), `${maximo}: ${dicho}`);
   }
   // Un enlace dentro del primer párrafo: se corta antes del enlace, nunca en medio.
   const suelto = 'Aquí ves todas las piezas https://www.dekog.net/ofertas y me dices cuál te gusta';
   for (let maximo = 1; maximo <= suelto.length; maximo++) {
-    const r = textoConCola(suelto, '', maximo);
-    assert.ok(r.length <= maximo, `${maximo}: ${r}`);
+    const { mensaje: r, dicho } = textoConCola(suelto, '', maximo);
+    assert.ok(r.length <= maximo && r === dicho, `${maximo}: ${r}`);
     assert.ok(!r.includes('http') || r === suelto, `${maximo}: ${r}`);
+  }
+});
+
+test('textoConCola: si se va un párrafo con enlace (los PDF del catálogo, el de ofertas), el «…» no queda pegado a una URL', () => {
+  // Como lo arma chat.js cuando piden «el catálogo» y hablan de ofertas: el texto de la IA y después cada catálogo, con
+  // su enlace solo en su línea.
+  const catalogos = [...catalogosPdf.map(([nombre, url]) => [`📖 ${nombre}`, url]), ['🏷️ Catálogo de ofertas', PROMO.enlace]];
+  const texto = ['¡Claro! Aquí tienes nuestros catálogos, con todos los modelos y sus medidas. ¿Te ayudo a elegir alguno?',
+    ...catalogos.map(([rotulo, url]) => `${rotulo}:\n${url}`)].join('\n\n');
+  const cola = '• Manila · Queen 1,60x1,90 M · 🏷️ oferta en stock (gris 02 en chenille paño): antes REF 520, ahora REF 420 = Bs 78.301,48';
+  for (let maximo = cola.length + 3; maximo <= texto.length + cola.length + 2; maximo++) {
+    const { mensaje, dicho } = textoConCola(texto, cola, maximo);
+    assert.ok(mensaje.length <= maximo && mensaje === `${dicho}\n\n${cola}`, `${maximo}: ${mensaje}`);
+    assert.doesNotMatch(dicho, /https?:\/\/\S*…/, `${maximo}`); // antes: «…/view…» al quitar el PDF de mobiliario
+    for (const [url] of dicho.matchAll(/https?:\/\/\S+/g)) assert.ok(catalogos.some(([, u]) => u === url), `${maximo}: ${url}`);
   }
 });
 
@@ -454,4 +501,32 @@ test('Sin número: también se quitan «te va a contactar», «que te escriba»,
     assert.match(cuerpo, /Hacemos envíos a todo el país\.\n\nPara seguir, escríbele a la asesora que prefieras/, frase);
     assert.match(cuerpo, /Línea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}2$/, frase);
   }
+});
+
+test('Sin número y después con él (el mismo cliente): su teléfono llega a la hoja, en otra fila y una sola vez', async () => {
+  Object.assign(config, HOJA);
+  const bsuid = 'VE.5551234';
+  conIa({ respuesta: PROMESA, productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }], ofrecer_formulario: true });
+  await entregar(whatsappPost, avisoSinNumero(textoWa('Quiero apartar la Toronto queen, ¿cómo pago?'), bsuid), SECRETO_WA, env);
+  assert.deepEqual(filasHoja.map((f) => f.telefono), ['']);
+  // Desde el segundo mensaje Meta manda también su número (ya escribió en los últimos 30 días): la misma conversación.
+  const conNumero = (texto) => {
+    const aviso = avisoWa(textoWa(texto), '584141112233');
+    const valor = aviso.entry[0].changes[0].value;
+    valor.messages[0].from_user_id = bsuid;
+    valor.contacts[0].user_id = bsuid;
+    return aviso;
+  };
+  conIa({ respuesta: '¡Claro! Hacemos envíos a Valencia. Una asesora de Dekog te escribirá a tu WhatsApp para coordinar el pago.', ofrecer_formulario: true });
+  await entregar(whatsappPost, conNumero('¿Y hacen envíos a Valencia?'), SECRETO_WA, env);
+  const [, promesa] = mensajesWa();
+  assert.equal(promesa.to, '584141112233');
+  assert.match(promesa.text.body, /te escribirá a tu WhatsApp/); // ahora la asesora sí tiene a quién escribirle
+  assert.deepEqual(filasHoja.slice(1).map((f) => [f.id, f.telefono]), [[`wa-584141112233-${hoyCaracas()}`, '+584141112233']]);
+  // Lo mismo otra vez: nada nuevo para la hoja.
+  await entregar(whatsappPost, conNumero('¿Y hacen envíos a Valencia?'), SECRETO_WA, env);
+  assert.equal(filasHoja.length, 2);
+  // Una sola memoria (la clave es su BSUID) y sin su número.
+  assert.deepEqual([...env.CONVERSACIONES.datos.keys()].filter((k) => k.startsWith('wa:PHONE123:')), [`wa:PHONE123:${bsuid}`]);
+  assert.ok(!env.CONVERSACIONES.datos.get(`wa:PHONE123:${bsuid}`).includes('584141112233'));
 });
