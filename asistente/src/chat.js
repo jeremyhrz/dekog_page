@@ -30,6 +30,7 @@ import { imagenDeLaWeb } from './lib/imagen.js';
 import {
   promoActiva, pideOfertas, pideCatalogoDeOfertas, ofertasDelModelo, hayOfertaEn, CATALOGO_DE_OFERTAS,
 } from './lib/promo.js';
+import { juntoAMoneda } from './lib/monedas.js';
 
 const MAX_MENSAJES = 16;
 // Tiempo total para la IA, contando una posible corrección. En la web el navegador espera hasta 40 s; en
@@ -63,9 +64,9 @@ const ORIGEN = { web: 'de la web', whatsapp: 'de WhatsApp', instagram: 'de Insta
 /**
  * El pase a una asesora, con el resumen ya escrito. `url`: la línea de esa área (la web saca de ahí el texto para sus
  * botones). `lineas`: las DOS asesoras en orden, Línea 1 y Línea 2 (pedido de la dueña, 21-oct: Instagram y WhatsApp
- * muestran los dos enlaces; la web, dos botones).
+ * muestran los dos enlaces; la web, dos botones). WhatsApp también lo arma para un cliente sin número (whatsapp.js).
  */
-function enlaceWhatsapp(area, resumen, canal = 'web') {
+export function enlaceWhatsapp(area, resumen, canal = 'web') {
   const codigo = lineaPorArea[area] ?? '01';
   const linea = lineas[codigo];
   const texto = `Hola Dekog, vengo del asistente ${ORIGEN[canal] ?? ORIGEN.web} 👋\n${resumen}`.trim();
@@ -102,8 +103,6 @@ function limpiarMensajes(entrada) {
 }
 
 const OCULTO = '[dato personal]';
-const MONEDA_ANTES = /(?:\bref\.?|\bbs\.?|\$|\busd|€)\s*$/i;
-const MONEDA_DESPUES = /^\s*(?:ref\b|bs\b|bol[ií]vares|\$|usd\b|€|d[oó]lares)/i;
 const FECHA = /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/;
 
 /**
@@ -127,8 +126,7 @@ export function ocultarDatosPersonales(entrada) {
   s = s.replace(/\+?\d[\d\s().\-/_·*‐‑‒–—―−]{5,}\d/g, (m, desde, todo) => {
     if (m.replace(/\D/g, '').length < 7) return m;
     if (FECHA.test(m.trim())) return m;
-    if (MONEDA_ANTES.test(todo.slice(Math.max(0, desde - 8), desde))) return m;
-    if (MONEDA_DESPUES.test(todo.slice(desde + m.length, desde + m.length + 12))) return m;
+    if (juntoAMoneda(todo, desde, desde + m.length)) return m;
     return OCULTO;
   });
   return s;

@@ -7,7 +7,7 @@
  *   GET|POST /instagram  → webhook de Instagram (ver canales/instagram.js), y /instagram/conectar,
  *                          /instagram/desautorizar y /instagram/borrar-datos
  *   GET  /salud   → comprobación rápida de que está vivo y configurado
- *   GET  /a/<código> → enlace corto a la asesora de Instagram (lib/enlaces.js; dekog.net/a/* llega aquí)
+ *   GET  /a/<código> → enlace corto a la asesora en Instagram y WhatsApp (lib/enlaces.js; dekog.net/a/* llega aquí)
  *
  * /chat y /datos solo aceptan llamadas desde dekog.net, sus links de prueba de
  * Vercel y la web en desarrollo local (CORS). Los webhooks se validan con la
@@ -82,7 +82,7 @@ async function atender(request, env, ctx, url, origen, cors) {
   const webhook = webhooks[url.pathname]?.[request.method];
   if (webhook) return webhook();
 
-  // Enlace corto a la asesora (Instagram): dekog.net/a/<código> → wa.me con el resumen ya escrito (lib/enlaces.js).
+  // Enlace corto a la asesora (Instagram y WhatsApp): dekog.net/a/<código> → wa.me con el resumen (lib/enlaces.js).
   const corto = /^\/a\/([^/]{1,40})$/.exec(url.pathname);
   if (corto && (request.method === 'GET' || request.method === 'HEAD')) return irAlEnlace(corto[1], env.CONVERSACIONES);
 

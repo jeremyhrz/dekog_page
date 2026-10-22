@@ -24,7 +24,8 @@ id = "bd27d81ccb854efb9e0886d9f7fbae20"
 WA_APP_ID = "1980801789282059"
 WA_WABA_ID = "1794140648401470"
 ASISTENTE_URL = "https://dekog-asistente.dekog-web.workers.dev"
-# Dominio de los enlaces cortos a la asesora en Instagram (lib/enlaces.js): dekog.net/a/* llega aquí por vercel.json.
+# Dominio de los enlaces cortos a la asesora en Instagram y WhatsApp (lib/enlaces.js): dekog.net/a/* llega aquí por
+# vercel.json.
 ENLACE_CORTO_BASE = "https://www.dekog.net"
 
 # Cada lunes 9:00 UTC renueva el token de 60 días de Instagram; a los 7 minutos de cada hora reconecta el webhook

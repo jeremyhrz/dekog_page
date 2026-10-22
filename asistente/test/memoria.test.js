@@ -1,6 +1,7 @@
 // La memoria de cada conversación (KV) y la hoja de clientes: guardar dos veces en la misma vuelta no repite nada, el
-// teléfono que ya llegó a la hoja se recuerda por sus 4 últimos dígitos, y la hoja no se pasa del tiempo que le queda al
-// Worker. KV en memoria y fetch falso: no sale nada a internet.
+// teléfono que ya llegó a la hoja se recuerda por sus 4 últimos dígitos, un interés nuevo es novedad, la fila de WhatsApp
+// más reciente gana al juntar dos vueltas, y la hoja no se pasa del tiempo que le queda al Worker. KV en memoria y fetch
+// falso: no sale nada a internet.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { kvEnMemoria } from './ayuda.js';
@@ -80,6 +81,42 @@ test('Dos vueltas a la vez, una manda un número nuevo: queda su huella, guarde 
     marcarEnHoja(vueltas.a, '04240005678'); // «a» mandó otro número a la hoja; «b» no tocó el teléfono
     for (const quien of orden) await guardarEstado(kv, 'ig:X', vueltas[quien]);
     assert.equal((await kv.get('ig:X', 'json')).telefonoEnHoja, '5678', orden.join(' y luego '));
+  }
+});
+
+test('Lo que le interesa también es novedad para la hoja: otro modelo sí, el mismo o ninguno no; el de antes del 22-oct, una vez', async () => {
+  const kv = kvEnMemoria();
+  const interesado = true;
+  const estado = await cargarEstado(kv, 'wa:X');
+  Object.assign(estado, { interes: 'Toronto Queen', resumen: 'Quiere la Toronto' });
+  marcarEnHoja(estado);
+  assert.ok(!hayNovedadParaHoja(estado, { interesado }));
+  estado.interes = 'Manila Queen'; // el mismo resumen, otro modelo
+  assert.ok(hayNovedadParaHoja(estado, { interesado }));
+  marcarEnHoja(estado);
+  assert.ok(!hayNovedadParaHoja(estado, { interesado }));
+  // Una memoria de antes no dice qué interés llegó a la hoja: se manda una vez. Sin interés, nada.
+  await kv.put('wa:Y', JSON.stringify({ mensajes: [], guardado: true, interes: 'Toronto Queen', resumen: '', resumenEnHoja: '' }));
+  assert.ok(hayNovedadParaHoja(await cargarEstado(kv, 'wa:Y'), { interesado }));
+  await kv.put('wa:Z', JSON.stringify({ mensajes: [], guardado: true, interes: '', resumen: '', resumenEnHoja: '' }));
+  assert.ok(!hayNovedadParaHoja(await cargarEstado(kv, 'wa:Z'), { interesado }));
+});
+
+test('La fila de la hoja (WhatsApp): queda la más reciente, con su `guardado`; en la misma fila, basta con una vuelta', async () => {
+  const hace8Dias = Date.now() - 8 * 86400 * 1000;
+  for (const orden of [['a', 'b'], ['b', 'a']]) {
+    const kv = kvEnMemoria();
+    await kv.put('wa:X', JSON.stringify({ mensajes: [], guardado: true, filaHoja: '2026-10-14', filaHojaDesde: hace8Dias }));
+    // Dos vueltas a la vez: «a» abre una fila nueva (sin guardar hasta que la hoja responda), «b» no toca la hoja.
+    const vueltas = { a: await cargarEstado(kv, 'wa:X'), b: await cargarEstado(kv, 'wa:X') };
+    Object.assign(vueltas.a, { filaHoja: '2026-10-22', filaHojaDesde: Date.now(), guardado: false });
+    for (const quien of orden) await guardarEstado(kv, 'wa:X', vueltas[quien]);
+    const antes = await kv.get('wa:X', 'json');
+    assert.deepEqual([antes.filaHoja, antes.guardado], ['2026-10-22', false], orden.join(' y luego '));
+    // La hoja le respondió a «a»: su fila queda guardada, aunque «b» la haya escrito sin guardar en el medio.
+    marcarEnHoja(vueltas.a);
+    await guardarEstado(kv, 'wa:X', vueltas.a);
+    assert.equal((await kv.get('wa:X', 'json')).guardado, true, orden.join(' y luego '));
   }
 });
 

@@ -1,12 +1,15 @@
 // WhatsApp (22-oct): el cupo de Meta se cuenta con UNA escritura por vuelta (KV admite 1 por segundo en la misma clave),
 // la vitrina no se descarta cuando además pasa a una asesora, el pie de foto ya no corta los precios en Bs y el texto de
-// un video o un documento se responde. IA: proveedor «prueba» o un Gemini falso. Fetch falso: no sale nada a internet.
+// un video o un documento se responde. La memoria se guarda antes de la hoja y de la IA, un cliente que vuelve abre otra
+// fila de la hoja y uno sin número recibe a las asesoras. IA: proveedor «prueba» o un Gemini falso. Fetch falso: no sale
+// nada a internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SECRETO_WA, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa } from './ayuda.js';
 import { kvConLimite } from './kv-limite.js';
 import { config } from '../src/lib/config.js';
 import { whatsappPost, textoConCola } from '../src/canales/whatsapp.js';
+import { olvidarEnCurso } from '../src/canales/memoria.js';
 
 const HOJA = { HOJA_URL: 'https://hoja.falsa', HOJA_SECRETO: 'clave-hoja' };
 let env;
@@ -37,8 +40,10 @@ function usar(opciones) {
     return r;
   };
 }
+const ahoraReal = Date.now; // algunas pruebas mueven el reloj
 beforeEach(() => { env = { CONVERSACIONES: kvEnMemoria() }; salidaIa = null; usar(); });
 afterEach(() => {
+  Date.now = ahoraReal;
   config.PROMO = 'no';
   config.ASISTENTE_PROVEEDOR = 'prueba';
   for (const clave of ['GEMINI_API_KEY', 'ENLACE_CORTO_BASE', ...Object.keys(HOJA)]) delete config[clave];
@@ -228,4 +233,225 @@ test('Video o documento con texto: lo responde la IA, con una nota de que no lo 
   await wa({ type: 'video', video: { id: 'v3', mime_type: 'video/mp4' } }, tel);
   assert.equal(mensajesWa().length, 4);
   assert.match(mensajesWa().at(-1).text.body, /no puedo ver videos/);
+});
+
+// ── La memoria antes de la hoja, y los plazos desde que llegó el aviso ─────────────────────────────────────────────
+
+const COMPRA = 'Me gusta, quiero comprarla. ¿La envían a Maracay?'; // la IA de prueba pasa a la asesora
+
+test('Memoria: cuando se llama a la hoja el turno ya está guardado; si la hoja responde, otra vez, sin repetir mensajes', async () => {
+  Object.assign(config, HOJA);
+  const tel = '584140000213';
+  let enKvAlLlamarALaHoja;
+  const conHoja = globalThis.fetch;
+  globalThis.fetch = async (url, o = {}) => {
+    if (String(url).startsWith('https://hoja.falsa')) enKvAlLlamarALaHoja = await estadoWa(tel);
+    return conHoja(url, o);
+  };
+  await wa(textoWa(COMPRA), tel);
+  assert.equal(filasHoja.length, 1);
+  assert.equal(enKvAlLlamarALaHoja?.mensajes.at(-1)?.role, 'assistant', 'al llamar a la hoja, la memoria no tenía la respuesta');
+  assert.equal(enKvAlLlamarALaHoja.guardado, false);
+  const despues = await estadoWa(tel);
+  assert.equal(despues.guardado, true);
+  assert.deepEqual(despues.mensajes.map((m) => m.role), ['user', 'assistant']);
+});
+
+test('Plazos desde que llegó el aviso: con 25 s gastados antes de la IA, la emergencia sale ya, la memoria queda y la hoja corta a los 27 s', { timeout: 8000 }, async () => {
+  Object.assign(config, HOJA);
+  conIa({});
+  const tel = '584140000214';
+  // Gemini y la hoja no contestan nunca: solo se rinden cuando se les cancela el pedido.
+  const colgado = (signal) => new Promise((_, fallar) => signal.addEventListener('abort', () => fallar(signal.reason)));
+  let intentosHoja = 0;
+  let adelanto = 0;
+  const conMeta = globalThis.fetch;
+  globalThis.fetch = async (url, o = {}) => {
+    const u = String(url);
+    if (u.includes('generativelanguage.googleapis.com')) return colgado(o.signal);
+    if (u.startsWith('https://hoja.falsa')) {
+      intentosHoja += 1;
+      return colgado(o.signal);
+    }
+    // El «leído» y la foto (o Meta lento) se llevaron 25 s de los 30 que da Cloudflare.
+    if (JSON.parse(o.body ?? '{}').status === 'read') adelanto = 25000;
+    return conMeta(url, o);
+  };
+  Date.now = () => ahoraReal() + adelanto;
+  const inicio = ahoraReal();
+  await wa(textoWa('¿Cuánto es la Toronto queen?'), tel);
+  assert.ok(ahoraReal() - inicio < 4500, `tardó ${ahoraReal() - inicio} ms`); // antes: 24 s de IA y hasta 20 s de hoja
+  const [aviso] = mensajesWa();
+  assert.match(aviso.text.body, /en este momento no puedo responder[\s\S]*Línea 1[\s\S]*Línea 2/);
+  assert.equal(intentosHoja, 1); // con 2 s por delante, sin segundo intento
+  const memoria = await estadoWa(tel);
+  assert.deepEqual(memoria.mensajes.map((m) => m.role), ['user', 'assistant']);
+  assert.equal(memoria.guardado, false); // la hoja no respondió: va de nuevo con su próximo mensaje
+});
+
+// ── Un aviso repetido en otra instancia ──────────────────────────────────────────────────────────────────────────
+
+test('Aviso repetido por Meta que cae en otra instancia mientras la IA piensa: se responde UNA vez', { timeout: 8000 }, async () => {
+  env = { CONVERSACIONES: kvConLimite() };
+  conIa({ respuesta: 'La Toronto Queen (1,60 x 1,90 m) está en REF 550.', productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }] });
+  // La IA tarda: no contesta hasta que la prueba la suelta. `pidio[i]` se cumple con su pedido número i + 1.
+  let pedidos = 0;
+  const pidio = [Promise.withResolvers(), Promise.withResolvers()];
+  const suelta = Promise.withResolvers();
+  const conIaFalsa = globalThis.fetch;
+  globalThis.fetch = async (url, o = {}) => {
+    if (String(url).includes('generativelanguage.googleapis.com')) {
+      pidio[pedidos]?.resolve();
+      pedidos += 1;
+      await suelta.promise;
+    }
+    return conIaFalsa(url, o);
+  };
+  const tel = '584140000215';
+  const aviso = avisoWa(textoWa('¿Cuánto es la Toronto queen?'), tel);
+  const primera = entregar(whatsappPost, aviso, SECRETO_WA, env);
+  await pidio[0].promise; // la primera instancia ya está esperando a la IA
+  olvidarEnCurso(); // la repetición le llega a otra instancia, que no la tiene en su memoria
+  const segunda = entregar(whatsappPost, aviso, SECRETO_WA, env);
+  // La IA sigue pensando hasta que la segunda termina (o le pide otra respuesta, si no vio que ya se estaba atendiendo).
+  await Promise.race([segunda, pidio[1].promise]);
+  suelta.resolve();
+  await Promise.all([primera, segunda]);
+  assert.equal(pedidos, 1);
+  assert.equal(mensajesWa().length, 1);
+  assert.equal(meta.enviados.filter((e) => e.cuerpo.status === 'read').length, 1);
+  assert.equal((await estadoWa(tel)).mensajes.filter((m) => m.role === 'user').length, 1);
+  // La marca va en su propia clave y la memoria se escribe una sola vez: guardarla también antes de la IA chocaba (1
+  // escritura por segundo en la misma clave) con los guardados de otros mensajes seguidos del cliente, y se perdían turnos.
+  const { id } = aviso.entry[0].changes[0].value.messages[0];
+  assert.deepEqual(env.CONVERSACIONES.escritas.filter((k) => !k.startsWith('wa:cupo:')), [`visto:${id}`, `wa:PHONE123:${tel}`]);
+});
+
+// ── La fila de la hoja: la hoja solo manda el correo con las filas NUEVAS ──────────────────────────────────────────
+
+const hoyCaracas = () => new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
+
+test('Hoja: un cliente nuevo abre su fila con la fecha (wa-<número>-<fecha>); en la memoria queda la fecha, no el número', async () => {
+  Object.assign(config, HOJA);
+  const tel = '584140000216';
+  await wa(textoWa(COMPRA), tel);
+  assert.deepEqual(filasHoja.map((f) => f.id), [`wa-${tel}-${hoyCaracas()}`]);
+  assert.equal(filasHoja[0].telefono, `+${tel}`);
+  const memoria = await estadoWa(tel);
+  assert.equal(memoria.filaHoja, hoyCaracas());
+  assert.ok(!JSON.stringify(memoria).includes(tel));
+});
+
+test('Hoja: dentro de los 7 días, un interés nuevo actualiza su misma fila (antes solo contaba el resumen)', async () => {
+  Object.assign(config, HOJA);
+  const tel = '584140000217';
+  await wa(textoWa(COMPRA), tel); // la Toronto: pasa a la asesora
+  conIa({
+    respuesta: '¡La Manila queen te va a encantar! Una asesora de Dekog te escribirá a tu WhatsApp para contarte cómo pagarla.',
+    productos: [{ id: 31, talla: 'Queen 1,60x1,90 M' }],
+    ofrecer_formulario: true,
+  });
+  await wa(textoWa('¿Y cómo pago la Manila queen?'), tel);
+  assert.equal(filasHoja.length, 2);
+  assert.equal(filasHoja[1].id, filasHoja[0].id);
+  assert.match(filasHoja[1].interes, /^Manila/);
+  await wa(textoWa('¿Y cómo pago la Manila queen?'), tel); // lo mismo: nada nuevo para la hoja
+  assert.equal(filasHoja.length, 2);
+});
+
+test('Hoja: si su fila tiene 7 días o más, lo que muestre ahora va en una fila nueva (y llega el correo); con 6, en la suya', async () => {
+  Object.assign(config, HOJA);
+  for (const [dias, tel] of [[6, '584140000218'], [8, '584140000219']]) {
+    Date.now = () => ahoraReal() - dias * 86400 * 1000; // su primer mensaje, hace `dias` días
+    await wa(textoWa(COMPRA), tel);
+    Date.now = ahoraReal;
+    await wa(textoWa(COMPRA), tel); // hoy, lo mismo que entonces
+  }
+  const filasDe = (tel) => filasHoja.filter((f) => f.telefono === `+${tel}`).map((f) => f.id);
+  assert.equal(filasDe('584140000218').length, 1); // nada nuevo, y su fila es de esta semana
+  const [vieja, nueva] = filasDe('584140000219');
+  assert.notEqual(vieja, nueva);
+  assert.equal(nueva, `wa-584140000219-${hoyCaracas()}`);
+  assert.equal((await estadoWa('584140000219')).guardado, true);
+});
+
+test('Hoja: quien ya estaba en la hoja antes del 22-oct sigue en su fila wa-<número> (ni fila ni correo repetidos)', async () => {
+  Object.assign(config, HOJA);
+  const tel = '584140000220';
+  // Su memoria como la dejó la versión anterior: ya en la hoja y sin fecha de fila.
+  await env.CONVERSACIONES.put(`wa:PHONE123:${tel}`, JSON.stringify({
+    mensajes: [{ role: 'user', content: '¿Cuánto es la Toronto queen?' }, { role: 'assistant', content: 'Está en REF 550.' }],
+    procesados: [], guardado: true, interes: 'Toronto Queen 1,60x1,90 M', resumen: '', resumenEnHoja: '', telefonoEnHoja: false,
+  }));
+  await wa(textoWa(COMPRA), tel);
+  assert.deepEqual(filasHoja.map((f) => f.id), [`wa-${tel}`]);
+  const memoria = await estadoWa(tel);
+  assert.equal(memoria.filaHoja, '');
+  assert.ok(memoria.filaHojaDesde > 0); // sus 7 días empiezan ahora
+});
+
+test('Hoja: el aviso del cupo agotado va en la fila del cliente; uno nuevo abre la suya con la fecha', async () => {
+  Object.assign(config, HOJA);
+  const tel = '584140000221';
+  await wa(textoWa(COMPRA), tel);
+  await env.CONVERSACIONES.put(claveCupo(), '990');
+  await wa(textoWa('Hola, ¿siguen ahí?'), tel);
+  assert.equal(filasHoja.length, 2);
+  assert.equal(filasHoja[1].id, filasHoja[0].id);
+  assert.match(filasHoja[1].resumen, /ya no le quedaban respuestas gratis/);
+  await wa(textoWa('Hola'), '584140000222');
+  assert.equal(filasHoja.at(-1).id, `wa-584140000222-${hoyCaracas()}`);
+});
+
+// ── Un cliente sin número (usa nombre de usuario: solo llega su BSUID) ──────────────────────────────────────────────
+
+/** El aviso de un cliente con nombre de usuario: Meta manda su BSUID (from_user_id) y no su número. */
+function avisoSinNumero(mensaje, bsuid) {
+  const aviso = avisoWa(mensaje);
+  const valor = aviso.entry[0].changes[0].value;
+  valor.contacts = [{ profile: { name: 'Carla' }, user_id: bsuid }];
+  delete valor.messages[0].from;
+  valor.messages[0].from_user_id = bsuid;
+  return aviso;
+}
+
+const PROMESA = '¡Excelente elección! 😍 La Toronto Queen está en REF 550. Una asesora de Dekog te escribirá a tu WhatsApp para coordinar el pago.';
+
+test('Sin número: en vez de prometerle que le escribirán, las dos asesoras con su pedido ya escrito, y queda en la hoja', async () => {
+  Object.assign(config, HOJA);
+  conIa({ respuesta: PROMESA, productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }], ofrecer_formulario: true });
+  await entregar(whatsappPost, avisoSinNumero(textoWa('Quiero la Toronto queen, ¿cómo pago?'), 'VE.1234567890'), SECRETO_WA, env);
+  const [foto] = mensajesWa();
+  assert.equal(foto.recipient, 'VE.1234567890');
+  const pie = foto.image.caption;
+  assert.doesNotMatch(pie, /te escribirá/);
+  assert.match(pie, /La Toronto Queen está en REF 550\.\n\nPara seguir, escríbele a la asesora que prefieras con los enlaces de abajo/);
+  assert.match(pie, /\n\nLínea 1 \(0414-584 7791\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}1\n\nLínea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}2$/);
+  // El enlace abre el chat de la asesora con lo que le interesa ya escrito.
+  const [destinos] = [...env.CONVERSACIONES.datos].filter(([k]) => k.startsWith('enlace:')).map(([, v]) => JSON.parse(v));
+  assert.match(decodeURIComponent(destinos[2]), /^https:\/\/wa\.me\/584244006086\?text=Hola Dekog, vengo del asistente de WhatsApp 👋\nToronto Queen/);
+  // En la hoja, sin teléfono y con el porqué: Dekog sabe del interés aunque no pueda escribirle.
+  assert.equal(filasHoja.length, 1);
+  assert.match(filasHoja[0].id, /^wa-VE\.1234567890-\d{4}-\d{2}-\d{2}$/);
+  assert.equal(filasHoja[0].telefono, '');
+  assert.equal(filasHoja[0].nombre, 'Carla');
+  assert.match(filasHoja[0].resumen, /WhatsApp no da su número/);
+  // Con su número, la promesa se queda: la asesora le escribe con lo que quedó en la hoja.
+  await wa(textoWa('Quiero la Toronto queen, ¿cómo pago?'), '584140000223');
+  const conNumero = mensajesWa().at(-1).image.caption;
+  assert.match(conNumero, /te escribirá a tu WhatsApp/);
+  assert.doesNotMatch(conNumero, /Línea 1/);
+  assert.equal(filasHoja.at(-1).telefono, '+584140000223');
+});
+
+test('Sin número: también se quitan «te va a contactar», «que te escriba», «se pondrá en contacto» y «ya tiene tu número»', async () => {
+  const frases = ['Una asesora te va a contactar pronto 😊', '¿Quieres que una asesora te escriba?', 'Una asesora se pondrá en contacto contigo.', 'Dekog ya tiene tu número.'];
+  for (const [i, frase] of frases.entries()) {
+    conIa({ respuesta: `¡Claro que sí! Hacemos envíos a todo el país. ${frase}`, ofrecer_formulario: true });
+    await entregar(whatsappPost, avisoSinNumero(textoWa('Quiero comprar, ¿hacen envíos?'), `VE.99${i}`), SECRETO_WA, env);
+    const cuerpo = mensajesWa().at(-1).text.body;
+    assert.ok(!cuerpo.includes(frase), cuerpo);
+    assert.match(cuerpo, /Hacemos envíos a todo el país\.\n\nPara seguir, escríbele a la asesora que prefieras/, frase);
+    assert.match(cuerpo, /Línea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}2$/, frase);
+  }
 });

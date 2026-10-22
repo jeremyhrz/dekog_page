@@ -96,10 +96,10 @@ export function recortar(texto, maximo) {
  *   Habla con una asesora por WhatsApp 👇
  *
  *   Línea 1 (0414-584 7791):
- *   https://www.dekog.net/a/k3P9xQ
+ *   https://www.dekog.net/a/k3P9xQ1
  *
  *   Línea 2 (0424-400 6086):
- *   https://www.dekog.net/a/Zt7mQ2
+ *   https://www.dekog.net/a/k3P9xQ2
  * `enlaces`: [{ etiqueta, visible, url }] (chat.js → enlaceWhatsapp().lineas, o negocio.js → asesorasDirectas()).
  * Sin `titulo` (null), solo las líneas.
  */
