@@ -20,7 +20,7 @@
 import { responder, proveedorActivo, RechazoDelModelo } from './lib/llm.js';
 import {
   tarjeta, montosInventados, numerosDelCliente, categoriaPedida, fueraDeCategoria, totalesIncoherentes, recargoDeBoxEnAltaGama,
-  sinNotasDeInstagram,
+  sinNotasDeInstagram, preciosEnStock,
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
@@ -207,6 +207,46 @@ export function pideCatalogo(texto) {
 const sinVerModelos = (texto) => texto.split('\n')
   .map((linea) => linea.split(/(?<=[.!?])\s+/).filter((o) => !/ver modelos/i.test(o)).join(' ')).join('\n').trim();
 
+/**
+ * El texto con un punto en lugar de cada cláusula que nombra «Ver modelos» (cortadas en . ! ? ; , : saltos de línea, «o»
+ * e «y»): lo demás de su oración se queda, pero sin unirse por encima de lo quitado («toca el botón de abajo, «Ver
+ * modelos», y una asesora te confirma…» habla de la lista). La «o» y la «y» con un solo espacio a cada lado: con \s+ la
+ * expresión retrocede de forma cuadrática ante un tramo largo de espacios.
+ */
+const sinClausulasVerModelos = (texto) => texto.split(/([.!?;,:\n]+|\s[oy]\s)/i)
+  .map((parte, i) => (i % 2 === 0 && /ver modelos/i.test(parte) ? '.' : parte)).join('');
+
+// La IA dice que el enlace de las ofertas va en este mensaje («en el catálogo de ofertas que te dejo abajo 👇», «aquí
+// tienes el enlace»). Por oración y solo si nombra el enlace, el catálogo o las ofertas: «te muestro abajo la pieza en
+// oferta» habla de su tarjeta. Sin las cláusulas del pase («escríbele a una asesora con los enlaces de abajo», «los links
+// de WhatsApp»): el de las ofertas es uno solo, así que «enlaces» o «links» en plural son los de las asesoras. Y si la
+// oración habla de ellas, «toca el enlace de abajo» a secas también es el suyo: ahí cuenta solo si nombra el catálogo o
+// las ofertas («te dejo abajo el catálogo de ofertas; si te gusta alguna, una asesora te la aparta»).
+const ANUNCIA_ABAJO = /abajo|👇|te (?:l[oa]s? )?dejo|aqu[ií] (?:tienes|est[aá])/i;
+const DEL_PASE = /asesor|whatsapp|\b(?:enlaces|links)\b/i;
+const anunciaElEnlace = (texto) => texto.split(/[.!?\n]+/).some((oracion) => {
+  const resto = oracion.split(/[,;:]/).filter((c) => !DEL_PASE.test(c)).join(',');
+  const nombra = DEL_PASE.test(oracion) ? /cat[aá]logo|ofertas/i : /\b(?:enlace|link)\b|cat[aá]logo|ofertas/i;
+  return ANUNCIA_ABAJO.test(resto) && nombra.test(resto);
+});
+
+// «¿Me pasas otra vez el link?», «no me abre el enlace»: pide de nuevo un enlace sin decir cuál. Es el de las ofertas si
+// fue el último que recibió (ultimoEnlace; los de las asesoras no quedan en el historial), si no habla de la asesora ni
+// de WhatsApp, y si nombra el enlace o la IA lo anuncia («¿me lo reenvías?» → «te dejo el enlace aquí abajo 👇»):
+// «¿me reenvías la foto?» no lo es. El «no» como palabra: «bueno me abrió el link» no lo pide.
+const OTRA_VEZ = /otra vez|de nuevo|nuevamente|reenv|\bno (?:me |se |lo |la )?(?:puedo |pude )?(?:abr|carg|funcion|sirv|lleg|sal)/i;
+const pideOtraVezUnEnlace = (texto, respuesta) => OTRA_VEZ.test(texto) && !/asesor|whatsapp/i.test(texto)
+  && (/\b(?:enlaces?|links?)\b/i.test(texto) || anunciaElEnlace(respuesta));
+
+/** El último enlace que recibió el cliente en un mensaje del asistente ('' si ninguno). */
+function ultimoEnlace(mensajes) {
+  for (let i = mensajes.length - 1; i >= 0; i -= 1) {
+    const enlaces = mensajes[i].role === 'assistant' ? mensajes[i].content.match(/https?:\/\/\S+/g) : null;
+    if (enlaces) return enlaces[enlaces.length - 1];
+  }
+  return '';
+}
+
 /** Quita las oraciones que prometen «Ver modelos» (solo se llama cuando no va ninguna vitrina). */
 export function sinPromesaDeVitrina(texto) {
   return sinVerModelos(texto) || texto;
@@ -297,7 +337,6 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   }
   const tasaPromesa = tasaBcv();
   const delCliente = numerosDelCliente(mensajes);
-  const revisar = (s, texto) => montosInventados(texto ?? '', { ids: (s.productos ?? []).map((p) => p.id), delCliente });
   // Lo que escribió el cliente, sin el pie de lo que compartió en Instagram: ese texto no es suyo, así que no abre la
   // vitrina ni manda los PDF («Conoce nuestras camas…» en una publicación). El enlace de ofertas sí lo mira (más abajo).
   const ultimoCompleto = mensajes.at(-1)?.content ?? '';
@@ -308,6 +347,11 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   // Las tarjetas que mostraría esta salida (sin tasa: solo importan los REF) y los totales del texto que las contradicen.
   const tarjetasDe = (s) => (s.productos ?? []).slice(0, 3).map((p) => tarjeta(p.id, p.talla, null, opcionesDe(p))).filter(Boolean);
   const incoherentes = (s) => totalesIncoherentes(s.respuesta ?? '', tarjetasDe(s));
+  // Los precios de las piezas en stock que eligió la IA valen en todo el texto, como los números del cliente y como en
+  // totalesIncoherentes (preciosEnStock, en lib/catalogo.js).
+  const revisar = (s, texto) => montosInventados(texto ?? '', {
+    ids: (s.productos ?? []).map((p) => p.id), delCliente: [...delCliente, ...preciosEnStock(tarjetasDe(s))],
+  });
   const boxAltaGama = (s) => recargoDeBoxEnAltaGama(s.respuesta, s.productos);
 
   const presupuesto = Date.now() + (PRESUPUESTO_IA_MS[canal] ?? PRESUPUESTO_IA_MS.whatsapp);
@@ -391,14 +435,18 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
 
   // Pidió VER una categoría («quiero ver camas») o ver más: hasta 10 modelos que no haya visto y el enlace al catálogo.
   // No cuando pasa a una asesora ni en una respuesta de emergencia. En WhatsApp la lista no lleva Bs (van al elegir).
-  // Tampoco si pide lo que está en oferta («¿qué camas tienen en oferta?»): la vitrina, a precio de catálogo, taparía
-  // las tarjetas de las piezas en stock con su precio de oferta. Vale para la del respaldo y para la que marque la IA.
+  // Tampoco si pide lo que está en oferta («¿qué camas tienen en oferta?») en una sección con piezas en stock (hoy, solo
+  // camas): la vitrina, a precio de catálogo, taparía las tarjetas de esas piezas. No va la del respaldo, ni la que marcó
+  // la IA si mostró alguna pieza (sin piezas, su texto está escrito para la lista). En sofás, mesas y puffs no hay nada
+  // que tapar: su vitrina va aunque pregunte por ofertas.
   const promo = promoActiva();
-  const pideLaPromo = Boolean(promo) && pideOfertas(ultimo);
   const previas = vitrinasPrevias(mensajes);
-  const pedida = !pideLaPromo && !salida.emergencia && !salida.derivar?.necesario
+  const resuelta = !salida.emergencia && !salida.derivar?.necesario
     ? resolverVitrina(salida.vitrina, ultimo, mensajes, previas)
     : null;
+  const tapaLasOfertas = Boolean(resuelta && promo) && pideOfertas(ultimo) && resuelta.todos.some((p) => hayOfertaEn(p.id))
+    && (salida.vitrina !== resuelta.clave || productos.some((p) => p.oferta || p.copete));
+  const pedida = tapaLasOfertas ? null : resuelta;
   const vitrina = pedida ? armarVitrina(pedida, {
     sugeridos: (salida.productos ?? []).map((p) => p.id),
     vistos: previas.vistos,
@@ -436,25 +484,35 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   const yaDicho = (s) => mensajes.some((m) => m.role === 'assistant' && m.content.includes(s));
   // La IA a veces no dice que el modelo por el que preguntan tiene piezas en stock con descuento (21-oct: «¿Cuánto cuesta
   // la Manila queen?» → REF 520, sin las tres a REF 420): si su respuesta no habla de ofertas, se agrega la línea. Solo
-  // si hay piezas en la medida que pidió (o no dijo medida): a quien quiere la Toronto Queen no le sirve la individual.
+  // si hay piezas en la medida que pidió (o no dijo medida), que es lo que dice enOferta: a quien quiere la Toronto Queen
+  // no le sirve la individual.
   const conOferta = !vitrina && !/oferta|stock|descuento|promo|rebaja|en vez de/i.test(respuesta)
-    && productos.find((p) => p.enOferta && !p.oferta && hayOfertaEn(p.id, p.desde ? '' : p.talla ?? ''));
+    && productos.find((p) => p.enOferta && !p.oferta);
   const lineaDeOfertas = promo && !salida.emergencia && conOferta ? ofertasDelModelo(conOferta.id, conOferta.talla ?? '') : '';
   if (lineaDeOfertas && !yaDicho(lineaDeOfertas)) respuesta += `\n\n${lineaDeOfertas}`;
   // Preguntó por ofertas, descuentos o promociones (también con lo que compartió en Instagram), o la IA habla del
   // catálogo de ofertas: va su enlace. Lo agrega el servidor, no la IA, para que nunca llegue mal escrito (21-oct: la
-  // promo de la dueña). Si ya se lo mandó, solo de nuevo cuando lo pide.
-  if (promo && !salida.emergencia && (pideOfertas(ultimoCompleto) || CATALOGO_DE_OFERTAS.test(respuesta))
-    && !respuesta.includes(promo.enlace) && (pideCatalogoDeOfertas(ultimo) || !yaDicho(promo.enlace))) {
+  // promo de la dueña). Si ya se lo mandó, solo de nuevo cuando lo vuelve a pedir (el catálogo, o el enlace o el link de
+  // las ofertas) o cuando la IA igual lo anuncia abajo: nombrar el catálogo no basta, porque lo nombra en cada respuesta.
+  // También si pide «otra vez el link» sin decir cuál y el último que recibió fue este (startsWith: si lo escribió la IA,
+  // puede llevar un punto pegado), salvo en un pase («los enlaces de abajo» son los de las asesoras). Con vitrina no
+  // cuenta lo que hay «abajo»: es la lista (y en la web, el botón del catálogo de la página).
+  const loPideOtraVez = pideCatalogoDeOfertas(ultimo) || (pideOfertas(ultimo) && /\b(enlaces?|links?)\b/i.test(ultimo));
+  const otraVezElUltimo = Boolean(promo) && !vitrina && !salida.derivar?.necesario && pideOtraVezUnEnlace(ultimo, respuesta)
+    && ultimoEnlace(mensajes).startsWith(promo.enlace);
+  if (promo && !salida.emergencia && !respuesta.includes(promo.enlace) && (otraVezElUltimo
+    || ((pideOfertas(ultimoCompleto) || CATALOGO_DE_OFERTAS.test(respuesta))
+      && (!yaDicho(promo.enlace) || loPideOtraVez || (!vitrina && anunciaElEnlace(respuesta)))))) {
     respuesta += `\n\n🏷️ Catálogo de ofertas:\n${promo.enlace}`;
   }
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
   // La IA a veces dice «toca el botón de la asesora» sin marcar el pase: se agregan las asesoras, así no promete algo
-  // que el cliente no ve. Con vitrina no cuentan las oraciones de «Ver modelos» («toca el botón «Ver modelos» y una
-  // asesora te confirma…» habla de la lista): WhatsApp cambiaba la lista por el pase y el cliente no veía los modelos.
-  const prometeAsesora = prometeBotonDeAsesora(vitrina ? sinVerModelos(respuesta) : respuesta);
+  // que el cliente no ve. Con vitrina no cuentan las cláusulas de «Ver modelos» («toca el botón «Ver modelos» y una
+  // asesora te confirma…» habla de la lista: WhatsApp cambiaba la lista por el pase y el cliente no veía los modelos),
+  // pero sí lo demás de su oración («…para verlas; si prefieres, escríbele a una asesora por los enlaces de abajo»).
+  const prometeAsesora = prometeBotonDeAsesora(vitrina ? sinClausulasVerModelos(respuesta) : respuesta);
   const whatsapp = salida.derivar?.necesario || prometeAsesora
     ? enlaceWhatsapp(salida.derivar?.area ?? 'home', resumen, canal)
     : null;
