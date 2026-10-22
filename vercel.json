@@ -18,6 +18,14 @@
             "destination": "/ofertas.html"
         },
         {
+            "source": "/a",
+            "destination": "/links.html"
+        },
+        {
+            "source": "/a/",
+            "destination": "/links.html"
+        },
+        {
             "source": "/a/:codigo",
             "destination": "https://dekog-asistente.dekog-web.workers.dev/a/:codigo"
         },

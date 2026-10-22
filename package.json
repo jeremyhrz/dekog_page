@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/compatibilidad.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

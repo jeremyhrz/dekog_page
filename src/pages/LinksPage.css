@@ -184,6 +184,17 @@
   line-height: 1.2;
 }
 
+/* Número de la línea (las tarjetas de las asesoras): el mismo que dice el pase del asistente */
+.g-card-n {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.85rem;
+  color: #ffffff;
+  margin-top: 4px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Subtítulo — Sans-serif ultrafina, blanco puro */
 .g-card-s {
   font-family: 'Montserrat', sans-serif;

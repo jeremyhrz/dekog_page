@@ -21,8 +21,10 @@ import ProductCard from '../components/ProductCard';
  *
  * /?categoria=camas#catalogo abre el catálogo ya filtrado: lo usan el botón «Ver las 40 camas» del
  * asistente y los enlaces que manda por WhatsApp e Instagram (asistente/src/lib/vitrina.js).
+ * /?categoria=todos#catalogo, el catálogo entero: el botón de la página «No encontramos esta página».
  */
 const CATEGORIA_DE_URL = {
+  todos: 'Todos',
   camas: 'Camas',
   'camas-clasicas': 'Camas Clásicas',
   'camas-kids': 'Camas Kids',
@@ -48,10 +50,11 @@ export default function Home({
   // render: handleCategoryClick es una función nueva en cada render de App y lo re-filtraría sin parar.
   const { search, key } = useLocation();
   useEffect(() => {
-    // Object.hasOwn: con ?categoria=valueOf (o toString…) el objeto devolvería una función heredada y la página
-    // quedaba en blanco.
+    // Solo las claves propias: con ?categoria=valueOf (o toString…) el objeto devolvería una función heredada y la
+    // página quedaba en blanco. Con hasOwnProperty.call y no Object.hasOwn, que no existe antes de iOS 15.4: ahí este
+    // mismo efecto dejaba en blanco la página entera (scripts/compatibilidad.mjs lo vigila).
     const valor = new URLSearchParams(search).get('categoria');
-    const cat = valor && Object.hasOwn(CATEGORIA_DE_URL, valor) ? CATEGORIA_DE_URL[valor] : null;
+    const cat = valor && Object.prototype.hasOwnProperty.call(CATEGORIA_DE_URL, valor) ? CATEGORIA_DE_URL[valor] : null;
     if (!cat) return undefined;
     handleCategoryClick(cat);
     // Después del scrollTo(0, 0) de App.jsx al cambiar de página y de que el catálogo se pinte.

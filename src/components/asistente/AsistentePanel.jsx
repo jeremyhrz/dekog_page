@@ -633,22 +633,29 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
 
   // Las fotos que esperan respuesta: van solo con el pedido de su mensaje (no se guardan en la sesión).
   const fotos = useRef(new WeakMap());
+  // La conversación ya pintada, para seguir después de una espera: la `items` de antes de achicar la foto puede ser vieja.
+  const itemsRef = useRef(items);
+  useLayoutEffect(() => { itemsRef.current = items; }, [items]);
 
   /** Una foto con lo que el cliente haya escrito como pie. Devuelve true si la aceptó. */
   async function enviarFoto(archivo, pie) {
     if (cargando) return false;
+    // «Escribiendo…» desde ya: mientras se achica la foto (0,5–2 s) no se puede mandar otro mensaje ni empezar otra
+    // conversación. Antes, el texto enviado en esa espera desaparecía y salían dos pedidos a la IA.
+    setCargando(true);
     let foto;
     try {
       foto = await prepararFoto(archivo);
     } catch {
       setItems((a) => [...a, { rol: 'asistente', error: true, texto: 'No pude abrir esa foto. Prueba con otra o escríbeme qué modelo buscas.' }]);
+      setCargando(false);
       return false;
     }
     const item = { rol: 'cliente', texto: pie.trim(), foto: { vista: foto.vista } };
     fotos.current.set(item, { mime: foto.mime, datos: foto.datos });
-    const conNuevo = [...items, item];
+    // Fuera de un updater de setItems: StrictMode los llama dos veces y saldrían dos pedidos.
+    const conNuevo = [...itemsRef.current, item];
     setItems(conNuevo);
-    setCargando(true);
     pedirRespuesta(conNuevo);
     return true;
   }
@@ -669,7 +676,8 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
   async function pedirRespuesta(conversacionActual) {
     try {
       const ultimoCliente = [...conversacionActual].reverse().find((i) => i.rol === 'cliente');
-      const imagen = ultimoCliente === conversacionActual.at(-1) ? fotos.current.get(ultimoCliente) : undefined;
+      // Por índice y no con at(-1): no existe antes de iOS 15.4 y fallaba cada mensaje (scripts/compatibilidad.mjs).
+      const imagen = ultimoCliente === conversacionActual[conversacionActual.length - 1] ? fotos.current.get(ultimoCliente) : undefined;
       const j = await pedirAlAsistente(`${API}/chat`, { mensajes: paraLaIa(conversacionActual), saludado: true, imagen }, {
         valida: (d) => typeof d.respuesta === 'string',
       });
