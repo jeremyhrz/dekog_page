@@ -111,6 +111,16 @@ export function ofertaElegida(id, medida, precio) {
   return ofertasDe(id).filter((o) => o.ahora === Number(precio) && (!m || m.startsWith(plano(o.medida))));
 }
 
+/**
+ * Los copetes en stock de ese modelo con ese precio (y en esa medida, si se sabe: «King 2,00x2,00 M» o «King»). Varios si
+ * hay más de una tela al mismo precio (los dos de la Italia matrimonial); [] si no hay ninguno así.
+ */
+export function copeteElegido(id, medida, precio) {
+  if (!promoActiva()) return [];
+  const m = plano(medida);
+  return COPETES.filter((c) => c.id === Number(id) && c.precio === Number(precio) && (!m || m.startsWith(plano(c.medida))));
+}
+
 /** ¿Tiene ese modelo piezas en oferta en esa medida («Queen 1,60x1,90 M» o «Queen»)? Sin medida, ¿tiene alguna? */
 export function hayOfertaEn(id, medida = '') {
   const m = plano(medida);
@@ -164,11 +174,15 @@ Cómo usarla:
   (${PROMO.titulo.toLowerCase()}) y que en el catálogo de ofertas están todas las piezas con sus fotos y precios; si viene
   al caso, nombra 2 o 3 ejemplos. El enlace del catálogo de ofertas lo agrega el sistema al final de tu mensaje: no lo
   escribas tú.
+- Si pide ver lo que está en oferta o en stock (por ejemplo, «¿qué camas tienen en oferta?»), no marques vitrina: nombra
+  2 o 3 piezas con su precio de oferta y ponlas en "productos" con su oferta.
 - Si preguntan por un modelo que tiene piezas en oferta, da su precio del catálogo y cuéntale también de la pieza en
   stock, con su medida, color, tela y precio de oferta (por ejemplo: «y tenemos una Toronto individual en stock, gris en
   chenille paño, a REF 330 en vez de REF 405»). Si pide una medida que no está en oferta, dile cuáles sí lo están.
 - Para que la tarjeta muestre el precio de oferta, pon el modelo en "productos" con la medida de esa pieza y en "oferta"
-  su precio de oferta (por ejemplo 330). En cualquier otro caso, oferta = 0.
+  su precio de oferta (por ejemplo 330). Con un copete es igual: el modelo con la medida del copete y en "oferta" el
+  precio del copete (por ejemplo 455, el de la Manila King), y la tarjeta muestra el precio del copete, no el de la cama
+  completa. En cualquier otro caso, oferta = 0.
 - No calcules cuánto se ahorra ni el porcentaje de cada pieza: da el precio normal y el de oferta.
 - Las piezas en stock van tal cual: no se cambian de tela, color ni box (si quiere otra cosa, es un pedido normal al
   precio del catálogo). No prometas entrega inmediata ni plazos: el día de la entrega lo coordina una asesora.
@@ -185,9 +199,16 @@ export function pideOfertas(texto) {
   return /\b(ofertas?|promos?|promoci[oó]n(es)?|descuentos?|rebajas?|liquidaci[oó]n|stock)\b/i.test(texto ?? '');
 }
 
+/**
+ * «El catálogo de ofertas», dicho de cualquier forma: «de las ofertas», «de la promo», «con las ofertas», «de productos en
+ * oferta», «en descuento», «de stock». No es «el catálogo» a secas ni el de camas o el de mobiliario. Vale para lo que
+ * escribe el cliente (pideCatalogoDeOfertas) y para lo que escribe la IA (chat.js agrega el enlace).
+ */
+export const CATALOGO_DE_OFERTAS = /cat[aá]logos?\s+(?:(?:de|del|con|en)\s+)?(?:(?:la|las|los|el)\s+)?(?:(?:productos|piezas|camas|muebles|modelos|mobiliario)\s+(?:en|de|con)\s+(?:(?:la|las|los|el)\s+)?)?(?:ofertas?|promos?|promoci[oó]n(?:es)?|descuentos?|rebajas?|liquidaci[oó]n|stock)\b/i;
+
 /** «El catálogo de ofertas»: no es el catálogo de camas ni el de mobiliario. */
 export function pideCatalogoDeOfertas(texto) {
-  return /cat[aá]logos?\s+(de\s+)?(las\s+|los\s+)?(ofertas?|promo|promoci[oó]n|promociones|descuentos?|rebajas?|stock)/i.test(texto ?? '');
+  return CATALOGO_DE_OFERTAS.test(texto ?? '');
 }
 
 // ── El mensaje de la promo que va después de la bienvenida (una vez por cliente y por promo) ──────────────────────

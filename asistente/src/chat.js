@@ -20,17 +20,21 @@
 import { responder, proveedorActivo, RechazoDelModelo } from './lib/llm.js';
 import {
   tarjeta, montosInventados, numerosDelCliente, categoriaPedida, fueraDeCategoria, totalesIncoherentes, recargoDeBoxEnAltaGama,
+  sinNotasDeInstagram,
 } from './lib/catalogo.js';
 import { tasaBcv } from './lib/bcv.js';
 import { resolverVitrina, armarVitrina, vitrinasPrevias, quitarNotas, calentarVitrina } from './lib/vitrina.js';
 import { lineas, lineaPorArea, saludoInicial, saludoWhatsapp, opcionesDelSaludo, catalogosPdf } from './lib/negocio.js';
 import { guardarCliente } from './lib/hoja.js';
 import { imagenDeLaWeb } from './lib/imagen.js';
-import { promoActiva, pideOfertas, pideCatalogoDeOfertas, ofertasDelModelo, hayOfertaEn } from './lib/promo.js';
+import {
+  promoActiva, pideOfertas, pideCatalogoDeOfertas, ofertasDelModelo, hayOfertaEn, CATALOGO_DE_OFERTAS,
+} from './lib/promo.js';
 
 const MAX_MENSAJES = 16;
 // Tiempo total para la IA, contando una posible corrección. En la web el navegador espera hasta 40 s; en
 // WhatsApp e Instagram la respuesta se arma después de contestarle a Meta y Cloudflare da 30 s para eso.
+// El canal puede poner un plazo más corto (`hasta` de pensar), medido desde que llegó el mensaje.
 const PRESUPUESTO_IA_MS = { web: 30000, whatsapp: 24000, instagram: 24000 };
 const MINIMO_PARA_CORREGIR_MS = 6000;
 const MAX_CARACTERES = 800;
@@ -155,6 +159,20 @@ function motivo(e) {
   return e?.status ? `HTTP ${e.status}` : (e?.name ?? 'error');
 }
 
+/**
+ * Lo que dé la promesa, o un TimeoutError al llegar a `hasta` (un momento como Date.now()). Pase lo que pase dentro de
+ * la IA (la cascada de modelos, una corrección, las hojas de referencia de una foto que no terminan de subir), el canal
+ * recibe su respuesta a tiempo.
+ */
+function aTiempo(promesa, hasta) {
+  let reloj;
+  const tarde = new Promise((_, rechazar) => {
+    reloj = setTimeout(() => rechazar(Object.assign(new Error('no respondió a tiempo'), { name: 'TimeoutError' })),
+      Math.max(0, hasta - Date.now()));
+  });
+  return Promise.race([promesa, tarde]).finally(() => clearTimeout(reloj));
+}
+
 export async function atenderChat(cuerpo, ip, env) {
   if (excedeLimite(ip)) {
     return { status: 429, datos: { error: 'Estás escribiendo muy rápido. Espera un momento e intenta de nuevo.' } };
@@ -187,18 +205,21 @@ export function pideCatalogo(texto) {
   return /\bcat[aá]logos?\b/i.test(texto ?? '') && !/fuera del cat[aá]logo/i.test(texto ?? '');
 }
 
+/** El texto sin las oraciones que nombran «Ver modelos» (puede quedar vacío). */
+const sinVerModelos = (texto) => texto.split('\n')
+  .map((linea) => linea.split(/(?<=[.!?])\s+/).filter((o) => !/ver modelos/i.test(o)).join(' ')).join('\n').trim();
+
 /** Quita las oraciones que prometen «Ver modelos» (solo se llama cuando no va ninguna vitrina). */
 export function sinPromesaDeVitrina(texto) {
-  const limpio = texto.split('\n').map((linea) => linea.split(/(?<=[.!?])\s+/).filter((o) => !/ver modelos/i.test(o)).join(' '))
-    .join('\n').trim();
-  return limpio || texto;
+  return sinVerModelos(texto) || texto;
 }
 
 /** «Toca el botón de hablar con asesora» (o «escríbele a una asesora por los enlaces de abajo»): la respuesta promete
  * el pase a una asesora aunque la IA no lo marcó. */
 export function prometeBotonDeAsesora(texto) {
-  // «el enlace del catálogo; una asesora te confirma…» no cuenta: solo el botón o los enlaces «de abajo» o «de WhatsApp».
-  return /bot[oó]n[^.!?\n]{0,60}asesor|asesor[^.!?\n]{0,60}bot[oó]n|enlaces? (de )?(abajo|whatsapp)[^.!?\n]{0,40}asesor|asesor[^.!?\n]{0,60}enlaces? (de )?(abajo|whatsapp)/i
+  // «el enlace del catálogo; una asesora te confirma…» no cuenta: solo el botón o los enlaces (o links) «de abajo» o «de
+  // WhatsApp», que es lo que promete en Instagram, donde no hay botón.
+  return /bot[oó]n[^.!?\n]{0,60}asesor|asesor[^.!?\n]{0,60}bot[oó]n|(enlaces?|links?)\s+(de\s+)?(abajo|whatsapp)[^.!?\n]{0,40}asesor|asesor[^.!?\n]{0,60}(enlaces?|links?)\s+(de\s+)?(abajo|whatsapp)/i
     .test(texto ?? '');
 }
 
@@ -229,7 +250,8 @@ const opcionesDe = (p) => ({
 });
 
 /** «Toronto Individual 1,00x1,90 M oferta en stock», para la hoja y el resumen de la asesora. */
-const queEs = (p) => [p.nombre, p.talla, p.box, p.tela, p.puff, p.oferta ? `oferta en stock (${p.pieza})` : ''].filter(Boolean);
+const queEs = (p) => [p.nombre, p.talla, p.box, p.tela, p.puff,
+  p.oferta ? `oferta en stock (${p.pieza})` : p.copete ? `copete en stock (${p.pieza})` : ''].filter(Boolean);
 
 /**
  * Si el cliente respondió al saludo con el número de una opción («2», «la 3», «opción 1», «2️⃣»), el historial con
@@ -252,8 +274,12 @@ export function conOpcionDelSaludo(mensajes) {
  * conversación YA SIN datos personales y devuelve lo que hay que mostrar:
  * texto, tarjetas de producto con Bs, enlace a la asesora y si conviene
  * ofrecer que lo contacten.
+ * `hasta` (opcional): el plazo que pone el canal, un momento como Date.now() medido desde que LLEGÓ el mensaje (la
+ * descarga de la foto y lo demás que hizo antes ya cuentan). La IA tiene hasta lo que llegue primero, ese plazo o el
+ * presupuesto del canal; si no alcanza, sale el aviso de emergencia. Sin él (o si no es un número mayor que 0), solo el
+ * presupuesto, como siempre.
  */
-export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen = null, kv = null } = {}) {
+export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen = null, kv = null, hasta: plazo = null } = {}) {
   // yaSaludo: el cliente ya vio el saludo de la dueña fuera del historial (el globo de bienvenida de la web). Se
   // antepone solo para entender «1», «2» o «3»; a la IA no le llega (su conversación empieza por el cliente).
   const conSaludo = yaSaludo && entrada[0]?.role === 'user';
@@ -274,8 +300,11 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   const tasaPromesa = tasaBcv();
   const delCliente = numerosDelCliente(mensajes);
   const revisar = (s, texto) => montosInventados(texto ?? '', { ids: (s.productos ?? []).map((p) => p.id), delCliente });
+  // Lo que escribió el cliente, sin el pie de lo que compartió en Instagram: ese texto no es suyo, así que no abre la
+  // vitrina ni manda los PDF («Conoce nuestras camas…» en una publicación). El enlace de ofertas sí lo mira (más abajo).
+  const ultimoCompleto = mensajes.at(-1)?.content ?? '';
+  const ultimo = sinNotasDeInstagram(ultimoCompleto);
   // Si el cliente pidió una categoría ("quiero ver camas"), los modelos sugeridos deben ser de ella.
-  const ultimo = mensajes.at(-1)?.content ?? '';
   const categoria = categoriaPedida(ultimo);
   const ajenos = (s) => (categoria ? fueraDeCategoria(s.productos, categoria, ultimo) : []);
   // Las tarjetas que mostraría esta salida (sin tasa: solo importan los REF) y los totales del texto que las contradicen.
@@ -283,10 +312,11 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   const incoherentes = (s) => totalesIncoherentes(s.respuesta ?? '', tarjetasDe(s));
   const boxAltaGama = (s) => recargoDeBoxEnAltaGama(s.respuesta, s.productos);
 
-  const hasta = Date.now() + (PRESUPUESTO_IA_MS[canal] ?? PRESUPUESTO_IA_MS.whatsapp);
+  const presupuesto = Date.now() + (PRESUPUESTO_IA_MS[canal] ?? PRESUPUESTO_IA_MS.whatsapp);
+  const hasta = Number.isFinite(plazo) && plazo > 0 ? Math.min(plazo, presupuesto) : presupuesto;
   let salida;
   try {
-    salida = await responder(mensajes, canal, { hasta, imagen, kv });
+    salida = await aTiempo(responder(mensajes, canal, { hasta, imagen, kv }), hasta);
     const inventados = revisar(salida, salida.respuesta);
     const deOtraCategoria = ajenos(salida);
     const malSumados = incoherentes(salida);
@@ -318,11 +348,11 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
         console.warn('Sin tiempo para la corrección; se conserva la primera respuesta sin el texto dudoso');
       } else {
         try {
-          salida = await responder([
+          salida = await aTiempo(responder([
             ...mensajes,
             { role: 'assistant', content: primera.respuesta },
             { role: 'user', content: `(Nota del sistema: ${notas.join('; ')}. Reescribe tu respuesta anterior.)` },
-          ], canal, { hasta });
+          ], canal, { hasta }), hasta);
         } catch (e) {
           console.warn('Falló la corrección; se conserva la primera respuesta sin el texto dudoso:', motivo(e));
           salida = primera;
@@ -353,7 +383,8 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   // La IA nunca escribe la nota «[Vitrina …]» del historial: si la copió, se quita.
   salida = { ...salida, respuesta: quitarNotas(salida.respuesta) };
 
-  const tasa = await tasaPromesa;
+  // La tasa tampoco se espera más allá del plazo: sin ella, los precios salen en REF y una asesora confirma los Bs.
+  const tasa = await aTiempo(tasaPromesa, hasta).catch(() => null);
   // Sin tarjetas repetidas: la IA a veces pone el mismo modelo dos veces (21-oct: «Paris» + «Paris Queen en oferta» + «Paris»).
   const productos = (salida.productos ?? [])
     .slice(0, 3)
@@ -362,8 +393,14 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
 
   // Pidió VER una categoría («quiero ver camas») o ver más: hasta 10 modelos que no haya visto y el enlace al catálogo.
   // No cuando pasa a una asesora ni en una respuesta de emergencia. En WhatsApp la lista no lleva Bs (van al elegir).
+  // Tampoco si pide lo que está en oferta («¿qué camas tienen en oferta?»): la vitrina, a precio de catálogo, taparía
+  // las tarjetas de las piezas en stock con su precio de oferta. Vale para la del respaldo y para la que marque la IA.
+  const promo = promoActiva();
+  const pideLaPromo = Boolean(promo) && pideOfertas(ultimo);
   const previas = vitrinasPrevias(mensajes);
-  const pedida = !salida.emergencia && !salida.derivar?.necesario ? resolverVitrina(salida.vitrina, ultimo, mensajes, previas) : null;
+  const pedida = !pideLaPromo && !salida.emergencia && !salida.derivar?.necesario
+    ? resolverVitrina(salida.vitrina, ultimo, mensajes, previas)
+    : null;
   const vitrina = pedida ? armarVitrina(pedida, {
     sugeridos: (salida.productos ?? []).map((p) => p.id),
     vistos: previas.vistos,
@@ -396,25 +433,31 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
       respuesta += `\n\n${catalogosPdf.map(([nombre, url]) => `📖 ${nombre}:\n${url}`).join('\n\n')}`;
     }
   }
-  // Preguntó por ofertas, descuentos o promociones (o la IA habla del catálogo de ofertas): va su enlace. Lo agrega el
-  // servidor, no la IA, para que nunca llegue mal escrito (21-oct: la promo de la dueña).
-  const promo = promoActiva();
+  // Lo que agrega el servidor va una vez: el historial guarda lo que ya recibió el cliente (en la web, lo que muestra
+  // el chat), y como la IA no repite lo que ya dijo, el servidor lo volvía a pegar en cada respuesta.
+  const yaDicho = (s) => mensajes.some((m) => m.role === 'assistant' && m.content.includes(s));
   // La IA a veces no dice que el modelo por el que preguntan tiene piezas en stock con descuento (21-oct: «¿Cuánto cuesta
   // la Manila queen?» → REF 520, sin las tres a REF 420): si su respuesta no habla de ofertas, se agrega la línea. Solo
   // si hay piezas en la medida que pidió (o no dijo medida): a quien quiere la Toronto Queen no le sirve la individual.
-  const conOferta = !vitrina && !/oferta|stock|descuento/i.test(respuesta)
+  const conOferta = !vitrina && !/oferta|stock|descuento|promo|rebaja|en vez de/i.test(respuesta)
     && productos.find((p) => p.enOferta && !p.oferta && hayOfertaEn(p.id, p.desde ? '' : p.talla ?? ''));
-  if (promo && !salida.emergencia && conOferta) respuesta += `\n\n${ofertasDelModelo(conOferta.id, conOferta.talla ?? '')}`;
-  if (promo && !salida.emergencia && (pideOfertas(ultimo) || /cat[aá]logo de ofertas/i.test(respuesta))
-    && !respuesta.includes(promo.enlace)) {
+  const lineaDeOfertas = promo && !salida.emergencia && conOferta ? ofertasDelModelo(conOferta.id, conOferta.talla ?? '') : '';
+  if (lineaDeOfertas && !yaDicho(lineaDeOfertas)) respuesta += `\n\n${lineaDeOfertas}`;
+  // Preguntó por ofertas, descuentos o promociones (también con lo que compartió en Instagram), o la IA habla del
+  // catálogo de ofertas: va su enlace. Lo agrega el servidor, no la IA, para que nunca llegue mal escrito (21-oct: la
+  // promo de la dueña). Si ya se lo mandó, solo de nuevo cuando lo pide.
+  if (promo && !salida.emergencia && (pideOfertas(ultimoCompleto) || CATALOGO_DE_OFERTAS.test(respuesta))
+    && !respuesta.includes(promo.enlace) && (pideCatalogoDeOfertas(ultimo) || !yaDicho(promo.enlace))) {
     respuesta += `\n\n🏷️ Catálogo de ofertas:\n${promo.enlace}`;
   }
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';
   }
-  // La IA a veces dice «toca el botón de la asesora» sin marcar el pase: el botón se agrega, así no promete algo que
-  // el cliente no ve.
-  const whatsapp = salida.derivar?.necesario || prometeBotonDeAsesora(respuesta)
+  // La IA a veces dice «toca el botón de la asesora» sin marcar el pase: se agregan las asesoras, así no promete algo
+  // que el cliente no ve. Con vitrina no cuentan las oraciones de «Ver modelos» («toca el botón «Ver modelos» y una
+  // asesora te confirma…» habla de la lista): WhatsApp cambiaba la lista por el pase y el cliente no veía los modelos.
+  const prometeAsesora = prometeBotonDeAsesora(vitrina ? sinVerModelos(respuesta) : respuesta);
+  const whatsapp = salida.derivar?.necesario || prometeAsesora
     ? enlaceWhatsapp(salida.derivar?.area ?? 'home', resumen, canal)
     : null;
 
