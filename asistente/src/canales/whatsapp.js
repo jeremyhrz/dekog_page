@@ -9,9 +9,10 @@
  * WA_VERIFY_TOKEN. Opcionales: WA_API_VERSION (v25.0), WA_API_BASE (pruebas).
  *
  * Cada respuesta va en UN solo mensaje (foto del producto + texto + precio en
- * Bs + botón a la asesora) para gastar lo mínimo del cupo gratis de Meta. Si
- * pide ver una categoría, ese mensaje es una lista con los modelos (vitrina):
- * al tocar uno le llega su foto con los precios, también en UN mensaje y sin IA.
+ * Bs + los enlaces de las dos asesoras) para gastar lo mínimo del cupo gratis
+ * de Meta. Si pide ver una categoría, ese mensaje es una lista con los modelos
+ * (vitrina): al tocar uno le llega su foto con los precios, también en UN
+ * mensaje y sin IA.
  * El número y el nombre del cliente nunca se envían a la IA.
  */
 import { config } from '../lib/config.js';
@@ -263,17 +264,22 @@ const MINIMO_TEXTO_DEL_PIE = 120;
 
 /**
  * El texto con la cola que arma el servidor al final (los precios en Bs, las asesoras), siempre entera: si no cabe todo
- * en `maximo`, se recorta el texto (conCola de meta.js). Sin cola, solo el texto recortado.
+ * en `maximo`, se recorta el texto (conCola de meta.js). Sin cola, solo el texto recortado. Devuelve el `mensaje` y lo
+ * que entró del texto (`dicho`), que es lo que va al historial: chat.js mira ahí si ya le mandó el enlace del catálogo
+ * de ofertas o la línea de las piezas en stock (yaDicho), y con la respuesta entera los daba por dichos aunque el pie los
+ * hubiera recortado, así que no volvían a salir (22-oct).
  */
 export function textoConCola(texto, cola, maximo) {
-  const corto = sinEnlacePartido(texto, recortar(texto, cola ? Math.max(1, maximo - cola.length - 2) : maximo));
-  return cola ? conCola(corto, cola, maximo) : corto;
+  const dicho = sinEnlacePartido(texto, recortar(texto, cola ? Math.max(1, maximo - cola.length - 2) : maximo));
+  return { mensaje: cola ? conCola(dicho, cola, maximo) : dicho, dicho };
 }
 
 /**
- * Un párrafo con un enlace va entero o no va: el enlace del catálogo de ofertas va al final del texto de la IA (lo pega
+ * Un párrafo con un enlace va entero o no va: los enlaces de los catálogos van al final del texto de la IA (los pega
  * chat.js), que es lo que se recorta, y partido no abre o abre otra página. Si el corte cae en un párrafo con un
- * enlace, se va ese párrafo; si es el primero, se corta antes del enlace. `corto`: el texto ya recortado con «…».
+ * enlace, se va ese párrafo y los de antes quedan enteros, sin «…»: pegado al final del enlace de un PDF del catálogo,
+ * algunos teléfonos lo toman como parte de la dirección. Si es el primero, se corta antes del enlace.
+ * `corto`: el texto ya recortado con «…».
  */
 function sinEnlacePartido(texto, corto) {
   if (corto === texto) return texto;
@@ -284,7 +290,7 @@ function sinEnlacePartido(texto, corto) {
     if (queda <= fin) {
       const enlace = parrafo.search(/https?:\/\/|www\./i);
       if (enlace < 0 || (inicio === 0 && enlace >= queda)) return corto;
-      return `${texto.slice(0, inicio > 0 ? inicio - 2 : enlace).trimEnd()}…`;
+      return inicio > 0 ? texto.slice(0, inicio - 2).trimEnd() : `${texto.slice(0, enlace).trimEnd()}…`;
     }
     inicio = fin + 2;
   }
@@ -293,13 +299,17 @@ function sinEnlacePartido(texto, corto) {
 
 /**
  * Envía la vitrina como UNA lista; si Meta la rechaza, el mismo contenido en texto. Siempre 1 mensaje del cupo.
- * `asesoras`: si en la misma respuesta pasa a una asesora, sus enlaces van dentro del cuerpo, enteros.
+ * `asesoras`: si en la misma respuesta pasa a una asesora, sus enlaces van dentro del cuerpo, enteros. Devuelve lo que
+ * entró del texto (el `dicho` de textoConCola).
  */
 async function enviarVitrina(vuelta, base, v, texto, asesoras = '') {
   // La lista (1024) termina con la guía y el enlace del catálogo (meta.js): el texto y las asesoras van en lo que queda.
-  const cuerpo = asesoras ? textoConCola(texto, asesoras, 1024 - listaDeVitrina(v, '').body.text.length - 2) : texto;
+  // El texto se recorta aquí, sin partir un enlace, también sin asesoras (antes lo cortaba meta.js en cualquier punto):
+  // así se sabe qué le llegó.
+  const { mensaje: cuerpo, dicho } = textoConCola(texto, asesoras, 1024 - listaDeVitrina(v, '').body.text.length - 2);
   const ok = await enviar(vuelta, { ...base, type: 'interactive', interactive: listaDeVitrina(v, cuerpo) });
   if (!ok) await enviar(vuelta, { ...base, type: 'text', text: { body: textoDeVitrinaWa(v, cuerpo), preview_url: false } });
+  return dicho;
 }
 
 // Cloudflare corta lo que siga en waitUntil 30 s después de responderle a Meta: los plazos se cuentan desde que llegó el
@@ -518,20 +528,26 @@ async function procesar(valor, mensaje, env, vuelta) {
   const cola = [precios, asesorasDelPase].filter(Boolean).join('\n\n');
   const libre = 1024 - cola.length - 2; // lo que le queda al texto de la IA en el pie de foto
   let enviado = false;
+  let dicho; // lo que le llegó del texto (el pie o la lista pueden recortarlo): eso queda en el historial
   if (vitrina) {
-    await enviarVitrina(vuelta, base, vitrina, respuesta, asesorasDelPase);
+    dicho = await enviarVitrina(vuelta, base, vitrina, respuesta, asesorasDelPase);
     enviado = true;
   } else if (principal && (respuesta.length <= libre || libre >= MINIMO_TEXTO_DEL_PIE)) {
-    const caption = textoConCola(respuesta, cola, 1024);
-    enviado = await enviar(vuelta, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption } });
+    const pie = textoConCola(respuesta, cola, 1024);
+    enviado = await enviar(vuelta, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption: pie.mensaje } });
+    dicho = pie.dicho;
   }
-  if (!enviado) await enviar(vuelta, { ...base, type: 'text', text: { body: textoConCola(respuesta, cola, 4096), preview_url: false } });
+  if (!enviado) {
+    const cuerpo = textoConCola(respuesta, cola, 4096);
+    await enviar(vuelta, { ...base, type: 'text', text: { body: cuerpo.mensaje, preview_url: false } });
+    dicho = cuerpo.dicho;
+  }
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su botón.
   await enviarPromoSiToca(env, vuelta, base, clave, estado);
   // Ya salió todo: el cupo se cuenta ahora, con una sola escritura, antes de la memoria y de la hoja.
   await contarEnvios(env, vuelta);
   // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
-  estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
+  estado.mensajes.push({ role: 'assistant', content: vitrina ? `${dicho}\n\n${vitrina.nota}` : dicho });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;
@@ -543,7 +559,11 @@ async function procesar(valor, mensaje, env, vuelta) {
   // antes de guardar el turno (historial, procesados y promo). Ahora lo que se corta es la hoja, que se reintenta con el
   // próximo mensaje.
   await guardarEstado(env.CONVERSACIONES, clave, estado);
-  if (hayNovedadParaHoja(estado, { interesado })) {
+  // Su número también cuenta como novedad, como en Instagram: quien escribió primero sin número (solo su BSUID) y ahora
+  // llega con él va a la hoja con su teléfono, en otra fila y con correo. Antes la IA le prometía que una asesora le
+  // escribiría y su única fila decía que WhatsApp no da su número (22-oct). A quien ya estaba en la hoja con su número,
+  // como mucho una actualización más de su misma fila, sin correo.
+  if (hayNovedadParaHoja(estado, { interesado, telefono: mensaje.from ?? '' })) {
     const ok = await guardarCliente({
       conversacion: idDeLaFila(estado, mensaje.from ?? usuario),
       cliente: { nombre, telefono: mensaje.from ? `+${mensaje.from}` : '', ciudad: '' },
@@ -552,7 +572,7 @@ async function procesar(valor, mensaje, env, vuelta) {
       canal: 'WhatsApp',
     }, { hasta: t0 + PLAZO_HOJA_MS });
     if (ok) {
-      marcarEnHoja(estado);
+      marcarEnHoja(estado, mensaje.from ?? '');
       await guardarEstado(env.CONVERSACIONES, clave, estado);
     }
   }
