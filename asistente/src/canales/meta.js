@@ -5,6 +5,7 @@ import { tarjeta, buscarProducto, miles, fotoParaCanales } from '../lib/catalogo
 import { fichas } from '../lib/conocimiento.js';
 import { VITRINAS } from '../lib/vitrina.js';
 import { ofertasDelModelo } from '../lib/promo.js';
+import { juntoAMoneda } from '../lib/monedas.js';
 
 /** GET de verificación: Meta manda hub.challenge y hay que devolverlo si el token coincide. */
 export function verificarSuscripcion(url, tokenEsperado) {
@@ -231,11 +232,37 @@ export function cierreInstagram(v, { conTarjetas, tasa }) {
   return `${lista}${bs}\n\n${GUIA_IG}${mas}\n\n${v.boton}:\n${v.url}`;
 }
 
-/** Primer número de teléfono (7 a 15 dígitos) escrito en el texto, o ''. */
+// Un teléfono venezolano, con o sin el 58 y el 0 de adelante: móviles 0412/14/16/22/24/26 y fijos 02xx (el mismo criterio
+// de numeroWhatsapp en scripts/hoja-clientes.gs). Con «+» adelante vale cualquier número de 8 a 15 dígitos.
+const TELEFONO_VE = /^(?:58)?0?(?:4(?:1[246]|2[246])|2\d{2})\d{7}$/;
+// Lo que va delante de una cédula o un RIF: «V-12.345.678», «V12345678», «cédula 12345678», «C.I.: …», «RIF J-…».
+const ANTES_DE_DOCUMENTO = /(?:\b[VEJGP]-?|(?:\bc[eé]dula(?: de identidad)?|\bc\.?\s?i\b\.?|\brif)\s*[:#]?\s*)$/i;
+
+/**
+ * El primer teléfono que escribió el cliente, o '': «0414-555-1234» → 04145551234, «+58 414 5551234» → +584145551234.
+ * Solo un número con forma de teléfono que no vaya junto a una moneda ni detrás de una cédula o un RIF (22-oct: «Bs
+ * 1.318.908», «V-12.345.678» o «21-10-2026» llegaban a la hoja como su teléfono y tapaban el de verdad).
+ */
 export function extraerTelefono(texto) {
-  for (const candidato of texto.match(/\+?\d[\d\s().\-]{5,}\d/g) ?? []) {
-    const digitos = candidato.replace(/\D/g, '');
-    if (digitos.length >= 7 && digitos.length <= 15) return candidato.trim().startsWith('+') ? `+${digitos}` : digitos;
+  const s = String(texto ?? '');
+  for (const grupo of s.matchAll(/\+?\d[\d\s().-]{5,}\d/g)) {
+    // Un grupo puede juntar dos números separados por espacios («REF 550 0414-555-1234»): se prueba cada tramo de
+    // palabras seguidas, de las más largas a las más cortas. Un teléfono se escribe en 6 pedazos como mucho («+58 (414)
+    // 555 12 34»): así un texto lleno de números sueltos no se come los 10 ms de CPU del plan gratis.
+    const palabras = [...grupo[0].matchAll(/\S+/g)];
+    for (let i = 0; i < palabras.length; i++) {
+      for (let j = Math.min(palabras.length, i + 6) - 1; j >= i; j--) {
+        const inicio = grupo.index + palabras[i].index;
+        const fin = grupo.index + palabras[j].index + palabras[j][0].length;
+        const candidato = s.slice(inicio, fin);
+        const digitos = candidato.replace(/\D/g, '');
+        const internacional = candidato.startsWith('+');
+        const forma = internacional ? digitos.length >= 8 && digitos.length <= 15 : TELEFONO_VE.test(digitos);
+        if (forma && !juntoAMoneda(s, inicio, fin) && !ANTES_DE_DOCUMENTO.test(s.slice(Math.max(0, inicio - 24), inicio))) {
+          return internacional ? `+${digitos}` : digitos;
+        }
+      }
+    }
   }
   return '';
 }
@@ -252,6 +279,9 @@ const RELLENO = new Set(['hola', 'buenas', 'buenos', 'dias', 'días', 'tardes', 
  */
 export function nombreEscrito(texto, telefono = '') {
   const s = String(texto ?? '');
+  // Una pregunta no trae su nombre, ni «soy de Maracay», «soy la mamá de…» o «soy un cliente» (22-oct: «Soy de Maracay,
+  // ¿cuánto sale el envío?» llegaba a la hoja como el nombre «Maracay cuánto sale envío»).
+  if (/[?¿]/.test(s) || /\bsoy\s+(?:de|del|la|el|un|una)\b/i.test(s)) return '';
   if (!telefono && !/\b(me llamo|mi nombre es|soy)\b/i.test(s)) return '';
   const palabras = s.replace(/\+?\d[\d\s().-]{5,}\d/g, ' ').replace(/[^\p{L}\s'-]/gu, ' ')
     .split(/\s+/).filter((p) => p && !RELLENO.has(p.toLowerCase()));
