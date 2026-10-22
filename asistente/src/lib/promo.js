@@ -102,6 +102,11 @@ export function ofertasDe(id) {
   return promoActiva() ? OFERTAS.filter((o) => o.id !== null && o.id === Number(id)) : [];
 }
 
+/** Los copetes en stock de un modelo del catálogo (por su id). */
+export function copetesDe(id) {
+  return promoActiva() ? COPETES.filter((c) => c.id === Number(id)) : [];
+}
+
 /**
  * Las piezas de ese modelo con ese precio de oferta (y en esa medida, si se sabe: «Queen 1,60x1,90 M» o «Queen»).
  * Varias si hay más de un color al mismo precio (las tres Noa matrimoniales); [] si no hay ninguna así.
@@ -116,9 +121,8 @@ export function ofertaElegida(id, medida, precio) {
  * hay más de una tela al mismo precio (los dos de la Italia matrimonial); [] si no hay ninguno así.
  */
 export function copeteElegido(id, medida, precio) {
-  if (!promoActiva()) return [];
   const m = plano(medida);
-  return COPETES.filter((c) => c.id === Number(id) && c.precio === Number(precio) && (!m || m.startsWith(plano(c.medida))));
+  return copetesDe(id).filter((c) => c.precio === Number(precio) && (!m || m.startsWith(plano(c.medida))));
 }
 
 /** ¿Tiene ese modelo piezas en oferta en esa medida («Queen 1,60x1,90 M» o «Queen»)? Sin medida, ¿tiene alguna? */
@@ -172,8 +176,10 @@ ${COPETES.map((c) => `- [${c.id}] ${c.modelo} · ${c.medida} · ${describirPieza
 Cómo usarla:
 - Si preguntan por promociones, descuentos u ofertas, o piden el catálogo de ofertas: di que SÍ hay descuentos vigentes
   (${PROMO.titulo.toLowerCase()}) y que en el catálogo de ofertas están todas las piezas con sus fotos y precios; si viene
-  al caso, nombra 2 o 3 ejemplos. El enlace del catálogo de ofertas lo agrega el sistema al final de tu mensaje: no lo
-  escribas tú.
+  al caso, nombra 2 o 3 ejemplos. El enlace del catálogo de ofertas lo agrega el sistema al final de tu mensaje la
+  primera vez y cuando el cliente lo vuelve a pedir: no lo escribas tú. Si ya está en uno de tus mensajes anteriores y
+  no lo vuelve a pedir, no digas que va abajo ni lo anuncies: dile que es el que le pasaste más arriba. Si lo vuelve a
+  pedir o no le abre, nómbralo «el catálogo de ofertas» (por ejemplo: «aquí tienes otra vez el catálogo de ofertas 👇»).
 - Si pide ver lo que está en oferta o en stock (por ejemplo, «¿qué camas tienen en oferta?»), no marques vitrina: nombra
   2 o 3 piezas con su precio de oferta y ponlas en "productos" con su oferta.
 - Si preguntan por un modelo que tiene piezas en oferta, da su precio del catálogo y cuéntale también de la pieza en
