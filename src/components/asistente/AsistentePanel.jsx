@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUp, Banknote, BedDouble, Camera, ChevronLeft, ChevronRight, MapPin, RotateCcw, Ruler, X } from 'lucide-react';
 import { AvatarDekog } from './LogoDekog';
 import { CLAVE, Cabecera, IconoWhatsapp, nuevoId } from './comun';
-import { propsWhatsapp, textoDeEnlace } from '../../utils/whatsapp';
+import { LINEAS_WHATSAPP, lineaWhatsapp, propsWhatsapp, textoDeEnlace } from '../../utils/whatsapp';
 import { NOTA_FOTO, saludoInicial } from '../../../asistente/src/lib/negocio.js';
 import { PROMO } from '../../../asistente/src/lib/promo.js';
 import { ErrorDelAsistente, pedirAlAsistente } from './red';
@@ -828,12 +828,22 @@ export default function AsistentePanel({ abierto, onCerrar, pantallaCompleta, ma
                 )}
                 {m.whatsapp && (
                   <motion.div {...entra(nuevo, reducir, { x: 16, y: 0, retraso: 0.16 + productos.length * 0.06, duracion: 0.35, rebote: 0.15 })}>
-                    {/* El pase del asistente (o un error): se elige la línea, con el resumen ya escrito. */}
-                    <a {...propsWhatsapp(m.whatsapp.texto ?? textoDeEnlace(m.whatsapp.url))}
-                      className={`relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#0e7a3e] px-4 text-[14px] font-semibold text-white shadow-[0_12px_24px_-14px_rgba(14,122,62,0.9)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-[#f4f0ec]${nuevo ? ' dk-brillo' : ''}`}>
-                      <IconoWhatsapp />
-                      Seguir por WhatsApp con una asesora
-                    </a>
+                    {/* El pase del asistente (o un error): las DOS asesoras a la vista, cada una con el resumen ya escrito
+                        (pedido de la dueña, 21-oct; antes era un botón que abría el selector de línea). */}
+                    <p className="mb-1.5 pl-1 text-[12px] font-semibold text-neutral-600">Escríbele a una asesora por WhatsApp:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {LINEAS_WHATSAPP.map((l) => (
+                        <a key={l.numero} href={lineaWhatsapp(l.linea, m.whatsapp.texto ?? textoDeEnlace(m.whatsapp.url))}
+                          target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp de la Línea ${l.linea}, ${l.visible}`}
+                          className={`relative flex h-14 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#0e7a3e] px-3 text-white shadow-[0_12px_24px_-14px_rgba(14,122,62,0.9)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-[#f4f0ec]${nuevo ? ' dk-brillo' : ''}`}>
+                          <IconoWhatsapp />
+                          <span className="flex flex-col items-start leading-tight">
+                            <span className="text-[14px] font-semibold">Línea {l.linea}</span>
+                            <span className="text-[11px] font-medium text-white/85">{l.visible}</span>
+                          </span>
+                        </a>
+                      ))}
+                    </div>
                   </motion.div>
                 )}
               </div>

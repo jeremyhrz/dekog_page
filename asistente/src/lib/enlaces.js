@@ -34,6 +34,11 @@ export async function enlaceCorto(kv, url) {
   }
 }
 
+/** Las asesoras ([{ etiqueta, visible, url }]) con su enlace corto. Una escritura de KV por asesora; nunca lanza. */
+export function enlacesCortos(kv, asesoras = []) {
+  return Promise.all(asesoras.map(async (a) => ({ ...a, url: await enlaceCorto(kv, a.url) })));
+}
+
 /**
  * GET /a/<código>: redirige al WhatsApp guardado. Un código vencido, desconocido o mal escrito lleva a la Línea 01 (sin
  * texto), nunca a una página de error; y solo se redirige a wa.me (el destino lo escribe el servidor, no el visitante).

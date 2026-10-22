@@ -15,17 +15,23 @@ let meta;
 beforeEach(() => { env = { CONVERSACIONES: kvEnMemoria() }; meta = metaFalso(); globalThis.fetch = meta.fetchFalso; });
 afterEach(() => { delete config.ENLACE_CORTO_BASE; delete config.ASISTENTE_URL; });
 
-test('Instagram: al pasar a la asesora, el enlace es corto (todo azul) y lleva al WhatsApp con el resumen', async () => {
+test('Instagram: al pasar a la asesora, un mensaje aparte con las DOS líneas; cada enlace corto, solo en su línea y entero', async () => {
   config.ENLACE_CORTO_BASE = 'https://www.dekog.net/';
   await entregar(instagramPost, avisoIg({ text: 'Me gusta, quiero comprarla. ¿La envían a Maracay?' }), SECRETO_IG, env);
-  const textos = meta.enviados.filter((e) => e.url.endsWith('/me/messages') && e.cuerpo.message.text).map((e) => sinMarca(e.cuerpo.message.text));
-  const conEnlace = textos.find((t) => t.includes('Habla con una asesora por WhatsApp'));
-  const enlaces = conEnlace.match(/https:\/\/\S+/g);
-  assert.equal(enlaces.length, 1);
-  assert.match(enlaces[0], /^https:\/\/www\.dekog\.net\/a\/[A-Za-z0-9]{6}$/);
-  const r = await irAlEnlace(enlaces[0].split('/a/')[1], env.CONVERSACIONES);
-  assert.equal(r.status, 302);
-  assert.match(r.headers.get('Location'), /^https:\/\/wa\.me\/584145847791\?text=Hola%20Dekog%2C%20vengo%20del%20asistente%20de%20Instagram/);
+  const crudos = meta.enviados.filter((e) => e.url.endsWith('/me/messages') && e.cuerpo.message.text).map((e) => e.cuerpo.message.text);
+  const pase = crudos.find((t) => t.startsWith('Habla con una asesora por WhatsApp'));
+  // La marca va al final con un espacio delante: pegada al enlace, Instagram lo cortaba en la última «/».
+  assert.ok(pase.endsWith(' \u2063'), JSON.stringify(pase.slice(-12)));
+  const lineas = sinMarca(pase).split('\n');
+  assert.deepEqual(lineas.filter((l) => l.includes('https://')).length, 2);
+  for (const l of lineas.filter((x) => x.includes('https://'))) assert.match(l, /^https:\/\/www\.dekog\.net\/a\/[A-Za-z0-9]{6}$/);
+  assert.ok(lineas.includes('Línea 1 (0414-584 7791):') && lineas.includes('Línea 2 (0424-400 6086):'));
+  const [uno, dos] = lineas.filter((l) => l.startsWith('https://')).map((l) => l.split('/a/')[1]);
+  const ir = async (codigo) => (await irAlEnlace(codigo, env.CONVERSACIONES)).headers.get('Location');
+  assert.match(await ir(uno), /^https:\/\/wa\.me\/584145847791\?text=Hola%20Dekog%2C%20vengo%20del%20asistente%20de%20Instagram/);
+  assert.match(await ir(dos), /^https:\/\/wa\.me\/584244006086\?text=Hola%20Dekog%2C%20vengo%20del%20asistente%20de%20Instagram/);
+  // Y en ningún texto de Instagram hay un enlace pegado a otro texto.
+  for (const t of crudos.map(sinMarca)) for (const l of t.split('\n')) if (l.includes('https://')) assert.match(l, /^https:\/\/\S+$/, l);
 });
 
 test('GET /a/<código>: redirige al WhatsApp guardado; vencido, raro o ajeno → la Línea 01 sin texto', async () => {

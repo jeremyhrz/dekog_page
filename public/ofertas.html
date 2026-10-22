@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!--
   dekog.net/ofertas (vercel.json): el enlace del catálogo de ofertas que manda el asistente (asistente/src/lib/promo.js).
-  Instagram y WhatsApp arman la vista previa con las etiquetas og:* de aquí (la del PDF de Drive salía rota en Instagram,
-  21-oct); quien toca el enlace va al PDF al instante (el redireccionamiento es con JavaScript, que los lectores de vista
-  previa no ejecutan). Si cambia el PDF, cambiar el enlace aquí y PROMO.pdf en promo.js (lo vigila una prueba).
+  Es una página de verdad, la misma para todos: la promo, el PDF dentro de la página, el botón para abrirlo y las dos
+  asesoras. El 21-oct era una página que redirigía al PDF con JavaScript, e Instagram no la mostraba como enlace
+  (además de lo que pasa con un enlace pegado a otro texto). Las etiquetas og:* arman la vista previa en Instagram y
+  WhatsApp. Si cambia el PDF, cambiar aquí los dos enlaces (botón y visor) y PROMO.pdf en promo.js (lo vigila una prueba).
 -->
 <title>Catálogo de ofertas · Dekog Home</title>
 <meta name="description" content="Hasta 20 % de descuento en mobiliario en stock: camas ya fabricadas, a precio especial y hasta agotar existencia.">
-<meta name="robots" content="noindex">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Dekog Home">
 <meta property="og:locale" content="es_VE">
@@ -24,19 +24,42 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Camas con descuento: hasta 20 % en mobiliario en stock">
 <meta name="twitter:card" content="summary_large_image">
-<script>location.replace('https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/view?usp=sharing');</script>
+<link rel="icon" type="image/png" href="/258894739_605232457186188_7067910400417702663_n.png">
+<link rel="preconnect" href="https://drive.google.com">
 <style>
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; box-sizing: border-box;
-    font-family: system-ui, -apple-system, sans-serif; background: #f4f0ec; color: #1a1a1a; }
-  main { text-align: center; max-width: 420px; }
-  p { line-height: 1.5; margin: 0 0 18px; }
-  a { display: inline-block; padding: 12px 22px; border-radius: 999px; background: #000; color: #fff; text-decoration: none; font-weight: 600; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: #f4f0ec; color: #1a1a1a; }
+  header { background: #15120f; }
+  header img { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; }
+  main { max-width: 560px; margin: 0 auto; padding: 22px 16px 36px; }
+  h1 { font-size: 24px; line-height: 1.2; margin: 0 0 8px; }
+  p { margin: 0 0 14px; line-height: 1.5; color: #4a4a4a; }
+  .boton { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 8px 14px;
+    border-radius: 16px; font-weight: 600; font-size: 15px; text-decoration: none; text-align: center; }
+  .pdf { background: #000; color: #fff; margin: 18px 0 12px; }
+  .lineas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wa { background: #0e7a3e; color: #fff; flex-direction: column; gap: 0; line-height: 1.2; }
+  .wa small { font-weight: 500; font-size: 12px; opacity: .85; }
+  .visor { display: block; width: 100%; height: 78vh; min-height: 460px; margin-top: 22px; border: 0; border-radius: 16px;
+    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.05); }
+  .nota { margin-top: 16px; font-size: 13px; color: #6b6b6b; }
+  .nota a { color: #1a1a1a; }
 </style>
 </head>
 <body>
+  <header>
+    <img src="/promo/promo-stock.jpg" width="1080" height="1080" alt="Camas con descuento: hasta 20 % en mobiliario en stock">
+  </header>
   <main>
-    <p>Abriendo el catálogo de ofertas de Dekog…</p>
-    <a href="https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/view?usp=sharing">Abrir el catálogo de ofertas</a>
+    <h1>Catálogo de ofertas</h1>
+    <p>Hasta 20 % de descuento en mobiliario en stock: camas ya fabricadas, a precio especial y hasta agotar existencia.</p>
+    <a class="boton pdf" href="https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/view?usp=sharing" target="_blank" rel="noopener noreferrer">Ver el catálogo de ofertas (PDF)</a>
+    <div class="lineas">
+      <a class="boton wa" href="https://wa.me/584145847791?text=Hola%20Dekog%20%F0%9F%91%8B%20Vi%20el%20cat%C3%A1logo%20de%20ofertas%20y%20me%20interesa%20una%20pieza." target="_blank" rel="noopener noreferrer">WhatsApp · Línea 1<small>0414-584 7791</small></a>
+      <a class="boton wa" href="https://wa.me/584244006086?text=Hola%20Dekog%20%F0%9F%91%8B%20Vi%20el%20cat%C3%A1logo%20de%20ofertas%20y%20me%20interesa%20una%20pieza." target="_blank" rel="noopener noreferrer">WhatsApp · Línea 2<small>0424-400 6086</small></a>
+    </div>
+    <iframe class="visor" src="https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/preview" title="Catálogo de ofertas (PDF)" loading="lazy"></iframe>
+    <p class="nota">Cada pieza es única: la disponibilidad te la confirma una asesora. <a href="/">Ir a dekog.net</a></p>
   </main>
 </body>
 </html>

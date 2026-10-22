@@ -39,13 +39,14 @@ test('Reacciones, ediciones, avisos del sistema y tipos nuevos: ni respuesta, ni
   assert.equal(escrituras, 0);
 });
 
-test('Nota de voz o foto: UN mensaje con el botón de la asesora (y se presenta si es lo primero que escribe)', async () => {
+test('Nota de voz: UN mensaje con los enlaces de las DOS asesoras (y se presenta si es lo primero que escribe)', async () => {
   await wa({ type: 'audio', audio: { id: 'a1' } });
   const [m] = mensajes();
   assert.equal(mensajes().length, 1);
-  assert.equal(m.interactive.type, 'cta_url');
-  assert.match(m.interactive.body.text, /asistente virtual de Dekog/);
-  assert.match(m.interactive.action.parameters.url, /^https:\/\/wa\.me\/58414/);
+  assert.equal(m.type, 'text');
+  assert.match(m.text.body, /asistente virtual de Dekog/);
+  assert.match(m.text.body, /\nhttps:\/\/wa\.me\/584145847791\n/);
+  assert.match(m.text.body, /\nhttps:\/\/wa\.me\/584244006086$/);
 });
 
 test('Si KV no deja escribir (se acabaron las escrituras gratis del día), el cliente igual recibe su respuesta', async () => {
@@ -275,10 +276,11 @@ test('WhatsApp con foto: se descarga (con el token) y va a la IA; en el historia
   assert.ok(guardado.mensajes[0].content.startsWith(`${NOTA_FOTO} ¿tienen esta en queen?`));
 });
 
-test('Foto que no se puede descargar: el cliente recibe «No pude abrir esa foto» con el botón de la asesora', async () => {
+test('Foto que no se puede descargar: el cliente recibe «No pude abrir esa foto» con las dos asesoras', async () => {
   await wa({ type: 'image', image: { id: 'NOEXISTE' } }, '584140000098');
   const [m] = mensajes();
-  assert.match(m.interactive?.body?.text ?? '', /No pude abrir esa foto/);
+  assert.match(m.text?.body ?? '', /No pude abrir esa foto/);
+  assert.match(m.text?.body ?? '', /Línea 2 \(0424-400 6086\):\nhttps:\/\/wa\.me\/584244006086/);
 });
 
 test('Foto desde la web: solo imágenes en base64 de tamaño razonable', async () => {
@@ -319,8 +321,9 @@ test('«Pásame el catálogo» sin categoría: sin promesa de «Ver modelos» y 
   );
   const { pensar } = await import('../src/chat.js');
   const r = await pensar([{ role: 'user', content: 'Pasame el catalogo' }], 'whatsapp', { yaSaludo: true });
-  assert.match(r.respuesta, /Catálogo de camas: https:\/\/drive\.google\.com/);
-  assert.match(r.respuesta, /Catálogo de mobiliario \(sofás, puffs y mesas\): https:\/\/drive\.google\.com/);
+  // Cada enlace solo en su línea (Instagram no detecta bien uno pegado a otro texto).
+  assert.match(r.respuesta, /Catálogo de camas:\nhttps:\/\/drive\.google\.com\S+\n\n📖 /);
+  assert.match(r.respuesta, /Catálogo de mobiliario \(sofás, puffs y mesas\):\nhttps:\/\/drive\.google\.com\S+$/);
 });
 
 test('Google saturado (503 en todos los modelos): si queda tiempo, una segunda vuelta con los que dieron 5xx', async () => {
