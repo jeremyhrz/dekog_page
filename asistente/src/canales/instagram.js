@@ -24,7 +24,9 @@
  * Asesoras (21-oct): cuando una asesora escribe en un chat desde la cuenta de Dekog, el asistente se calla en ese chat
  * (PAUSA_ASESORA_MS desde su último mensaje). Si el cliente le escribe y pasa 1 hora sin que ella responda, el asistente
  * le pide su nombre y su WhatsApp (tarea programada cada 15 minutos) y, cuando los deja, van a la hoja (y al correo).
- * Un número que deje antes de la hora también va a la hoja, y a quien ya lo dejó no se le vuelve a pedir.
+ * Un número que deje antes de la hora también va a la hoja, y a quien ya lo dejó no se le vuelve a pedir: a la hora
+ * solo se le pide disculpas y, si no lo dejó durante esta espera, la espera va a la hoja (con su correo) para que le
+ * escriban.
  */
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
@@ -37,10 +39,10 @@ import { NOTA_FOTO } from '../lib/negocio.js';
 import { promoActiva, textoDeLaPromo } from '../lib/promo.js';
 import { enlacesCortos } from '../lib/enlaces.js';
 import {
-  cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos, unirSeguidos,
+  cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, yaAtendidoEnOtra, productosNuevos, unirSeguidos,
 } from './memoria.js';
 import {
-  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, nombreEscrito, presentarse, pideBolivares,
+  verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, nombreEscrito, sinSusDatos, presentarse, pideBolivares,
   eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram, recortar, bloqueAsesoras, enlacesEnSuLinea,
 } from './meta.js';
 
@@ -413,20 +415,40 @@ async function programarSeguimiento(env, igsid, cuando) {
   }
 }
 
-// Un cierre corto («gracias», «ok, listo», «perfecto 🙌», un emoji suelto): no pide respuesta.
-const CIERRE = new Set(['gracias', 'muchas', 'muchisimas', 'mil', 'ok', 'oki', 'okey', 'okay', 'listo', 'lista', 'dale',
+// Un cierre corto («gracias», «está bien, gracias», «chao, feliz día», «graciasss», un emoji suelto): no pide respuesta.
+// Tomar de más por cierre se arregla solo (la asesora lo ve en su bandeja y el próximo mensaje abre la espera); lo
+// contrario no: a la hora sale «Disculpa la espera» (22-oct: «Está bien, gracias» o «Gracias bella, quedo atenta»).
+// Hasta 10 palabras: «Muchas gracias por la información, feliz resto de día» son 9.
+const sinRepetidas = (p) => p.replace(/([a-z])\1+/g, '$1'); // «graciasss», «okkk»; por eso «bella» se guarda «bela»
+const palabrasDe = (lista) => new Set(lista.map(sinRepetidas));
+const CIERRE = palabrasDe(['gracias', 'muchas', 'muchisimas', 'mil', 'ok', 'oki', 'okey', 'okay', 'listo', 'lista', 'dale',
   'perfecto', 'perfecta', 'a', 'la', 'orden', 'bueno', 'buenisimo', 'genial', 'excelente', 'chevere', 'fino', 'vale', 'de',
-  'nada', 'igualmente', 'entendido', 'entendida', 'bendiciones', 'muy', 'amable', 'super', 'amiga', 'amigo']);
+  'nada', 'igualmente', 'entendido', 'entendida', 'bendiciones', 'muy', 'amable', 'super', 'amiga', 'amigo',
+  'okis', 'oka', 'okok', 'va', 'pues', 'ah', 'aja', 'jaja', 'esta', 'bien', 'y', 'que', 'chao', 'chau', 'adios', 'feliz',
+  'hasta', 'luego', 'tenga', 'tengas', 'igual', 'ti', 'usted', 'ustedes', 'para', 'tambien', 'por', 'todo', 'su', 'tu',
+  'mi', 'se', 'te', 'le', 'lo', 'agradezco', 'agradecida', 'agradecido', 'aviso', 'cualquier', 'cosa', 'amor', 'vida',
+  'corazon', 'carino', 'bella', 'linda', 'lindo', 'hermosa', 'reina', 'mija', 'senora', 'senor', 'amen', 'dios', 'bendiga',
+  'bendicion', 'bendecido', 'bendecida', 'saludos', 'quedo', 'atenta', 'atento', 'pendiente']);
+// Solo junto a una despedida: solos, «sí» o «no» contestan una pregunta de la asesora, «la info» la pide, «buenas
+// tardes» es un saludo y «por la tarde» o «mañana», una respuesta.
+const DESPEDIDA = palabrasDe(['gracias', 'feliz', 'hasta', 'chao', 'chau', 'adios', 'tenga', 'tengas']);
+const CON_DESPEDIDA = palabrasDe(['si', 'no', 'info', 'informacion', 'atencion', 'ayuda', 'buen', 'buena', 'buenas',
+  'buenos', 'dia', 'dias', 'tarde', 'tardes', 'noche', 'noches', 'resto', 'fin', 'semana', 'manana']);
 export function esCierre(texto) {
   const s = String(texto ?? '');
   if (/[?¿]/.test(s)) return false;
   const palabras = s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
-  return palabras.length <= 6 && palabras.every((p) => CIERRE.has(p));
+    .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean)
+    .map((p) => sinRepetidas(p).replace(/^(?:j[aeiou])+j?$/, 'jaja')); // y las risas: «jajaja», «jejeje»
+  const despedida = palabras.some((p) => DESPEDIDA.has(p));
+  return palabras.length <= 10 && palabras.every((p) => CIERRE.has(p) || (despedida && CON_DESPEDIDA.has(p)));
 }
 
+// La huella (4 últimos dígitos) del número que llegó a la hoja hablando con el asistente, o ''. Las memorias de antes
+// del 22-oct guardaban un true, a veces por un monto, una cédula o una fecha: no cuenta como número.
+const huellaEnHoja = (estado) => (/^\d{4}$/.test(String(estado.telefonoEnHoja)) ? estado.telefonoEnHoja : '');
 // Ya dejó su número en esta conversación (en una espera o hablando con el asistente): no se le vuelve a pedir.
-const dejoSuNumero = (estado) => estado.datosTomados > 0 || Boolean(estado.telefonoEnHoja);
+const dejoSuNumero = (estado) => estado.numeroTomado > 0 || Boolean(huellaEnHoja(estado));
 
 /**
  * La asesora está atendiendo este chat: el asistente no responde. Lo que escribe el cliente queda en el historial (sin
@@ -440,10 +462,11 @@ async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, 
   if (escrito || nota || imagen) {
     estado.mensajes.push({ role: 'user', content: [imagen ? NOTA_FOTO : '', nota, escrito].filter(Boolean).join(' ') });
   }
+  const telefono = extraerTelefono(texto);
   // La espera empieza con un mensaje que pide respuesta (21-oct: a quien solo dio las gracias le llegaba «Disculpa la
-  // espera»). Un «gracias», un «ok» o un sticker que no se pudo abrir, no; una nota de voz o una foto, sí: suelen ser
-  // una pregunta para la asesora.
-  const pideRespuesta = (texto && !esCierre(texto)) || imagen || nota || sinLeer;
+  // espera»). Un «gracias», un «ok», un sticker que no se pudo abrir o solo sus datos (22-oct: el número que le pidió la
+  // asesora para seguir por WhatsApp), no; una nota de voz o una foto, sí: suelen ser una pregunta para la asesora.
+  const pideRespuesta = (texto && !esCierre(telefono ? sinSusDatos(texto, telefono) : texto)) || imagen || nota || sinLeer;
   if (pideRespuesta && !(estado.esperaDesde > estado.humano)) {
     // Siempre después del último mensaje de la asesora (en el mismo milisegundo, 1 ms después): si no, la espera no cuenta.
     estado.esperaDesde = Math.max(ahora, (Number(estado.humano) || 0) + 1);
@@ -454,15 +477,17 @@ async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, 
 
   // La captura se cierra con el número, no con un nombre suelto (21-oct: «Soy de Maracay, ¿…?» cerraba la captura y el
   // número del mensaje siguiente ya no llegaba a la hoja).
-  if (estado.datosTomados >= estado.humano) return; // ya dejó su número en esta pausa
+  if (estado.numeroTomado >= estado.humano) return; // ya dejó su número en esta pausa
   const pedido = estado.seguimiento > estado.humano; // en esta pausa ya se le escribió por la espera
-  const telefono = extraerTelefono(texto);
   if (!telefono) {
     if (pedido && !dejoSuNumero(estado) && nombreEscrito(texto)) await enviar(env, igsid, { text: PIDE_EL_NUMERO });
     return;
   }
   const usuario = await nombreDeUsuario(env, igsid);
-  const espero = estado.esperaDesde > estado.humano && ahora - estado.esperaDesde >= ESPERA_MS;
+  // Sin una espera abierta, lo común es que la asesora le pidiera el número para seguir por WhatsApp (22-oct): el
+  // resumen no dice que espera ni pide «escríbele».
+  const esperando = estado.esperaDesde > estado.humano;
+  const espero = esperando && ahora - estado.esperaDesde >= ESPERA_MS;
   const ok = await guardarCliente({
     // Fila propia del día: la hoja solo manda el correo con las filas NUEVAS, y este cliente quizá ya tenía la suya.
     conversacion: `ig-${igsid}-espera-${hoyCaracas()}`,
@@ -470,15 +495,22 @@ async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, 
     interes: estado.interes,
     resumen: [estado.resumen, espero
       ? 'Esperó más de 1 hora a la asesora en Instagram y dejó sus datos: escríbele.'
-      : 'Dejó su WhatsApp mientras esperaba a la asesora en Instagram: escríbele.'].filter(Boolean).join(' · '),
+      : esperando
+        ? 'Dejó su WhatsApp mientras esperaba a la asesora en Instagram: escríbele.'
+        : 'Dejó su WhatsApp en el chat con la asesora de Instagram: revisa si ella ya le escribió.'].filter(Boolean).join(' · '),
     canal: 'Instagram',
   }, { hasta: t0 + PLAZO_HOJA_MS });
   if (!ok) return; // con su próximo mensaje se vuelve a intentar
-  estado.datosTomados = ahora;
+  // Si esperaba, nunca antes de esperaDesde (va detrás del eco de la asesora y puede adelantarse al reloj): así «lo
+  // dejó durante esta espera» es numeroTomado >= esperaDesde, y a la hora no se avisa otra vez (atenderSeguimiento).
+  estado.numeroTomado = esperando ? Math.max(ahora, estado.esperaDesde) : ahora;
   // El «¡Gracias!» solo si el asistente le pidió los datos: antes de la hora, el chat sigue siendo de la asesora.
   if (pedido) await enviar(env, igsid, { text: GRACIAS_POR_LOS_DATOS });
   await guardarEstado(kv, clave, estado);
 }
+
+// La tarea también corre dentro de los 30 s de waitUntil: lo que manda a la hoja (Apps Script dormido) no pasa de aquí.
+const PLAZO_TAREA_MS = 20000;
 
 /**
  * Tarea programada (cada 15 minutos): a los clientes que llevan 1 hora esperando a la asesora sin respuesta se les
@@ -488,6 +520,7 @@ async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, 
 export async function seguimientosInstagram(env, ahora = Date.now()) {
   const kv = env.CONVERSACIONES;
   if (!kv) return;
+  const hasta = Date.now() + PLAZO_TAREA_MS; // con el reloj de verdad, que es el que corta Cloudflare
   await pasarListaVieja(env);
   let cursor;
   do {
@@ -501,7 +534,7 @@ export async function seguimientosInstagram(env, ahora = Date.now()) {
     for (const { name, metadata } of pagina.keys) {
       const cuando = Number(metadata?.cuando ?? await kv.get(name).catch(() => null));
       if (!(cuando <= ahora)) continue; // todavía no pasa la hora
-      await atenderSeguimiento(env, name, cuando, ahora)
+      await atenderSeguimiento(env, name, cuando, ahora, hasta)
         .catch((e) => console.warn('No se pudo atender un seguimiento de Instagram:', e?.message));
     }
     cursor = pagina.list_complete ? undefined : pagina.cursor;
@@ -509,7 +542,7 @@ export async function seguimientosInstagram(env, ahora = Date.now()) {
 }
 
 /** Una espera que ya cumplió la hora (su clave ig:seg:<igsid>): se le escribe si sigue esperando y la clave se borra. */
-async function atenderSeguimiento(env, nombreClave, cuando, ahora) {
+async function atenderSeguimiento(env, nombreClave, cuando, ahora, hasta) {
   const kv = env.CONVERSACIONES;
   const igsid = nombreClave.slice(PREFIJO_SEGUIMIENTO.length);
   const clave = `ig:${igsid}`;
@@ -526,10 +559,39 @@ async function atenderSeguimiento(env, nombreClave, cuando, ahora) {
       estado.seguimiento = ahora;
       await guardarEstado(kv, clave, estado);
       console.log('Instagram: un cliente esperó 1 hora a la asesora;', yaLoDejo ? 'ya había dejado su número' : 'se le pidieron sus datos');
+      // La disculpa le promete que le escriben. Si el número llegó durante ESTA espera, su fila ya decía que esperaba
+      // («…: escríbele») y su correo ya salió; si es de antes (se lo pidió la asesora, de otra pausa o de la
+      // conversación con el asistente), Dekog se entera ahora. Después de guardar `seguimiento`: si la hoja tarda y
+      // se corta, la disculpa no se repite.
+      const enEstaEspera = estado.numeroTomado >= estado.esperaDesde;
+      if (yaLoDejo && !enEstaEspera) await avisarEsperaConNumero(env, igsid, estado, hasta);
     }
   }
   // Se borra si nadie la volvió a anotar mientras tanto (el cliente pudo empezar otra espera).
   if (Number(await kv.get(nombreClave)) === cuando) await kv.delete(nombreClave);
+}
+
+/**
+ * La espera de quien ya había dejado su número, en una fila propia del día (-aviso-): la hoja manda el correo solo
+ * con las filas NUEVAS, y en la de su número (-espera-, si es de hoy) solo se actualizaría, sin correo y pisando su
+ * nombre. Otra espera del mismo día actualiza esta (su correo ya salió). Va sin el número, que no se guarda en KV: la
+ * huella dice cuál es. Nunca lanza.
+ */
+async function avisarEsperaConNumero(env, igsid, estado, hasta) {
+  if (Date.now() >= hasta) {
+    console.warn('Instagram: sin tiempo para mandar a la hoja la espera de un cliente que ya había dejado su número');
+    return;
+  }
+  const huella = huellaEnHoja(estado);
+  const cual = huella ? ` (termina en ${huella})` : '';
+  await guardarCliente({
+    conversacion: `ig-${igsid}-aviso-${hoyCaracas()}`,
+    cliente: { nombre: await nombreDeUsuario(env, igsid), telefono: '', ciudad: '' },
+    interes: estado.interes,
+    resumen: [estado.resumen, `Esperó más de 1 hora a la asesora en Instagram y ya había dejado su WhatsApp${cual}: está en `
+      + `sus filas anteriores (ig-${igsid}). Escríbele.`].filter(Boolean).join(' · '),
+    canal: 'Instagram',
+  }, { hasta }).catch(() => false);
 }
 
 /** Las esperas que queden en la lista vieja (ig:seguimientos) pasan a su clave; si todas pasan, la lista se borra. */
@@ -645,6 +707,13 @@ async function procesar(evento, env) {
   estado.procesados.push(evento.message.mid);
 
   const texto = (evento.message.text ?? '').trim().slice(0, 800);
+  // Bajar la foto y la IA pueden tardar hasta 21 s, y procesados se guarda al final: una repetición de Meta que caía en
+  // otra instancia se respondía dos veces. La frena esta marca, como en WhatsApp. No la necesitan una respuesta rápida
+  // de la vitrina ni un texto mientras atiende la asesora: no van a la IA y se guardan al instante.
+  const eleccion = eleccionDe(evento.message.quick_reply?.payload);
+  const conAsesora = estado.humano && Date.now() - estado.humano < PAUSA_ASESORA_MS;
+  const largo = (texto && !eleccion && !conAsesora) || evento.message.attachments?.length || evento.message.reply_to?.story;
+  if (largo && await yaAtendidoEnOtra(env.CONVERSACIONES, evento.message.mid)) return;
   // Una foto, una publicación compartida o la respuesta a una historia: la IA compara la imagen con el catálogo
   // (lib/imagen.js). Instagram la manda como adjunto con su URL.
   const { imagen, nota, sinLeer, ignorar } = await contenidoDe(evento.message);
@@ -679,7 +748,6 @@ async function procesar(evento, env) {
   }
 
   // Tocó una respuesta rápida de la vitrina: se responde SIN IA.
-  const eleccion = eleccionDe(evento.message.quick_reply?.payload);
   if (eleccion?.tipo === 'producto') {
     const ficha = fichaElegida(eleccion.id, await tasaBcv());
     if (productosNuevos(estado, [ficha.tarjeta]).length) await enviarImagen(env, igsid, fotoParaCanales(ficha.tarjeta.id));

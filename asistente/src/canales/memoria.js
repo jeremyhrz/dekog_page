@@ -21,7 +21,8 @@
  *   esperaDesde — primer mensaje del cliente que la asesora todavía no ha respondido
  *   seguimiento — cuándo se le escribió por haber esperado 1 hora (o cuándo le respondió el
  *              asistente, ya vencida la pausa): esa espera ya está atendida
- *   datosTomados — cuándo dejó su número durante una pausa (ya está en la hoja: una vez por pausa)
+ *   numeroTomado — cuándo llegó a la hoja el número que dejó durante una pausa (una vez por pausa). Hasta el 22-oct
+ *              era datosTomados, que también ponía un nombre suelto: ese ya no cuenta como su número
  * Cada conversación se borra sola a los 30 días sin actividad.
  */
 const TREINTA_DIAS = 60 * 60 * 24 * 30;
@@ -77,7 +78,7 @@ export async function cargarEstado(kv, clave) {
     mensajes: [], procesados: [], guardado: false, interes: '', resumen: '',
     resumenEnHoja: null, interesEnHoja: null, telefonoEnHoja: '', filaHoja: '', filaHojaDesde: 0,
     avisoCupo: '', ultimaTarjeta: '', hoy: { fecha: '', n: 0, avisado: false },
-    promoVista: '', avisoSinLeer: '', humano: 0, esperaDesde: 0, seguimiento: 0, datosTomados: 0,
+    promoVista: '', avisoSinLeer: '', humano: 0, esperaDesde: 0, seguimiento: 0, numeroTomado: 0,
     ...(guardado ?? {}),
   };
   return comoBase(estado);
@@ -178,7 +179,7 @@ function turnosDeLaAsesora(actual, estado) {
     humano,
     esperaDesde: esperas.length ? Math.min(...esperas) : 0,
     seguimiento: mayor(actual.seguimiento, estado.seguimiento),
-    datosTomados: mayor(actual.datosTomados, estado.datosTomados),
+    numeroTomado: mayor(actual.numeroTomado, estado.numeroTomado),
   };
 }
 

@@ -55,10 +55,15 @@ async function pedidoDeDatos(igsid = 'IGSID1') {
 }
 /** Cuándo está programado el seguimiento de ese cliente (su clave ig:seg:<igsid>), o undefined. */
 const seguimientoDe = (igsid = 'IGSID1') => env.CONVERSACIONES.metadatos.get(`ig:seg:${igsid}`)?.cuando;
+/**
+ * El id de una fila de la hoja sin la fecha («ig-IGSID1-espera»). La hoja (scripts/hoja-clientes.gs) manda un correo por
+ * cada id NUEVO; con uno que ya existe, solo actualiza la fila y pisa lo que llegue con valor (el nombre, el resumen).
+ */
+const sinFecha = (fila) => fila.id.replace(/-\d{4}-\d{2}-\d{2}$/, '');
 /** Mueve hacia atrás los tiempos de la conversación (y su seguimiento programado), como si hubieran pasado `ms`. */
 async function retroceder(ms, igsid = 'IGSID1') {
   const e = estado(igsid);
-  for (const campo of ['humano', 'esperaDesde', 'seguimiento', 'datosTomados']) if (e[campo]) e[campo] -= ms;
+  for (const campo of ['humano', 'esperaDesde', 'seguimiento', 'numeroTomado', 'datosTomados']) if (e[campo]) e[campo] -= ms;
   await env.CONVERSACIONES.put(`ig:${igsid}`, JSON.stringify(e));
   const cuando = seguimientoDe(igsid);
   if (cuando) await env.CONVERSACIONES.put(`ig:seg:${igsid}`, String(cuando - ms), { metadata: { cuando: cuando - ms } });
@@ -189,6 +194,19 @@ async function conIaLenta(durante, fn) {
 test('esCierre: «gracias», «ok», «listo, dale», «a la orden» o un emoji suelto no piden respuesta; una pregunta sí', () => {
   for (const t of ['¡Muchas gracias! 🙌', 'ok', 'Listo, dale', 'Perfecto, a la orden', '👍', 'Excelente, muy amable 🙏']) assert.ok(esCierre(t), t);
   for (const t of ['?', 'Gracias, ¿y el envío?', 'ok, la quiero en queen', '2', 'Hola']) assert.ok(!esCierre(t), t);
+});
+
+test('esCierre: las despedidas de verdad («Está bien, gracias», «Chao», «Graciasss»); «sí», un saludo o un pedido, no', () => {
+  for (const t of [
+    'Está bien, gracias', 'Gracias bella, quedo atenta', 'Chao, gracias', 'Feliz día', 'Graciasss', 'Okkk', 'Okis',
+    'Sí, gracias', 'No, gracias', 'Ok, quedo atenta', 'Amén, Dios te bendiga', 'Gracias a ti', 'Gracias mi amor',
+    'Gracias por la información', 'Ah ok', 'Jajaja ok', 'Dale pues', 'Gracias, buenas noches', 'Hasta luego',
+    'Muchas gracias por la información, feliz resto de día',
+  ]) assert.ok(esCierre(t), t);
+  for (const t of [
+    'Sí, ¿y el envío?', 'Sí', 'No', 'Sí, dale', 'Sí, por favor', 'Buenas tardes', 'Buen día', 'Holaaa', 'La info', 'Ya va',
+    'Por la tarde', 'Quedo atenta a la foto', 'Está bien, mándame la foto', 'Gracias, cuánto es la queen',
+  ]) assert.ok(!esCierre(t), t);
 });
 
 test('La asesora cierra y el cliente da las gracias o manda un sticker: no queda esperando; con una nota de voz, sí', async () => {
@@ -384,6 +402,183 @@ test('Un eco atrasado (con la hora de Meta, de antes de la pregunta del cliente)
   // Uno de después de la pregunta (1 s después) sí la responde.
   await eco('Sí, la tenemos', 'IGSID1', { timestamp: estado().esperaDesde + 1000 });
   assert.ok(!(estado().esperaDesde > estado().humano));
+});
+
+// ── La despedida, el número que pidió la asesora y la promesa «Ya tienen tu número» (revisión del 22-oct) ──────────────
+
+test('La asesora cierra y el cliente se despide («Está bien, gracias», «Gracias bella, quedo atenta»): a la hora, nada', async () => {
+  for (const [igsid, despedida] of [['IGSID1', 'Está bien, gracias'], ['IGSID2', 'Gracias bella, quedo atenta'], ['IGSID3', 'Chao, gracias 🙏']]) {
+    await ig({ text: 'Hola' }, igsid);
+    await eco('Listo, ya te aparté la tuya. Mañana te escribo para coordinar la entrega', igsid);
+    await ig({ text: despedida }, igsid);
+    assert.equal(seguimientoDe(igsid), undefined, despedida);
+    await retroceder(61 * 60 * 1000, igsid);
+  }
+  const antes = textosIg().length;
+  await seguimientosInstagram(env);
+  assert.equal(textosIg().length, antes); // sin «Disculpa la espera»
+});
+
+test('La asesora le pide el número y se lo da: va a la hoja sin decir que espera y a la hora no le llega nada', async () => {
+  for (const [igsid, respuesta] of [['IGSID1', '04145551234'], ['IGSID2', 'Ana Pérez 0414-555-1234'], ['IGSID3', 'Sí, mi número es 0414-555-1234, gracias 🙏']]) {
+    await ig({ text: 'Hola, ¿tienen la Toronto en queen?' }, igsid);
+    await eco('¡Hola! Sí la tenemos. ¿Me pasas tu número y te escribo por WhatsApp con los detalles?', igsid);
+    await ig({ text: respuesta }, igsid);
+    assert.equal(seguimientoDe(igsid), undefined, respuesta); // no queda esperando
+    await retroceder(61 * 60 * 1000, igsid);
+  }
+  assert.deepEqual(filasHoja.map((f) => f.telefono), ['04145551234', '04145551234', '04145551234']);
+  for (const fila of filasHoja) {
+    assert.match(fila.id, /^ig-IGSID\d-espera-\d{4}-\d{2}-\d{2}$/);
+    assert.match(fila.resumen, /^Dejó su WhatsApp en el chat con la asesora de Instagram/);
+    assert.doesNotMatch(fila.resumen, /esperaba|Esperó|escríbele/);
+  }
+  assert.equal(filasHoja[1].nombre, 'Ana Pérez · @cliente (Cliente)');
+  const antes = textosIg().length;
+  await seguimientosInstagram(env);
+  assert.equal(textosIg().length, antes); // sin «Disculpa la espera»
+  // Con el número y una pregunta, sí queda esperando.
+  await ig({ text: 'Hola' }, 'IGSID4');
+  await eco('¿Me pasas tu número?', 'IGSID4');
+  await ig({ text: '0414-555-1234. ¿Y cuánto sale el envío a Maracay?' }, 'IGSID4');
+  assert.ok(seguimientoDe('IGSID4') > Date.now());
+  assert.match(filasHoja.at(-1).resumen, /^Dejó su WhatsApp mientras esperaba a la asesora en Instagram: escríbele/);
+});
+
+test('Con la asesora, el número de una línea de Dekog no es el suyo: ni fila ni «Ya tienen tu número»; a la hora se le pide', async () => {
+  // Como sale en el pase y como lo publica la web (22-oct: «+58 424 400 6086» quedaba como su número «+58424400»).
+  for (const [igsid, numero] of [['IGSID1', '0424-400 6086'], ['IGSID2', '+58 424 400 6086']]) {
+    await ig({ text: 'Hola' }, igsid);
+    await eco('Hola, te atiende Carla', igsid);
+    await ig({ text: `Ya le escribí al ${numero} y nadie me contesta, ¿me ayudas?` }, igsid);
+    assert.equal(filasHoja.length, 0, numero);
+    assert.equal(estado(igsid).numeroTomado, 0, numero); // no cierra la captura
+    await retroceder(61 * 60 * 1000, igsid);
+  }
+  await seguimientosInstagram(env);
+  for (const igsid of ['IGSID1', 'IGSID2']) {
+    assert.match(textosA(igsid).at(-1), /tu nombre y tu número de WhatsApp/);
+    await ig({ text: 'Ana Pérez 0412-111-2233' }, igsid);
+  }
+  assert.deepEqual(filasHoja.map((f) => [sinFecha(f), f.telefono]),
+    [['ig-IGSID1-espera', '04121112233'], ['ig-IGSID2-espera', '04121112233']]);
+});
+
+test('Ya le había dejado su número al asistente: a la hora, la disculpa y una fila nueva de la espera, que llega por correo', async () => {
+  await ig({ text: 'Quiero comprar la Toronto queen. Mi WhatsApp es 0414-555-1234' });
+  assert.deepEqual(filasHoja.map((f) => f.id), ['ig-IGSID1']);
+  await eco('¿La quieres con box liso?');
+  await ig({ text: 'Sí, con el liso. ¿Y cuánto tarda la fabricación?' });
+  await retroceder(61 * 60 * 1000);
+  await seguimientosInstagram(env);
+  assert.match(textosIg().at(-1), /Disculpa la espera.*Ya tienen tu número/s);
+  assert.equal(filasHoja.length, 2);
+  const aviso = filasHoja[1];
+  assert.match(aviso.id, /^ig-IGSID1-aviso-\d{4}-\d{2}-\d{2}$/); // fila nueva: la hoja manda el correo
+  assert.equal(aviso.telefono, ''); // en KV no está su número, solo la huella
+  assert.match(aviso.nombre, /@cliente \(Cliente\)$/);
+  assert.match(aviso.resumen, /Esperó más de 1 hora a la asesora en Instagram y ya había dejado su WhatsApp \(termina en 1234\)/);
+  await seguimientosInstagram(env);
+  assert.equal(filasHoja.length, 2); // una vez por espera
+});
+
+test('Dejó su número en una espera de otro día: la disculpa y el aviso de hoy; si deja otro, va en su fila de la espera', async () => {
+  const hace3Dias = Date.now() - 72 * HORA;
+  await env.CONVERSACIONES.put('ig:IGSID1', JSON.stringify({
+    mensajes: [], humano: hace3Dias, esperaDesde: hace3Dias + 1, seguimiento: hace3Dias + HORA, numeroTomado: hace3Dias + 2 * HORA,
+  }));
+  await eco('¡Hola María! ¿Te la mando en gris?');
+  await ig({ text: '¿Y cuándo me la entregan?' });
+  await retroceder(61 * 60 * 1000);
+  await seguimientosInstagram(env);
+  assert.match(textosIg().at(-1), /Ya tienen tu número/);
+  assert.equal(filasHoja.length, 1);
+  assert.match(filasHoja[0].id, /^ig-IGSID1-aviso-\d{4}-\d{2}-\d{2}$/);
+  assert.match(filasHoja[0].resumen, /ya había dejado su WhatsApp: está en sus filas anteriores \(ig-IGSID1\)/);
+  // El número que deje ahora va en la fila de la espera de hoy, nueva (su correo lleva el número), y se le agradece.
+  await ig({ text: 'María Pérez 0424-000-1111' });
+  assert.equal(filasHoja.length, 2);
+  assert.match(filasHoja[1].id, /^ig-IGSID1-espera-\d{4}-\d{2}-\d{2}$/);
+  assert.equal(filasHoja[1].telefono, '04240001111');
+  assert.match(filasHoja[1].resumen, /^Esperó más de 1 hora a la asesora en Instagram y dejó sus datos: escríbele/);
+  assert.match(textosIg().at(-1), /^¡Gracias! 💛 Ya le pasé tus datos/);
+});
+
+test('Dejó su número en otra pausa de hoy y otra pregunta espera 1 hora: el aviso va en su propia fila, con su correo', async () => {
+  await ig({ text: 'Hola, ¿tienen la Toronto en queen?' });
+  await eco('¿Me pasas tu nombre y número y te escribo por WhatsApp?');
+  await ig({ text: 'Ana Pérez 0414-555-1234' });
+  await eco('¡Gracias Ana! Ya te escribo');
+  await ig({ text: '¿Y cuánto tarda la entrega a Maracay?' });
+  await retroceder(61 * 60 * 1000);
+  await seguimientosInstagram(env);
+  assert.match(textosIg().at(-1), /Disculpa la espera.*Ya tienen tu número/s);
+  // Dos filas nuevas (dos correos), y la del número no se vuelve a mandar: conserva su nombre.
+  assert.deepEqual(filasHoja.map(sinFecha), ['ig-IGSID1-espera', 'ig-IGSID1-aviso']);
+  assert.equal(filasHoja[0].nombre, 'Ana Pérez · @cliente (Cliente)');
+  assert.equal(filasHoja[0].telefono, '04145551234');
+  assert.match(filasHoja[1].resumen, /^Esperó más de 1 hora .* ya había dejado su WhatsApp: está en sus filas anteriores/);
+});
+
+test('Le dio su número a la asesora que se lo pidió y después pregunta otra cosa: a la hora, la disculpa y el aviso', async () => {
+  await ig({ text: 'Hola, ¿tienen la Toronto en queen?' });
+  await eco('¡Hola! Sí la tenemos. ¿Me pasas tu número y te escribo por WhatsApp con los detalles?');
+  await ig({ text: '04145551234' });
+  await retroceder(5 * 60 * 1000); // 5 minutos después pregunta otra cosa y nadie le contesta
+  await ig({ text: '¿Y cuánto tarda la entrega a Maracay?' });
+  await retroceder(61 * 60 * 1000);
+  await seguimientosInstagram(env);
+  assert.match(textosIg().at(-1), /Disculpa la espera.*Ya tienen tu número/s);
+  assert.deepEqual(filasHoja.map(sinFecha), ['ig-IGSID1-espera', 'ig-IGSID1-aviso']);
+  assert.match(filasHoja[0].resumen, /revisa si ella ya le escribió/); // su correo no decía que esperaba
+  assert.match(filasHoja[1].resumen, /^Esperó más de 1 hora a la asesora en Instagram y ya había dejado su WhatsApp/);
+  await seguimientosInstagram(env);
+  assert.equal(filasHoja.length, 2); // una vez por espera
+});
+
+test('Con la hora de Meta adelantada, el número que deja mientras espera es de esa espera: a la hora, sin otro aviso', async () => {
+  await ig({ text: 'Hola' });
+  const adelantada = Date.now() + 5000; // la hora del eco, 5 s por delante del reloj del Worker
+  await eco('Hola, te atiende Carla', 'IGSID1', { timestamp: adelantada });
+  await ig({ text: 'La Toronto queen. Me llamo Ana, mi WhatsApp es 0414-555-1234, escríbeme por ahí' });
+  assert.equal(estado().esperaDesde, adelantada + 1); // la espera empieza detrás del eco, también adelantada
+  assert.match(filasHoja[0].resumen, /Dejó su WhatsApp mientras esperaba a la asesora en Instagram: escríbele/);
+  await retroceder(61 * 60 * 1000);
+  await seguimientosInstagram(env);
+  assert.match(textosIg().at(-1), /Disculpa la espera.*Ya tienen tu número/s);
+  assert.equal(filasHoja.length, 1); // su fila ya decía que esperaba: no hace falta otro aviso
+});
+
+test('Memoria de antes del 22-oct con telefonoEnHoja: true (a veces era un monto o una cédula): a la hora se le piden', async () => {
+  await env.CONVERSACIONES.put('ig:IGSID1', JSON.stringify({ mensajes: [], guardado: true, resumen: '', resumenEnHoja: '', telefonoEnHoja: true }));
+  await eco('Hola, te atiende Carla');
+  await ig({ text: '¿Me confirmas si la tienen en gris?' });
+  await retroceder(61 * 60 * 1000);
+  await seguimientosInstagram(env);
+  assert.match(textosIg().at(-1), /tu nombre y tu número de WhatsApp/);
+  await ig({ text: 'Soy María' });
+  assert.match(textosIg().at(-1), /^¡Gracias! 💛 ¿Me dejas también tu número de WhatsApp\?/);
+  assert.equal(filasHoja.length, 0);
+});
+
+test('Un datosTomados de antes del 22-oct (también lo ponía un nombre suelto) no es su número ni cierra la captura', async () => {
+  // En esta pausa ya se le pidieron los datos, y la versión anterior anotó un nombre suelto como datos tomados.
+  const ahora = Date.now();
+  await env.CONVERSACIONES.put('ig:IGSID1', JSON.stringify({
+    mensajes: [], humano: ahora - 2 * HORA, esperaDesde: ahora - 2 * HORA + 1, seguimiento: ahora - 50 * 60 * 1000,
+    datosTomados: ahora - 40 * 60 * 1000,
+  }));
+  await ig({ text: '0414-555-1234' });
+  assert.equal(filasHoja.length, 1);
+  assert.equal(filasHoja[0].telefono, '04145551234');
+  assert.match(textosIg().at(-1), /^¡Gracias! 💛 Ya le pasé tus datos/);
+  // En una pausa de otro día, a la hora se le piden sus datos (no «Ya tienen tu número»).
+  await env.CONVERSACIONES.put('ig:IGSID2', JSON.stringify({ mensajes: [], humano: ahora - 72 * HORA, datosTomados: ahora - 71 * HORA }));
+  await eco('Hola, te atiende Carla', 'IGSID2');
+  await ig({ text: '¿Me confirmas si la tienen en gris?' }, 'IGSID2');
+  await retroceder(61 * 60 * 1000, 'IGSID2');
+  await seguimientosInstagram(env);
+  assert.match(textosA('IGSID2').at(-1), /tu nombre y tu número de WhatsApp/);
 });
 
 test('Si Instagram devuelve un texto del asistente SIN la marca, la pausa se apaga sola (nunca se calla por error)', async () => {

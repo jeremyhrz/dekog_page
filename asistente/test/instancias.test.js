@@ -1,11 +1,13 @@
 // Varias instancias del Worker a la vez, cada una con su memoria, y un solo KV (como en Cloudflare): la promo sale UNA vez
-// aunque dos instancias atiendan los primeros mensajes del mismo cliente, y si una apaga la pausa por asesora, las demás
-// se enteran en minutos. IA: proveedor «prueba» o un Gemini falso que tarda. Fetch falso: no sale nada a internet.
+// aunque dos instancias atiendan los primeros mensajes del mismo cliente, un aviso que Meta repite en otra instancia se
+// responde una vez, y si una apaga la pausa por asesora, las demás se enteran en minutos. IA: proveedor «prueba» o un
+// Gemini falso que tarda. Fetch falso: no sale nada a internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoIg } from './ayuda.js';
 import { config } from '../src/lib/config.js';
 import { PROMO } from '../src/lib/promo.js';
+import { olvidarEnCurso } from '../src/canales/memoria.js';
 
 // Cada copia del módulo es una instancia: su propia memoria (la marca leída, las promos mandadas, sus textos), el mismo KV.
 const instancia = (nombre) => import(`../src/canales/instagram.js?instancia=${nombre}`);
@@ -63,6 +65,40 @@ test('Promo: dos instancias atienden a la vez los primeros mensajes de un client
   assert.equal(textosA('IGSID7').filter((t) => t.includes(PROMO.enlace)).length, 1);
   assert.equal(textosA('IGSID7').filter((t) => /Toronto Queen/.test(t)).length, 2); // las dos respuestas sí salen
   assert.ok(env.CONVERSACIONES.datos.get(`ig:promo:IGSID7:${PROMO.id}`), 'el turno de la promo queda en KV');
+});
+
+test('Un aviso repetido por Meta que cae en otra instancia mientras la IA piensa: se responde UNA vez', async () => {
+  const [a, b] = await Promise.all([instancia('visto-a'), instancia('visto-b')]);
+  // La IA (Gemini falso) no contesta hasta que la prueba la suelta. `pidio[i]` se cumple con su pedido número i + 1.
+  const salida = {
+    respuesta: 'La Toronto Queen (1,60 x 1,90 m) está en REF 550.', productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }],
+    derivar: { necesario: false, area: 'home', resumen: '' }, ofrecer_formulario: false,
+  };
+  let pedidos = 0;
+  const pidio = [Promise.withResolvers(), Promise.withResolvers()];
+  const suelta = Promise.withResolvers();
+  globalThis.fetch = async (url, o) => {
+    if (!String(url).includes('generativelanguage.googleapis.com')) return meta.fetchFalso(url, o);
+    pidio[pedidos]?.resolve();
+    pedidos += 1;
+    await suelta.promise;
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(salida) }] } }] }));
+  };
+  Object.assign(config, { ASISTENTE_PROVEEDOR: '', GEMINI_API_KEY: 'clave-falsa' });
+  const aviso = avisoIg({ text: '¿Cuánto es la Toronto queen?' }, 'IGSID8');
+  const primera = entregar(a.instagramPost, aviso, SECRETO_IG, env);
+  await pidio[0].promise; // A ya está esperando a la IA, sin haber guardado la memoria
+  olvidarEnCurso(); // la repetición le llega a B, que no la tiene en su memoria
+  const segunda = entregar(b.instagramPost, aviso, SECRETO_IG, env);
+  // La IA sigue pensando hasta que B termina (o le pide otra respuesta, si no vio que A ya lo estaba atendiendo).
+  await Promise.race([segunda, pidio[1].promise]);
+  suelta.resolve();
+  await Promise.all([primera, segunda]);
+  assert.equal(pedidos, 1);
+  assert.equal(textosA('IGSID8').filter((t) => t.includes('La Toronto Queen')).length, 1);
+  const memoria = JSON.parse(env.CONVERSACIONES.datos.get('ig:IGSID8'));
+  assert.equal(memoria.mensajes.filter((m) => m.role === 'user').length, 1);
+  assert.ok(env.CONVERSACIONES.datos.has(`visto:${aviso.entry[0].messaging[0].message.mid}`));
 });
 
 test('Marca: si una instancia apaga la pausa, las demás se enteran en minutos y no callan el chat', async () => {

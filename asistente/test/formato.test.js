@@ -7,8 +7,8 @@ import { config } from '../src/lib/config.js';
 import { enlacesEnSuLinea, bloqueAsesoras, conCola } from '../src/canales/meta.js';
 import { textoParaInstagram, partirPorBytes, instagramPost, MARCA } from '../src/canales/instagram.js';
 import { whatsappPost } from '../src/canales/whatsapp.js';
-import { lineas, asesorasDirectas } from '../src/lib/negocio.js';
-import { LINEAS_WHATSAPP } from '../../src/utils/whatsapp.js';
+import { lineas, asesorasDirectas, numeroDelAsistente } from '../src/lib/negocio.js';
+import { LINEAS_WHATSAPP, WHATSAPP } from '../../src/utils/whatsapp.js';
 import { pensar, prometeBotonDeAsesora } from '../src/chat.js';
 
 let env;
@@ -86,6 +86,10 @@ test('Las dos asesoras: los mismos números y nombres en el bot y en la web', ()
   );
   assert.equal(bloqueAsesoras(asesorasDirectas(), null),
     'Línea 1 (0414-584 7791):\nhttps://wa.me/584145847791\n\nLínea 2 (0424-400 6086):\nhttps://wa.me/584244006086');
+});
+
+test('El número del asistente es el mismo en el bot y en la web (/links): si un cliente lo escribe, no es el suyo', () => {
+  assert.equal(numeroDelAsistente, WHATSAPP.asistente);
 });
 
 test('WhatsApp: el pase con foto lleva las DOS asesoras al pie, enteras aunque el texto sea largo (1024 máximo)', async () => {
