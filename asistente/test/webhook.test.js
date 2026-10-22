@@ -62,6 +62,20 @@ test('Si Meta falla una hora no avisa; dos horas seguidas, UN aviso «Sistema» 
   assert.equal(filasHoja[0].nombre, 'WhatsApp sin conexión');
 });
 
+test('Fallo, reconexión buena y otro fallo: no avisa (Meta falló suelto); más de 2 horas sin reconectar, sí', async () => {
+  metaFalso({ falla: true });
+  await reconectarWebhookWhatsapp(env);
+  metaFalso();
+  await reconectarWebhookWhatsapp(env);
+  metaFalso({ falla: true });
+  await reconectarWebhookWhatsapp(env);
+  assert.equal(filasHoja.length, 0); // el contador de fallos va en 2, pero WhatsApp se reconectó hace un momento
+  await env.CONVERSACIONES.put('wa:webhook:ultima', new Date(Date.now() - 3 * 3600 * 1000).toISOString());
+  await reconectarWebhookWhatsapp(env);
+  assert.equal(filasHoja.length, 1);
+  assert.equal(filasHoja[0].nombre, 'WhatsApp sin conexión');
+});
+
 test('Sin los ids de la app y de la cuenta no hace nada (por ejemplo, en desarrollo local)', async () => {
   metaFalso();
   delete config.WA_APP_ID;
