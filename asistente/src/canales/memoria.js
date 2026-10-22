@@ -1,8 +1,8 @@
 /**
  * Memoria de cada conversación de WhatsApp e Instagram en Cloudflare KV
  * (plan gratuito: 1.000 escrituras al día). Por mensaje se escribe el estado al
- * final, y otra vez si la hoja respondió; en WhatsApp, además, el contador del
- * cupo y, si va a la IA, la marca de que se está atendiendo (yaAtendidoEnOtra).
+ * final, y otra vez si la hoja respondió; si va a la IA, la marca de que se está
+ * atendiendo (yaAtendidoEnOtra); en WhatsApp, además, el contador del cupo.
  * WhatsApp e Instagram no mandan el historial, así que se guarda aquí:
  *   mensajes   — últimos turnos, ya SIN datos personales (lo que ve la IA)
  *   procesados — ids de mensajes ya atendidos (Meta reintenta y duplica avisos)
@@ -28,8 +28,8 @@
 const TREINTA_DIAS = 60 * 60 * 24 * 30;
 
 // Mensajes que esta instancia ya está atendiendo. Meta a veces repite el mismo aviso casi al instante: así se ignora sin
-// tocar KV. Si la repetición cae en otra instancia, la frena estado.procesados, que se guarda al final de la vuelta; en
-// WhatsApp, mientras baja la foto y piensa la IA, también la marca de yaAtendidoEnOtra.
+// tocar KV. Si la repetición cae en otra instancia, la frena estado.procesados, que se guarda al final de la vuelta, y,
+// mientras baja la foto y piensa la IA, la marca de yaAtendidoEnOtra (WhatsApp e Instagram).
 const enCurso = new Set();
 
 /** true si el mensaje ya se está atendiendo en esta instancia; si no, lo marca. */

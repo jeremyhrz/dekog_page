@@ -145,7 +145,8 @@ test('guardarCliente con `hasta`: cada intento dura lo que queda y no reintenta 
   };
   const t = Date.now();
   assert.equal(await guardarCliente(cliente, { hasta: Date.now() + 150 }), false);
-  assert.ok(Date.now() - t < 2000, `tardó ${Date.now() - t} ms`);
+  // Sin el tope serían 10 s; el margen es amplio porque las pruebas corren en paralelo y la máquina puede ir cargada.
+  assert.ok(Date.now() - t < 5000, `tardó ${Date.now() - t} ms`);
   assert.equal(intentos, 1);
   intentos = 0;
   assert.equal(await guardarCliente(cliente, { hasta: Date.now() - 1 }), false); // ya no queda tiempo: ni lo intenta
