@@ -59,24 +59,50 @@ async function enviadosEsteMes(env, phoneId) {
   return Number(await env.CONVERSACIONES?.get(claveCupo(phoneId))) || 0;
 }
 
-async function contarEnvio(env, phoneId) {
-  if (!env.CONVERSACIONES) return;
-  const n = (await enviadosEsteMes(env, phoneId)) + 1;
-  await env.CONVERSACIONES.put(claveCupo(phoneId), String(n), { expirationTtl: CUARENTA_DIAS });
-  const { cupo, tope, aviso } = cupoMensual();
-  if (cupo > 0 && n === aviso) {
-    await guardarCliente({
-      conversacion: `aviso-cupo-whatsapp-${mesActual()}`,
-      cliente: { nombre: '⚠️ AVISO DEL ASISTENTE', telefono: '', ciudad: '' },
-      interes: `WhatsApp: ${n} de ${cupo} respuestas gratis usadas este mes`,
-      resumen: `Al llegar a ${tope}, el asistente de WhatsApp pasará a los clientes nuevos directo a la Línea 01 hasta el día 1 del próximo mes. Para no tener tope, carguen un método de pago en Meta.`,
-      canal: 'Sistema',
-    });
+/**
+ * Suma al cupo los mensajes de esta vuelta que aún no se contaron, con UNA escritura. KV admite 1 escritura por segundo
+ * en la misma clave (la segunda lanza 429): contando cada envío, la promo que sale justo después de la respuesta no se
+ * contaba (22-oct). Si otra vuelta escribió el contador en ese segundo (dos clientes a la vez), se reintenta 1,1 s
+ * después sumando sobre lo último guardado, como guardarEstado. Nunca lanza.
+ */
+async function contarEnvios(env, vuelta) {
+  const n = vuelta.enviados - vuelta.contados;
+  if (n <= 0 || !env.CONVERSACIONES) return;
+  vuelta.contados = vuelta.enviados;
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const antes = await enviadosEsteMes(env, vuelta.phoneId);
+      await env.CONVERSACIONES.put(claveCupo(vuelta.phoneId), String(antes + n), { expirationTtl: CUARENTA_DIAS });
+      // Al cruzar el 80 % (una vuelta puede sumar 2: de 799 a 801), el aviso en la hoja. Se espera al final de la vuelta
+      // (atenderMensaje): no demora la memoria ni la hoja del cliente.
+      const { cupo, aviso } = cupoMensual();
+      if (cupo > 0 && antes < aviso && antes + n >= aviso) vuelta.avisoDelCupo = avisarCupo(antes + n);
+      return;
+    } catch (e) {
+      if (intento === 2) {
+        console.warn('No se pudo contar el envío:', e?.message);
+        return;
+      }
+      await new Promise((listo) => setTimeout(listo, 1100));
+    }
   }
 }
 
-async function enviar(env, phoneId, carga) {
-  const r = await fetch(`${graph()}/${phoneId}/messages`, {
+/** El aviso del 80 % del cupo: una fila «Sistema» en la hoja de clientes (llega por correo). Nunca lanza. */
+function avisarCupo(n) {
+  const { cupo, tope } = cupoMensual();
+  return guardarCliente({
+    conversacion: `aviso-cupo-whatsapp-${mesActual()}`,
+    cliente: { nombre: '⚠️ AVISO DEL ASISTENTE', telefono: '', ciudad: '' },
+    interes: `WhatsApp: ${n} de ${cupo} respuestas gratis usadas este mes`,
+    resumen: `Al llegar a ${tope}, el asistente de WhatsApp pasará a los clientes nuevos directo a la Línea 01 hasta el día 1 del próximo mes. Para no tener tope, carguen un método de pago en Meta.`,
+    canal: 'Sistema',
+  }).catch((e) => console.warn('No se pudo anotar el aviso del cupo:', e?.message));
+}
+
+/** Manda un mensaje (o el «leído») desde el número de esta vuelta. Lo que Meta acepta queda en `vuelta.enviados`. */
+async function enviar(vuelta, carga) {
+  const r = await fetch(`${graph()}/${vuelta.phoneId}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${config.WA_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ messaging_product: 'whatsapp', ...carga }),
@@ -85,8 +111,9 @@ async function enviar(env, phoneId, carga) {
     const j = await r.json().catch(() => ({}));
     console.warn('WhatsApp rechazó el envío:', r.status, j?.error?.code, j?.error?.message);
   } else if (carga.type) {
-    // Solo los mensajes cuentan para el cupo; "leído" y "escribiendo…" no son mensajes entregados.
-    await contarEnvio(env, phoneId).catch((e) => console.warn('No se pudo contar el envío:', e?.message));
+    // Solo los mensajes cuentan para el cupo; "leído" y "escribiendo…" no son mensajes entregados. Se guardan en KV una
+    // sola vez por vuelta (contarEnvios).
+    vuelta.enviados += 1;
   }
   return r.ok;
 }
@@ -109,8 +136,15 @@ const CAMPOS_DE_CUENTA = new Set([
 // Lo que el cliente manda sin texto: con estos se le ofrece la asesora (un aviso al día, salvo la foto que no se pudo
 // abrir); el resto (stickers, reacciones, ediciones, avisos del sistema, tipos nuevos) se ignora sin responder ni gastar
 // cupo ni escrituras de KV. Un sticker es un «👍» o un «gracias»: contestarle «no puedo ver videos» sobraba (21-oct).
+// Una foto, un video o un documento pueden traer texto (su pie): ese lo responde la IA.
 const SIN_TEXTO = new Set(['image', 'audio', 'video', 'document', 'location', 'contacts']);
 const CON_TEXTO = new Set(['text', 'interactive', 'button']);
+// Delante del pie de un video o un documento, en el historial: la IA sabe que no lo ve (si es de un modelo, pide una
+// captura) en vez de responder como si lo hubiera visto.
+const NOTA_SIN_VER = {
+  video: '[Video del cliente: no lo puedes ver]',
+  document: '[Documento del cliente: no lo puedes abrir]',
+};
 const AVISO_SIN_TEXTO = {
   audio: 'Por ahora no puedo escuchar notas de voz 🙏 Escríbeme tu pregunta y te respondo al instante, o habla directo con una asesora de Dekog.',
   video: 'Por ahora no puedo ver videos 🙏 Si es de un modelo, mándame una foto o una captura y te digo cuál es, o habla directo con una asesora de Dekog.',
@@ -159,7 +193,7 @@ export async function whatsappPost(request, env, ctx) {
       }
       if (cambio.field !== 'messages') continue; // otros avisos (plantillas, ecos…) no son de clientes
       for (const mensaje of valor.messages ?? []) {
-        ctx.waitUntil(procesar(valor, mensaje, env).catch((e) => console.error('Error con un mensaje de WhatsApp:', e)));
+        ctx.waitUntil(atenderMensaje(valor, mensaje, env).catch((e) => console.error('Error con un mensaje de WhatsApp:', e)));
       }
       // Meta acepta el envío y, si luego no puede entregarlo, avisa aquí con el código del error.
       // Solo se registra el código (nunca el teléfono ni el texto) para poder diagnosticar.
@@ -191,7 +225,8 @@ function textoDe(mensaje) {
   if (mensaje.type === 'text') return mensaje.text?.body ?? '';
   if (mensaje.type === 'interactive') return mensaje.interactive?.button_reply?.title ?? mensaje.interactive?.list_reply?.title ?? '';
   if (mensaje.type === 'button') return mensaje.button?.text ?? '';
-  if (mensaje.type === 'image') return mensaje.image?.caption ?? ''; // el pie de la foto
+  // El pie de la foto, del video o del documento (la Cloud API lo manda en los tres).
+  if (mensaje.type === 'image' || mensaje.type === 'video' || mensaje.type === 'document') return mensaje[mensaje.type]?.caption ?? '';
   return '';
 }
 
@@ -206,7 +241,7 @@ const promoMandada = new Set(); // en esta instancia: dos mensajes seguidos del 
  * La promo (lib/promo.js) UNA vez por cliente y por promo, después de la bienvenida: la imagen, el texto y el botón
  * «Ver ofertas» en un solo mensaje (1 del cupo). Si Meta rechaza el botón, la imagen con el enlace; si tampoco, el texto.
  */
-async function enviarPromoSiToca(env, phoneId, base, clave, estado) {
+async function enviarPromoSiToca(env, vuelta, base, clave, estado) {
   const promo = promoActiva();
   if (!promo || estado.promoVista === promo.id) return;
   estado.promoVista = promo.id;
@@ -215,18 +250,72 @@ async function enviarPromoSiToca(env, phoneId, base, clave, estado) {
   if (promoMandada.has(marca) || (await cargarEstado(env.CONVERSACIONES, clave)).promoVista === promo.id) return;
   promoMandada.add(marca);
   if (promoMandada.size > 500) promoMandada.delete(promoMandada.values().next().value);
-  if (await enviar(env, phoneId, { ...base, ...promoParaWhatsapp(promo) })) return;
-  if (await enviar(env, phoneId, { ...base, ...promoParaWhatsappSinBoton(promo) })) return;
-  await enviar(env, phoneId, { ...base, type: 'text', text: { body: textoDeLaPromo(promo, { formato: true }), preview_url: true } });
+  if (await enviar(vuelta, { ...base, ...promoParaWhatsapp(promo) })) return;
+  if (await enviar(vuelta, { ...base, ...promoParaWhatsappSinBoton(promo) })) return;
+  await enviar(vuelta, { ...base, type: 'text', text: { body: textoDeLaPromo(promo, { formato: true }), preview_url: true } });
 }
 
-/** Envía la vitrina como UNA lista; si Meta la rechaza, el mismo contenido en texto. Siempre 1 mensaje del cupo. */
-async function enviarVitrina(env, phoneId, base, v, texto) {
-  const ok = await enviar(env, phoneId, { ...base, type: 'interactive', interactive: listaDeVitrina(v, texto) });
-  if (!ok) await enviar(env, phoneId, { ...base, type: 'text', text: { body: textoDeVitrinaWa(v, texto), preview_url: false } });
+// El pie de una foto admite 1024 caracteres: si los precios y las asesoras le dejan menos que esto al texto de la IA (y
+// el texto no cabe entero), va todo en un mensaje de texto (4096), sin la foto. También es 1 mensaje del cupo.
+const MINIMO_TEXTO_DEL_PIE = 120;
+
+/**
+ * El texto con la cola que arma el servidor al final (los precios en Bs, las asesoras), siempre entera: si no cabe todo
+ * en `maximo`, se recorta el texto (conCola de meta.js). Sin cola, solo el texto recortado.
+ */
+export function textoConCola(texto, cola, maximo) {
+  const corto = sinEnlacePartido(texto, recortar(texto, cola ? Math.max(1, maximo - cola.length - 2) : maximo));
+  return cola ? conCola(corto, cola, maximo) : corto;
 }
 
-async function procesar(valor, mensaje, env) {
+/**
+ * Un párrafo con un enlace va entero o no va: el enlace del catálogo de ofertas va al final del texto de la IA (lo pega
+ * chat.js), que es lo que se recorta, y partido no abre o abre otra página. Si el corte cae en un párrafo con un
+ * enlace, se va ese párrafo; si es el primero, se corta antes del enlace. `corto`: el texto ya recortado con «…».
+ */
+function sinEnlacePartido(texto, corto) {
+  if (corto === texto) return texto;
+  const queda = corto.length - 1; // lo que quedó del texto, sin el «…»
+  let inicio = 0;
+  for (const parrafo of texto.split('\n\n')) {
+    const fin = inicio + parrafo.length;
+    if (queda <= fin) {
+      const enlace = parrafo.search(/https?:\/\/|www\./i);
+      if (enlace < 0 || (inicio === 0 && enlace >= queda)) return corto;
+      return `${texto.slice(0, inicio > 0 ? inicio - 2 : enlace).trimEnd()}…`;
+    }
+    inicio = fin + 2;
+  }
+  return corto;
+}
+
+/**
+ * Envía la vitrina como UNA lista; si Meta la rechaza, el mismo contenido en texto. Siempre 1 mensaje del cupo.
+ * `asesoras`: si en la misma respuesta pasa a una asesora, sus enlaces van dentro del cuerpo, enteros.
+ */
+async function enviarVitrina(vuelta, base, v, texto, asesoras = '') {
+  // La lista (1024) termina con la guía y el enlace del catálogo (meta.js): el texto y las asesoras van en lo que queda.
+  const cuerpo = asesoras ? textoConCola(texto, asesoras, 1024 - listaDeVitrina(v, '').body.text.length - 2) : texto;
+  const ok = await enviar(vuelta, { ...base, type: 'interactive', interactive: listaDeVitrina(v, cuerpo) });
+  if (!ok) await enviar(vuelta, { ...base, type: 'text', text: { body: textoDeVitrinaWa(v, cuerpo), preview_url: false } });
+}
+
+/**
+ * Atiende un mensaje y cuenta en el cupo lo que se le mandó al cliente. procesar lo cuenta antes de la hoja (puede tardar
+ * hasta 20 s, y el Worker corta a los 30); lo que quede, aquí al final. Si algo lanza a mitad de la vuelta (un fetch a
+ * Meta que falla por la red), lo que ya salió se cuenta igual.
+ */
+async function atenderMensaje(valor, mensaje, env) {
+  const vuelta = { phoneId: valor.metadata?.phone_number_id, enviados: 0, contados: 0, avisoDelCupo: null };
+  try {
+    await procesar(valor, mensaje, env, vuelta);
+  } finally {
+    await contarEnvios(env, vuelta);
+    await vuelta.avisoDelCupo; // el aviso del 80 %, si esta vuelta lo cruzó
+  }
+}
+
+async function procesar(valor, mensaje, env, vuelta) {
   // Clave estable de la conversación: el BSUID (from_user_id) llega siempre; el número (from)
   // puede faltar si el cliente usa nombre de usuario en WhatsApp.
   const usuario = mensaje.from_user_id ?? mensaje.from;
@@ -255,7 +344,7 @@ async function procesar(valor, mensaje, env) {
   if (estado.hoy.n > topeDiario()) {
     if (estado.hoy.avisado) return;
     estado.hoy.avisado = true;
-    await enviar(env, phoneId, {
+    await enviar(vuelta, {
       ...base,
       type: 'text',
       text: { body: `Para seguir atendiéndote hoy, escríbele directo a una asesora de Dekog 😊\n\n${asesoras}`, preview_url: false },
@@ -272,12 +361,13 @@ async function procesar(valor, mensaje, env) {
   if (cupo > 0 && enviados >= tope) {
     if (estado.avisoCupo === mesActual()) return;
     estado.avisoCupo = mesActual();
-    await enviar(env, phoneId, {
+    await enviar(vuelta, {
       ...base,
       type: 'text',
       text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a una de nuestras asesoras:\n\n${asesoras}`, preview_url: false },
     });
-    // Primero la memoria y después la hoja: si la hoja tarda, al menos no se le vuelve a avisar.
+    // Primero el cupo y la memoria, después la hoja: si la hoja tarda, el aviso ya quedó contado y no se le vuelve a dar.
+    await contarEnvios(env, vuelta);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     if (mensaje.from) {
       await guardarCliente({
@@ -291,18 +381,18 @@ async function procesar(valor, mensaje, env) {
     return;
   }
 
-  // Nota de voz, video, ubicación o archivo cuando ya se le avisó hoy que no se pueden leer: silencio, sin «escribiendo…»
-  // (si sigue mandando audios, no se le repite el mismo aviso cada vez; 21-oct).
-  const sinLeer = !CON_TEXTO.has(mensaje.type) && mensaje.type !== 'image';
+  // Nota de voz, video, ubicación o archivo SIN texto cuando ya se le avisó hoy que no se pueden leer: silencio, sin
+  // «escribiendo…» (si sigue mandando audios, no se le repite el mismo aviso cada vez; 21-oct). Con texto, se responde.
+  const texto = textoDe(mensaje).trim().slice(0, 800);
+  const sinLeer = !CON_TEXTO.has(mensaje.type) && mensaje.type !== 'image' && !texto;
   if (sinLeer && estado.avisoSinLeer === hoy) {
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
 
   // "Leído" y "escribiendo…" mientras piensa (no consume cupo).
-  await enviar(env, phoneId, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
+  await enviar(vuelta, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
 
-  const texto = textoDe(mensaje).trim().slice(0, 800);
   // Una foto (de la web, del catálogo o de cualquier lado): la IA la compara con el catálogo (lib/imagen.js).
   const imagen = mensaje.type === 'image' ? await fotoDeWhatsapp(mensaje.image?.id) : null;
   if (!texto && !imagen) {
@@ -314,18 +404,19 @@ async function procesar(valor, mensaje, env) {
     const aviso = foto
       ? 'No pude abrir esa foto 🙏 ¿Me la reenvías, o me escribes qué modelo buscas? También puedes hablar directo con una asesora de Dekog.'
       : AVISO_SIN_TEXTO[mensaje.type] ?? AVISO_SIN_TEXTO.otro;
-    await enviar(env, phoneId, {
+    await enviar(vuelta, {
       ...base,
       type: 'text',
       text: { body: `${presentarse(aviso, estado.mensajes.length === 0)}\n\n${asesoras}`, preview_url: false },
     });
-    await enviarPromoSiToca(env, phoneId, base, clave, estado);
+    await enviarPromoSiToca(env, vuelta, base, clave, estado);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
 
   const escrito = ocultarDatosPersonales(texto);
-  estado.mensajes.push({ role: 'user', content: imagen ? `${NOTA_FOTO}${escrito ? ` ${escrito}` : ''}` : escrito });
+  const nota = imagen ? NOTA_FOTO : NOTA_SIN_VER[mensaje.type] ?? '';
+  estado.mensajes.push({ role: 'user', content: [nota, escrito].filter(Boolean).join(' ') });
 
   // Tocó una fila de la vitrina: se responde SIN IA (al instante y sin gastar Gemini), con UN mensaje.
   const eleccion = eleccionDeMensaje(mensaje);
@@ -333,8 +424,8 @@ async function procesar(valor, mensaje, env) {
     const ficha = fichaElegida(eleccion.id, await tasaBcv());
     // La misma foto que acaba de ver: solo el texto.
     const conFoto = productosNuevos(estado, [ficha.tarjeta]).length > 0;
-    const listo = conFoto && await enviar(env, phoneId, { ...base, type: 'image', image: { link: fotoParaCanales(ficha.tarjeta.id), caption: recortar(ficha.caption, 1024) } });
-    if (!listo) await enviar(env, phoneId, { ...base, type: 'text', text: { body: recortar(ficha.caption, 4096), preview_url: false } });
+    const listo = conFoto && await enviar(vuelta, { ...base, type: 'image', image: { link: fotoParaCanales(ficha.tarjeta.id), caption: recortar(ficha.caption, 1024) } });
+    if (!listo) await enviar(vuelta, { ...base, type: 'text', text: { body: recortar(ficha.caption, 4096), preview_url: false } });
     estado.mensajes.push({ role: 'assistant', content: ficha.texto });
     estado.interes = ficha.interes;
     await guardarEstado(env.CONVERSACIONES, clave, estado);
@@ -343,7 +434,7 @@ async function procesar(valor, mensaje, env) {
   if (eleccion?.tipo === 'mas') {
     const v = vitrinaSiguiente(eleccion.clave, estado.mensajes);
     const intro = `Más ${v.titulo.toLowerCase()} para elegir.`;
-    await enviarVitrina(env, phoneId, base, v, intro);
+    await enviarVitrina(vuelta, base, v, intro);
     estado.mensajes.push({ role: 'assistant', content: `${intro}\n\n${v.nota}` });
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
@@ -351,33 +442,38 @@ async function procesar(valor, mensaje, env) {
 
   const r = await pensar(estado.mensajes, 'whatsapp', { imagen, kv: env.CONVERSACIONES });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
-  // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Con asesora, los enlaces de las dos.
-  const vitrina = r.whatsapp ? null : r.vitrina;
+  // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Si en la misma respuesta pasa a una asesora,
+  // sus enlaces van dentro de la lista: la vitrina nunca se descarta (antes salía solo el pase, con un texto que pedía
+  // tocar un «Ver modelos» que no llegaba).
+  const { vitrina } = r;
   // La foto y el precio solo van cuando cambian: si el cliente pregunta por el pago o el envío del
   // mismo producto, repetir la misma foto se siente robótico. Con vitrina, los modelos van en la lista.
   const nuevos = vitrina ? [] : productosNuevos(estado, r.productos);
   const [principal] = nuevos;
   // Pidió el monto en bolívares (o la respuesta lo promete) del MISMO producto: la foto no se repite, el precio sí.
   const repetidos = !vitrina && !nuevos.length && pideBolivares(texto, respuesta) ? r.productos : [];
-  const cuerpo = [respuesta, [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
+  const precios = [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n');
 
   // Pasa a una asesora: los enlaces de las DOS (Línea 1 y Línea 2) con el resumen ya escrito, cortos (lib/enlaces.js),
   // al final del mismo mensaje y siempre enteros (conCola). Antes era un botón con una sola línea (21-oct).
   const asesorasDelPase = r.whatsapp ? bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) : '';
+  // Los precios en REF y Bs y las asesoras los arma el servidor: van enteros al final y, si no cabe todo, se recorta el
+  // texto de la IA (antes el pie de foto cortaba por el final y lo primero que se perdía eran los precios en Bs).
+  const cola = [precios, asesorasDelPase].filter(Boolean).join('\n\n');
+  const libre = 1024 - cola.length - 2; // lo que le queda al texto de la IA en el pie de foto
   let enviado = false;
   if (vitrina) {
-    await enviarVitrina(env, phoneId, base, vitrina, cuerpo);
+    await enviarVitrina(vuelta, base, vitrina, respuesta, asesorasDelPase);
     enviado = true;
-  } else if (principal) {
-    const caption = asesorasDelPase ? conCola(cuerpo, asesorasDelPase, 1024) : recortar(cuerpo, 1024);
-    enviado = await enviar(env, phoneId, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption } });
+  } else if (principal && (respuesta.length <= libre || libre >= MINIMO_TEXTO_DEL_PIE)) {
+    const caption = textoConCola(respuesta, cola, 1024);
+    enviado = await enviar(vuelta, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption } });
   }
-  if (!enviado) {
-    const body = asesorasDelPase ? conCola(cuerpo, asesorasDelPase, 4096) : recortar(cuerpo, 4096);
-    await enviar(env, phoneId, { ...base, type: 'text', text: { body, preview_url: false } });
-  }
+  if (!enviado) await enviar(vuelta, { ...base, type: 'text', text: { body: textoConCola(respuesta, cola, 4096), preview_url: false } });
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su botón.
-  await enviarPromoSiToca(env, phoneId, base, clave, estado);
+  await enviarPromoSiToca(env, vuelta, base, clave, estado);
+  // Ya salió todo: el cupo se cuenta ahora, con una sola escritura y antes de la hoja (puede tardar hasta 20 s).
+  await contarEnvios(env, vuelta);
   // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
   estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
@@ -444,11 +540,15 @@ export async function reconectarWebhookWhatsapp(env, origen = config.ASISTENTE_U
   console.error('No se pudo reconectar el webhook de WhatsApp:', webhook.error?.message ?? '', '|', suscripcion.error?.message ?? '');
   const kv = env.CONVERSACIONES;
   try {
-    // Un fallo suelto de Meta no avisa: solo el segundo seguido (el contador vence a las 3 horas).
+    // Un fallo suelto de Meta no avisa: hace falta otro (el contador vence a las 3 horas) y que la última reconexión
+    // buena tenga más de 2 horas. El contador no se reinicia al reconectar bien: fallo, éxito y fallo no son dos horas
+    // seguidas sin WhatsApp, y avisaban igual.
     const fallos = Number(await kv?.get('wa:webhook:fallos') ?? 0) + 1;
     await kv?.put('wa:webhook:fallos', String(fallos), { expirationTtl: 3 * 3600 });
+    const ultima = await kv?.get('wa:webhook:ultima');
+    const reconectoHacePoco = Boolean(ultima) && Date.now() - Date.parse(ultima) < 2 * 3600 * 1000;
     const hoy = hoyCaracas();
-    if (fallos >= 2 && !(await kv?.get(`wa:webhook:aviso:${hoy}`))) {
+    if (fallos >= 2 && !reconectoHacePoco && !(await kv?.get(`wa:webhook:aviso:${hoy}`))) {
       await kv?.put(`wa:webhook:aviso:${hoy}`, '1', { expirationTtl: 48 * 3600 });
       await guardarCliente({
         conversacion: `sistema-wa-${hoy}`,
