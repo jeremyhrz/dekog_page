@@ -84,6 +84,20 @@ test('Dos vueltas a la vez, una manda un número nuevo: queda su huella, guarde 
   }
 });
 
+test('Instagram, dos vueltas a la vez en una pausa: queda cuándo llegó su número a la hoja; el datosTomados de antes se va', async () => {
+  for (const orden of [['a', 'b'], ['b', 'a']]) {
+    const kv = kvEnMemoria();
+    // datosTomados: lo que anotaba la versión de antes del 22-oct, también con un nombre suelto.
+    await kv.put('ig:X', JSON.stringify({ mensajes: [], humano: 1000, datosTomados: 2000 }));
+    const vueltas = { a: await cargarEstado(kv, 'ig:X'), b: await cargarEstado(kv, 'ig:X') };
+    vueltas.a.numeroTomado = 3000; // «a» mandó su número a la hoja; «b» no
+    for (const quien of orden) await guardarEstado(kv, 'ig:X', vueltas[quien]);
+    const guardado = await kv.get('ig:X', 'json');
+    assert.equal(guardado.numeroTomado, 3000, orden.join(' y luego '));
+    assert.equal(guardado.datosTomados, undefined, orden.join(' y luego '));
+  }
+});
+
 test('Lo que le interesa también es novedad para la hoja: otro modelo sí, el mismo o ninguno no; el de antes del 22-oct, una vez', async () => {
   const kv = kvEnMemoria();
   const interesado = true;

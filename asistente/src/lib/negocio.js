@@ -17,6 +17,9 @@ export const lineas = {
   '02': { numero: '584244006086', nombre: 'Arquitectura', etiqueta: 'Línea 2', visible: '0424-400 6086' },
 };
 
+// El número de ESTE asistente (el 0412-4423350 de `datos`): si un cliente lo escribe, no es el suyo (canales/meta.js).
+export const numeroDelAsistente = '584124423350';
+
 /** Las dos asesoras con su wa.me sin texto (avisos cortos de WhatsApp, donde no hace falta el resumen). */
 export const asesorasDirectas = () => Object.values(lineas)
   .map((l) => ({ etiqueta: l.etiqueta, visible: l.visible, url: `https://wa.me/${l.numero}` }));

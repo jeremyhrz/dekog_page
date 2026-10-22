@@ -192,6 +192,50 @@ test('extraerTelefono: solo números con forma de teléfono, sin montos, cédula
   assert.ok(performance.now() - t0 < 50, 'extraerTelefono tardó demasiado');
 });
 
+test('Los números de Dekog (las dos líneas y el del asistente) no son su teléfono, ni pisan el suyo en la hoja', async () => {
+  for (const [texto, telefono] of [
+    ['Ya le escribí al 0414-584 7791', ''],
+    ['¿El +58 414 5847791 es de ustedes?', ''],
+    ['584244006086', ''],
+    ['Le escribí al 0412-4423350', ''],
+    ['al 0424 4006086 no me contestan, el mío es 0412-111-2233', '04121112233'],
+  ]) assert.equal(extraerTelefono(texto), telefono, texto);
+  instagramFalso();
+  const ig = (text) => entregar(instagramPost, avisoIg({ text }, 'IGSID9'), SECRETO_IG, env);
+  await ig('Quiero comprar la Toronto queen. Mi número es 0412-111-2233');
+  assert.equal(filasHoja.length, 1);
+  await ig('Listo, ya le escribí a la Línea 1 al 0414-584 7791');
+  assert.equal(filasHoja.length, 1); // su fila conserva 04121112233
+  assert.equal(JSON.parse(env.CONVERSACIONES.datos.get('ig:IGSID9')).telefonoEnHoja, '2233');
+});
+
+test('Los números de Dekog como los publica la web («+58 414 584 7791»): ni enteros ni a pedazos son su teléfono', async () => {
+  const nbsp = String.fromCharCode(0xa0); // la página de contacto los escribe con espacios que no cortan
+  for (const [texto, telefono] of [
+    ['+58 414 584 7791', ''], // daba «+58414584»: un pedazo
+    [`Línea 1: +58${nbsp}414${nbsp}584${nbsp}7791`, ''],
+    ['+58 424 400 6086', ''],
+    ['+58 412 442 3350', ''],
+    ['+58 0414 584 7791', ''],
+    ['+58 (414) 584 7791', ''],
+    ['+58 414 584 77 91', ''],
+    ['Le escribí al +58 414 584 7791 2 veces', ''],
+    // El suyo, antes o después del de Dekog, sí.
+    ['Ya le escribí al +58 414 584 7791, el mío es 0412-111-2233', '04121112233'],
+    ['0412-111-2233 0414-584 7791', '04121112233'],
+    ['0414-584 7791 0412-111-2233', '04121112233'],
+    ['+58 414 584 7791 +58 412 111 2233', '+584121112233'],
+    ['+58 414 555 12 34', '+584145551234'],
+    ['+58 212 555 1234', '+582125551234'],
+  ]) assert.equal(extraerTelefono(texto), telefono, texto);
+  instagramFalso();
+  const ig = (text) => entregar(instagramPost, avisoIg({ text }, 'IGSID9'), SECRETO_IG, env);
+  await ig('Quiero comprar la Toronto queen. Mi número es 0412-111-2233');
+  await ig('Listo, ya le escribí al +58 414 584 7791');
+  assert.equal(filasHoja.length, 1); // su fila conserva 04121112233
+  assert.equal(JSON.parse(env.CONVERSACIONES.datos.get('ig:IGSID9')).telefonoEnHoja, '2233');
+});
+
 test('nombreEscrito: una pregunta o «soy de / la / un…» no traen un nombre', () => {
   assert.equal(nombreEscrito('Soy de Maracay, ¿cuánto sale el envío?'), '');
   assert.equal(nombreEscrito('Soy de Valencia'), '');
