@@ -6,6 +6,8 @@ import { pageTransition, animatePresenceConfig } from './utils/animations';
 // ─── Layout ──────────────────────────────────────────────────────────────────
 import Layout from './components/Layout';
 import SelectorWhatsapp from './components/SelectorWhatsapp';
+// Sin carga perezosa: el aviso de error tiene que estar aunque no cargue el archivo de una página.
+import NoEncontrada, { ErrorDePagina } from './pages/NoEncontrada';
 
 // ─── Páginas reales cargadas perezosamente (Code Splitting) ───────────────────
 const Home            = lazy(() => import('./pages/Home'));
@@ -148,6 +150,8 @@ function AppContent() {
         └─────────────────────────────────────────────────────────────────┘
       */}
       <Suspense fallback={<PageLoader />}>
+        {/* Si una página falla al pintarse, un aviso con los WhatsApp en vez de la página en blanco. */}
+        <ErrorDePagina ruta={location.key}>
         <Routes>
           <Route element={<Layout {...layoutProps} />}>
 
@@ -220,6 +224,15 @@ function AppContent() {
               </AnimatePresence>
             } />
 
+            {/* ── Cualquier otra ruta (antes, en blanco): utils/rutas.js ── */}
+            <Route path="*" element={
+              <AnimatePresence {...animatePresenceConfig}>
+                <PageWrapper key="no-encontrada">
+                  <NoEncontrada />
+                </PageWrapper>
+              </AnimatePresence>
+            } />
+
           </Route>
 
             {/* ── /links (Link in Bio — sin Layout/Navbar/Footer) ──── */}
@@ -232,6 +245,7 @@ function AppContent() {
             } />
 
           </Routes>
+        </ErrorDePagina>
       </Suspense>
 
       {/* ── Drawer del carrito (persiste entre rutas) ─────────────────── */}

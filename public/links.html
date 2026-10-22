@@ -1,8 +1,9 @@
 <!doctype html>
 <!--
   /links (el enlace de la bio de Instagram) como página propia, sin el JavaScript del resto de la web: abre al instante
-  aunque la señal sea mala. vercel.json reescribe /links a este archivo. En `npm run dev` se ve la versión de React
-  (src/pages/LinksPage.jsx): si cambias una tarjeta aquí, cámbiala también allá.
+  aunque la señal sea mala. vercel.json reescribe /links a este archivo, y también /a y /a/: el enlace a la asesora que
+  Instagram cortó en la última «/» (21-oct). Por eso cada línea lleva su número, el mismo que dice el pase del asistente.
+  En `npm run dev` se ve la versión de React (src/pages/LinksPage.jsx): si cambias una tarjeta aquí, cámbiala también allá.
   Las fotos de abajo cargan a medida que se baja (loading="lazy"), y las tres tarjetas de WhatsApp comparten una sola.
 -->
 <html lang="es">
@@ -78,6 +79,7 @@
       border: 1px solid rgba(255, 255, 255, 0.07);
     }
     .g-t { font-family: 'Playfair Display', Georgia, serif; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; color: #fff; line-height: 1.2; }
+    .g-n { font-size: 0.85rem; color: #fff; margin-top: 4px; letter-spacing: 0.06em; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .g-s { font-size: 0.6rem; color: #fff; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.75; }
     footer { margin-top: 60px; padding: 0 25px 25px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
     .g-redes { display: flex; gap: 20px; color: rgba(31, 31, 36, 0.45); }
@@ -110,19 +112,19 @@
         </div>
       </a>
 
-      <a class="g-card" href="https://wa.me/584145847791?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 1 por WhatsApp: asesorías y ventas">
+      <a class="g-card" href="https://wa.me/584145847791?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 1 por WhatsApp, 0414-584 7791: asesorías y ventas">
         <span class="g-tag" aria-hidden="true">Contacto</span>
         <div class="g-screen">
           <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="900">
-          <div class="g-texto"><div class="g-t">Línea 1</div><div class="g-s">Asesorías y ventas</div></div>
+          <div class="g-texto"><div class="g-t">Línea 1</div><div class="g-n">0414-584 7791</div><div class="g-s">Asesorías y ventas</div></div>
         </div>
       </a>
 
-      <a class="g-card" href="https://wa.me/584244006086?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 2 por WhatsApp: asesorías y ventas">
+      <a class="g-card" href="https://wa.me/584244006086?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 2 por WhatsApp, 0424-400 6086: asesorías y ventas">
         <span class="g-tag" aria-hidden="true">Contacto</span>
         <div class="g-screen">
           <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="900">
-          <div class="g-texto"><div class="g-t">Línea 2</div><div class="g-s">Asesorías y ventas</div></div>
+          <div class="g-texto"><div class="g-t">Línea 2</div><div class="g-n">0424-400 6086</div><div class="g-s">Asesorías y ventas</div></div>
         </div>
       </a>
 

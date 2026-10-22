@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/compatibilidad.mjs",
     "build": "vite build",
+    "postbuild": "node scripts/compatibilidad.mjs --salida",
     "lint": "eslint .",
     "preview": "vite preview",
     "asistente:dev": "wrangler dev --config asistente/wrangler.toml",

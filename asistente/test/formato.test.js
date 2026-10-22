@@ -2,12 +2,13 @@
 // sin azul (el de la asesora llevaba a dekog.net/a). Y la dueña pidió las DOS asesoras en cada pase. IA: «prueba».
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECRETO_WA, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa } from './ayuda.js';
+import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg } from './ayuda.js';
+import { config } from '../src/lib/config.js';
 import { enlacesEnSuLinea, bloqueAsesoras, conCola } from '../src/canales/meta.js';
-import { textoParaInstagram, partirPorBytes, MARCA } from '../src/canales/instagram.js';
+import { textoParaInstagram, partirPorBytes, instagramPost, MARCA } from '../src/canales/instagram.js';
 import { whatsappPost } from '../src/canales/whatsapp.js';
-import { lineas, asesorasDirectas } from '../src/lib/negocio.js';
-import { LINEAS_WHATSAPP } from '../../src/utils/whatsapp.js';
+import { lineas, asesorasDirectas, numeroDelAsistente } from '../src/lib/negocio.js';
+import { LINEAS_WHATSAPP, WHATSAPP } from '../../src/utils/whatsapp.js';
 import { pensar, prometeBotonDeAsesora } from '../src/chat.js';
 
 let env;
@@ -42,6 +43,42 @@ test('Instagram: al partir un texto largo nunca se parte un enlace, y ningún tr
   }
 });
 
+test('Instagram: una respuesta de 997 bytes pasa por procesar y enviar en trozos de 1000 bytes como mucho, con la marca', async () => {
+  const bytes = (s) => new TextEncoder().encode(s).length;
+  // Lo justo para que, sin contar el espacio de la marca, un trozo de 997 bytes saliera con 1001.
+  const respuesta = `${`Soy el asistente de Dekog y te cuento: ${'palabra '.repeat(130)}`.slice(0, 996)}x`;
+  assert.equal(bytes(respuesta), 997);
+  const anterior = globalThis.fetch;
+  const salida = { respuesta, productos: [], derivar: { necesario: false, area: 'home', resumen: '' }, ofrecer_formulario: false };
+  globalThis.fetch = async (url, o) => (String(url).includes('generativelanguage.googleapis.com')
+    ? new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(salida) }] } }] }))
+    : meta.fetchFalso(url, o));
+  Object.assign(config, { ASISTENTE_PROVEEDOR: '', GEMINI_API_KEY: 'clave-falsa' });
+  try {
+    await entregar(instagramPost, avisoIg({ text: '¿Cuánto tarda la fabricación?' }, 'IGSID997'), SECRETO_IG, env);
+  } finally {
+    globalThis.fetch = anterior;
+    config.ASISTENTE_PROVEEDOR = 'prueba';
+    delete config.GEMINI_API_KEY;
+  }
+  const textos = meta.enviados.filter((e) => e.url.endsWith('/me/messages') && e.cuerpo.message.text).map((e) => e.cuerpo.message.text);
+  assert.ok(textos.length >= 2, `${textos.length} mensajes`);
+  for (const t of textos) assert.ok(bytes(t) <= 1000 && t.endsWith(` ${MARCA}`), `${bytes(t)} bytes`);
+  assert.equal(textos.map((t) => t.slice(0, -2)).join(' '), respuesta); // no se perdió ni se repitió nada
+});
+
+test('Instagram: a un trozo de partirPorBytes, textoParaInstagram solo le agrega el espacio y la marca (4 bytes)', () => {
+  const bytes = (s) => new TextEncoder().encode(s).length;
+  const relleno = 'palabra '.repeat(110);
+  const texto = `${relleno}https://www.dekog.net/a/k3P9xQ, ${relleno}(mira https://www.dekog.net/ofertas). ${relleno}y Línea 2:\nhttps://www.dekog.net/a/Zt7mQ2`;
+  const trozos = partirPorBytes(texto);
+  assert.ok(trozos.length >= 3);
+  for (const t of trozos) {
+    assert.equal(textoParaInstagram(t), `${t} ${MARCA}`);
+    assert.equal(bytes(textoParaInstagram(t)), bytes(t) + 4);
+  }
+});
+
 test('Las dos asesoras: los mismos números y nombres en el bot y en la web', () => {
   assert.deepEqual(
     Object.values(lineas).map((l) => [l.numero, l.etiqueta, l.visible]),
@@ -49,6 +86,10 @@ test('Las dos asesoras: los mismos números y nombres en el bot y en la web', ()
   );
   assert.equal(bloqueAsesoras(asesorasDirectas(), null),
     'Línea 1 (0414-584 7791):\nhttps://wa.me/584145847791\n\nLínea 2 (0424-400 6086):\nhttps://wa.me/584244006086');
+});
+
+test('El número del asistente es el mismo en el bot y en la web (/links): si un cliente lo escribe, no es el suyo', () => {
+  assert.equal(numeroDelAsistente, WHATSAPP.asistente);
 });
 
 test('WhatsApp: el pase con foto lleva las DOS asesoras al pie, enteras aunque el texto sea largo (1024 máximo)', async () => {

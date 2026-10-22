@@ -20,10 +20,14 @@ import { PROMO } from '../../asistente/src/lib/promo.js';
 let PanelListo = null;
 let promesaPanel = null;
 function cargarPanel() {
-  promesaPanel ??= import('./asistente/AsistentePanel').then(
-    (m) => { PanelListo = m.default; return m; },
-    (e) => { promesaPanel = null; throw e; }, // si falló la red, el próximo intento vuelve a pedirlo
-  );
+  // Con un if y no con asignación lógica: Safari 13 no la entiende y este archivo va con la carga inicial, así que
+  // dejaba en blanco el sitio entero (scripts/compatibilidad.mjs lo vigila).
+  if (!promesaPanel) {
+    promesaPanel = import('./asistente/AsistentePanel').then(
+      (m) => { PanelListo = m.default; return m; },
+      (e) => { promesaPanel = null; throw e; }, // si falló la red, el próximo intento vuelve a pedirlo
+    );
+  }
   return promesaPanel;
 }
 const PanelPerezoso = lazy(cargarPanel);

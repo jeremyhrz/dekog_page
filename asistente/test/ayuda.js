@@ -19,17 +19,38 @@ configurar({
 /** El texto que mandó el asistente a Instagram, sin el espacio y la marca invisible del final (instagram.js → MARCA). */
 export const sinMarca = (texto) => (typeof texto === 'string' ? texto.replace(/ ?\u2063$/, '') : texto);
 
+/**
+ * KV en memoria, con lo que el asistente usa de Cloudflare KV: get (texto o json), put (con metadata y vencimiento),
+ * delete y list (por prefijo, en orden alfabético, de a `limit` con cursor; cada clave con su metadata si la tiene).
+ * `datos` (clave → texto) y `metadatos` (clave → metadata) quedan a la vista de las pruebas.
+ */
 export function kvEnMemoria() {
   const datos = new Map();
+  const metadatos = new Map();
   return {
     datos,
+    metadatos,
     async get(clave, tipo) {
       const v = datos.get(clave);
       if (v === undefined) return null;
-      return tipo === 'json' ? JSON.parse(v) : v;
+      return (tipo?.type ?? tipo) === 'json' ? JSON.parse(v) : v;
     },
-    async put(clave, valor) { datos.set(clave, String(valor)); },
-    async delete(clave) { datos.delete(clave); },
+    async put(clave, valor, { metadata } = {}) {
+      datos.set(clave, String(valor));
+      if (metadata === undefined) metadatos.delete(clave);
+      else metadatos.set(clave, JSON.parse(JSON.stringify(metadata))); // KV la guarda como JSON
+    },
+    async delete(clave) {
+      datos.delete(clave);
+      metadatos.delete(clave);
+    },
+    async list({ prefix = '', cursor, limit = 1000 } = {}) {
+      const claves = [...datos.keys()].filter((k) => k.startsWith(prefix)).sort();
+      const desde = Number(cursor ?? 0);
+      const fin = desde + Math.min(limit, 1000);
+      const keys = claves.slice(desde, fin).map((name) => (metadatos.has(name) ? { name, metadata: metadatos.get(name) } : { name }));
+      return fin < claves.length ? { keys, list_complete: false, cursor: String(fin) } : { keys, list_complete: true };
+    },
   };
 }
 

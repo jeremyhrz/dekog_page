@@ -85,7 +85,7 @@ test('WhatsApp: modelo concreto → foto; comprar → los enlaces de las DOS ase
   assert.deepEqual(tipos.slice(0, 2), ['image', 'text']);
   assert.notEqual(tipos[2], 'list');
   const pase = mensajesWa()[1].text.body;
-  assert.match(pase, /Habla con una asesora por WhatsApp 👇\n\nLínea 1 \(0414-584 7791\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}\n\nLínea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}$/);
+  assert.match(pase, /Habla con una asesora por WhatsApp 👇\n\nLínea 1 \(0414-584 7791\):\nhttps:\/\/\S+\/a\/(?<letras>[A-Za-z0-9]{6})1\n\nLínea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/\k<letras>2$/);
   assert.equal(cupoWa(), 3); // un mensaje por mensaje del cliente: los dos enlaces van en el mismo
 });
 

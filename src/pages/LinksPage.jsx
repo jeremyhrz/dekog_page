@@ -1,8 +1,9 @@
 import React from 'react';
 import './LinksPage.css';
 import { varianteHasta } from '../utils/imagenes';
-import { asistenteWhatsapp, lineaWhatsapp } from '../utils/whatsapp';
+import { LINEAS_WHATSAPP, asistenteWhatsapp, lineaWhatsapp } from '../utils/whatsapp';
 
+// La versión de producción es public/links.html (vercel.json): si cambias una tarjeta aquí, cámbiala también allá.
 const CARDS = [
   {
     tag: 'WHATSAPP · 24/7',
@@ -16,6 +17,7 @@ const CARDS = [
   {
     tag: 'CONTACTO',
     title: 'Línea 1',
+    numero: LINEAS_WHATSAPP[0].visible, // el mismo número que dice el pase del asistente
     subtitle: 'ASESORÍAS Y VENTAS',
     href: lineaWhatsapp(1),
     image: '/links/vinedo.webp', // la misma foto que el asistente: se baja una vez
@@ -25,6 +27,7 @@ const CARDS = [
   {
     tag: 'CONTACTO',
     title: 'Línea 2',
+    numero: LINEAS_WHATSAPP[1].visible,
     subtitle: 'ASESORÍAS Y VENTAS',
     href: lineaWhatsapp(2),
     image: '/links/vinedo.webp', // la misma foto que el asistente: se baja una vez
@@ -113,13 +116,14 @@ export default function LinksPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`g-card ${c.span === 2 ? 'md:col-span-2' : ''} ${c.span === 3 ? 'md:col-span-2 lg:col-span-3' : ''} ${c.clase ?? ''}`}
-                aria-label={`${c.title} — ${c.subtitle}`}
+                aria-label={`${c.title}${c.numero ? `, ${c.numero}` : ''} — ${c.subtitle}`}
               >
                 <span className="g-tag" aria-hidden="true">{c.tag}</span>
                 <div className="g-screen">
                   <div className="g-card-bg" style={bgStyle} role="img" aria-label={c.title}></div>
                   <div className="g-card-text">
                     <div className="g-card-t">{c.title}</div>
+                    {c.numero && <div className="g-card-n">{c.numero}</div>}
                     <div className="g-card-s">{c.subtitle}</div>
                   </div>
                 </div>
