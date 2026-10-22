@@ -24,7 +24,15 @@ export function comoTexto(valor) {
   return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 }
 
-export async function guardarCliente({ conversacion, cliente, interes, resumen, canal = 'Web' }) {
+// Con el script ya despierto la hoja responde en 1 a 3 s: con menos tiempo que esto no vale la pena reintentar.
+const MINIMO_REINTENTO_MS = 3000;
+
+/**
+ * Manda (o actualiza) la fila de una conversación. `hasta` (opcional): Date.now() en que hay que haber terminado.
+ * WhatsApp e Instagram trabajan dentro de los 30 s que da Cloudflare después de responderle a Meta: cada intento dura
+ * como mucho lo que quede, y el segundo solo va si alcanza (si no, la fila queda para el próximo mensaje del cliente).
+ */
+export async function guardarCliente({ conversacion, cliente, interes, resumen, canal = 'Web' }, { hasta = Infinity } = {}) {
   if (!hojaConfigurada()) return false;
   const t = comoTexto;
   const cuerpo = JSON.stringify({
@@ -42,12 +50,17 @@ export async function guardarCliente({ conversacion, cliente, interes, resumen, 
   // (la primera prueba en vivo falló así). Un segundo intento no duplica la fila:
   // el script actualiza por id de conversación.
   for (let intento = 1; intento <= 2; intento++) {
+    const queda = hasta - Date.now();
+    if (queda <= 0 || (intento > 1 && queda < MINIMO_REINTENTO_MS)) {
+      console.warn('Sin tiempo para guardar el cliente en la hoja: queda para el próximo mensaje');
+      break;
+    }
     try {
       const r = await fetch(config.HOJA_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: cuerpo,
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(Math.min(10000, queda)),
       });
       const j = await r.json().catch(() => ({}));
       if (j.ok) return true;

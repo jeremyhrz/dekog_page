@@ -24,6 +24,7 @@
  * Asesoras (21-oct): cuando una asesora escribe en un chat desde la cuenta de Dekog, el asistente se calla en ese chat
  * (PAUSA_ASESORA_MS desde su último mensaje). Si el cliente le escribe y pasa 1 hora sin que ella responda, el asistente
  * le pide su nombre y su WhatsApp (tarea programada cada 15 minutos) y, cuando los deja, van a la hoja (y al correo).
+ * Un número que deje antes de la hora también va a la hoja, y a quien ya lo dejó no se le vuelve a pedir.
  */
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
@@ -47,17 +48,36 @@ const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
 const graph = () => `${RAIZ()}/${config.IG_API_VERSION || 'v25.0'}`;
 // Límite de Instagram por mensaje de texto: 1000 bytes, menos los 4 del espacio y la MARCA que van al final.
 const MAX_BYTES = 1000 - 4;
+// Cloudflare corta lo que siga en waitUntil 30 s después de responderle a Meta: los plazos se cuentan desde que llegó el
+// aviso. La IA (con la descarga de la foto ya descontada) y después la hoja, que deja tiempo para guardar la memoria.
+const PLAZO_IA_MS = 21000;
+const PLAZO_HOJA_MS = 27000;
 
+let ultimoToken = ''; // el último token que se leyó bien de KV en esta instancia
+
+/**
+ * El token de la cuenta: el de KV (lo renueva la tarea semanal) o, si no hay, IG_TOKEN. Si KV falla al leerlo, va el
+ * último que se leyó bien (o IG_TOKEN) como `respaldo`: el cliente igual recibe su respuesta y, si Instagram no acepta
+ * ese token, no se avisa ni se borra el de KV, que puede estar bien.
+ */
 async function tokenActual(env) {
-  return (await env.CONVERSACIONES?.get('ig:token')) || config.IG_TOKEN;
+  try {
+    const guardado = await env.CONVERSACIONES?.get('ig:token');
+    if (guardado) ultimoToken = guardado;
+    return { token: guardado || config.IG_TOKEN, respaldo: false };
+  } catch (e) {
+    console.warn('No se pudo leer el token de Instagram en KV; va el último que se leyó bien:', e?.message);
+    return { token: ultimoToken || config.IG_TOKEN, respaldo: true };
+  }
 }
 
 /*
  * Instagram avisa también lo que se manda DESDE la cuenta de Dekog (los «ecos»): las respuestas del asistente y lo que
  * escribe una asesora en la app. El aviso no dice quién lo mandó, así que cada texto del asistente termina con un
  * carácter invisible (MARCA): un eco de texto sin ella lo escribió una persona. Por si Instagram quitara la marca, la
- * pausa solo funciona después de ver un eco que la conserva (ig:marca en KV, se renueva cada semana); si un eco de un
- * texto del asistente vuelve sin ella, se desactiva sola. Así el asistente nunca se calla por error.
+ * pausa solo funciona después de ver un eco que la conserva (ig:marca en KV: vence a los 7 días y se reescribe una vez
+ * al día mientras se vea); si un eco de un texto del asistente vuelve sin ella, se desactiva sola, y las demás
+ * instancias se enteran en minutos. Así el asistente nunca se calla por error.
  */
 export const MARCA = '\u2063'; // INVISIBLE SEPARATOR: no se ve en ningún teléfono
 const propios = new Set(); // ids (mid) y textos de lo que mandó el asistente desde esta instancia
@@ -76,15 +96,17 @@ export const textoParaInstagram = (texto) => `${enlacesEnSuLinea(texto).replace(
 
 async function enviar(env, igsid, message) {
   const texto = typeof message.text === 'string' ? message.text : null;
+  const { token, respaldo } = await tokenActual(env);
   const r = await fetch(`${graph()}/me/messages`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${await tokenActual(env)}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ recipient: { id: igsid }, message: texto === null ? message : { ...message, text: textoParaInstagram(texto) } }),
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     console.warn('Instagram rechazó el envío:', r.status, j?.error?.code, j?.error?.message);
-    if (j?.error?.code === 190) await avisarDesconexion(env, 'Instagram ya no acepta el permiso de la cuenta');
+    // Un token de respaldo puede ser uno viejo: su 190 no dice que la cuenta se desconectó.
+    if (j?.error?.code === 190 && !respaldo) await avisarDesconexion(env, 'Instagram ya no acepta el permiso de la cuenta');
   } else {
     recordar((await r.json().catch(() => ({})))?.message_id);
     recordar(sinMarca(texto));
@@ -286,24 +308,42 @@ export async function instagramPost(request, env, ctx) {
 const HORA_MS = 60 * 60 * 1000;
 const PAUSA_ASESORA_MS = 24 * HORA_MS; // el asistente se calla en el chat desde el último mensaje de la asesora
 const ESPERA_MS = HORA_MS; // sin respuesta de la asesora en 1 hora, se le piden sus datos al cliente
-const CLAVE_SEGUIMIENTOS = 'ig:seguimientos';
+// Una clave por cliente que espera (ig:seg:<igsid>, con la hora en la metadata): en una sola lista (ig:seguimientos,
+// hasta el 22-oct) dos esperas que se programaban a la vez se pisaban y un cliente se quedaba sin su pedido.
+const PREFIJO_SEGUIMIENTO = 'ig:seg:';
+const LISTA_VIEJA = 'ig:seguimientos';
 const SEGUIMIENTO = '¡Hola de nuevo! 🙏 Disculpa la espera: nuestras asesoras están atendiendo a otros clientes. Para no '
   + 'hacerte esperar más, déjame aquí tu nombre y tu número de WhatsApp y una asesora de Dekog te escribe apenas se desocupe 💛';
+// Para quien ya dejó su número en esta conversación: no se le vuelve a pedir.
+const DISCULPA_LA_ESPERA = '¡Hola de nuevo! 🙏 Disculpa la espera: nuestras asesoras están atendiendo a otros clientes. '
+  + 'Ya tienen tu número y te escriben apenas se desocupen 💛';
 const GRACIAS_POR_LOS_DATOS = '¡Gracias! 💛 Ya le pasé tus datos a una asesora de Dekog: te escribe muy pronto.';
+const PIDE_EL_NUMERO = '¡Gracias! 💛 ¿Me dejas también tu número de WhatsApp? Así una asesora de Dekog te escribe apenas se desocupe.';
 
-let marcaVista = false;
+// ig:marca como la leyó esta instancia, y cuándo. Se vuelve a leer cada 5 minutos: si otra instancia apaga la pausa,
+// esta se entera (antes la leía una sola vez y seguía callando chats aunque Instagram ya quitara la marca).
+const RELEER_MARCA_MS = 5 * 60 * 1000;
+let marcaKv = { valor: null, leida: 0 };
 async function marcaComprobada(env) {
-  if (!marcaVista) marcaVista = Boolean(await env.CONVERSACIONES?.get('ig:marca').catch(() => null));
-  return marcaVista;
+  if (Date.now() - marcaKv.leida >= RELEER_MARCA_MS) {
+    try {
+      marcaKv = { valor: (await env.CONVERSACIONES?.get('ig:marca')) ?? null, leida: Date.now() };
+    } catch (e) {
+      console.warn('No se pudo leer ig:marca; sigue lo último que se sabía:', e?.message); // y se prueba con el próximo eco
+    }
+  }
+  return Boolean(marcaKv.valor);
 }
 
 /** Un eco volvió con la MARCA: Instagram la conserva y la pausa por asesora puede funcionar. */
 async function confirmarMarca(env) {
-  if (await marcaComprobada(env)) return;
-  marcaVista = true;
-  await env.CONVERSACIONES?.put('ig:marca', new Date().toISOString(), { expirationTtl: 7 * 86400 })
+  const vista = await marcaComprobada(env);
+  // Una vez al día se reescribe con la fecha (vence a los 7 días): mientras Instagram la conserve, no vence.
+  if (vista && Date.now() - Date.parse(marcaKv.valor) < 24 * HORA_MS) return;
+  marcaKv = { valor: new Date().toISOString(), leida: Date.now() };
+  await env.CONVERSACIONES?.put('ig:marca', marcaKv.valor, { expirationTtl: 7 * 86400 })
     .catch((e) => console.warn('No se pudo anotar la marca de Instagram:', e?.message));
-  console.log('Instagram conserva la marca invisible del asistente: la pausa por asesora queda activa');
+  if (!vista) console.log('Instagram conserva la marca invisible del asistente: la pausa por asesora queda activa');
 }
 
 /**
@@ -323,7 +363,7 @@ async function procesarEco(evento, env) {
     // Un texto del asistente volvió sin la marca: Instagram la quitó. Sin ella no se distingue a la asesora, así que la
     // pausa se apaga hasta que la marca vuelva a verse.
     console.warn('Instagram devolvió un mensaje del asistente sin la marca invisible: la pausa por asesora se desactiva');
-    marcaVista = false;
+    marcaKv = { valor: null, leida: Date.now() };
     await env.CONVERSACIONES?.delete('ig:marca').catch(() => {});
     return;
   }
@@ -332,94 +372,180 @@ async function procesarEco(evento, env) {
     return;
   }
   const kv = env.CONVERSACIONES;
+  const mid = evento.message.mid;
+  if (yaAtendido(kv, mid)) return; // el mismo eco repetido casi al instante, en esta instancia
   const clave = `ig:${igsid}`;
   const estado = await cargarEstado(kv, clave);
-  // Después de lo que ya escribió el cliente, aunque llegue en el mismo milisegundo: con horas iguales no se sabría si
-  // ella ya le respondió (y se le pedirían los datos sin hacer falta).
-  estado.humano = Math.max(Date.now(), (Number(estado.esperaDesde) || 0) + 1);
+  // Meta repite avisos: el mismo eco otra vez no duplica lo que ella dijo ni le quita la espera al cliente.
+  if (mid && estado.procesados.includes(mid)) return;
+  if (mid) estado.procesados.push(mid);
+  estado.humano = Math.max(Number(estado.humano) || 0, horaDelEco(evento, estado));
   estado.mensajes.push({ role: 'assistant', content: ocultarDatosPersonales(sinMarca(texto)).slice(0, 800) });
   await guardarEstado(kv, clave, estado);
   console.log('Instagram: una asesora escribió en un chat; el asistente se calla ahí');
 }
 
-/** Anota que a ese cliente hay que pedirle sus datos a esa hora si sigue esperando (lo revisa seguimientosInstagram). */
-async function programarSeguimiento(env, igsid, cuando) {
-  const kv = env.CONVERSACIONES;
-  if (!kv) return;
-  try {
-    const lista = (await kv.get(CLAVE_SEGUIMIENTOS, 'json')) ?? {};
-    lista[igsid] = cuando;
-    await kv.put(CLAVE_SEGUIMIENTOS, JSON.stringify(lista), { expirationTtl: 3 * 86400 });
-  } catch (e) {
-    console.warn('No se pudo programar el seguimiento de Instagram:', e?.message);
-  }
+/**
+ * Cuándo escribió la asesora: la hora del aviso de Meta, así un eco repetido o atrasado no da por respondido lo que el
+ * cliente escribió después. Sin hora, o lejos de ahora (más de 6 h), la de ahora y siempre después de la espera: con
+ * horas iguales no se sabría si ella ya le respondió (y se le pedirían los datos sin hacer falta).
+ */
+function horaDelEco(evento, estado) {
+  const t = Number(evento.timestamp);
+  const ms = t < 1e12 ? t * 1000 : t; // Meta la manda en milisegundos; por si llega en segundos
+  if (ms > 0 && Math.abs(Date.now() - ms) <= 6 * HORA_MS) return ms;
+  return Math.max(Date.now(), (Number(estado.esperaDesde) || 0) + 1);
 }
 
 /**
- * La asesora está atendiendo este chat: el asistente no responde. Lo que escribe el cliente queda en el historial (sin
- * datos personales) y, si quedó esperando, se programa el pedido de datos para dentro de 1 hora. Si ya se le pidieron y
- * los está dando, van a la hoja (llega el correo a Dekog) y se le confirma, una sola vez.
+ * Anota que a ese cliente hay que escribirle a esa hora si sigue esperando (lo revisa seguimientosInstagram). La hora va
+ * en la metadata (la tarea la ve al listar, sin leer cada clave) y también como valor. Devuelve si se pudo anotar.
  */
-async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, ahora }) {
+async function programarSeguimiento(env, igsid, cuando) {
+  const kv = env.CONVERSACIONES;
+  if (!kv) return false;
+  try {
+    await kv.put(`${PREFIJO_SEGUIMIENTO}${igsid}`, String(cuando), { metadata: { cuando }, expirationTtl: 3 * 86400 });
+    return true;
+  } catch (e) {
+    console.warn('No se pudo programar el seguimiento de Instagram:', e?.message);
+    return false;
+  }
+}
+
+// Un cierre corto («gracias», «ok, listo», «perfecto 🙌», un emoji suelto): no pide respuesta.
+const CIERRE = new Set(['gracias', 'muchas', 'muchisimas', 'mil', 'ok', 'oki', 'okey', 'okay', 'listo', 'lista', 'dale',
+  'perfecto', 'perfecta', 'a', 'la', 'orden', 'bueno', 'buenisimo', 'genial', 'excelente', 'chevere', 'fino', 'vale', 'de',
+  'nada', 'igualmente', 'entendido', 'entendida', 'bendiciones', 'muy', 'amable', 'super', 'amiga', 'amigo']);
+export function esCierre(texto) {
+  const s = String(texto ?? '');
+  if (/[?¿]/.test(s)) return false;
+  const palabras = s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  return palabras.length <= 6 && palabras.every((p) => CIERRE.has(p));
+}
+
+// Ya dejó su número en esta conversación (en una espera o hablando con el asistente): no se le vuelve a pedir.
+const dejoSuNumero = (estado) => estado.datosTomados > 0 || Boolean(estado.telefonoEnHoja);
+
+/**
+ * La asesora está atendiendo este chat: el asistente no responde. Lo que escribe el cliente queda en el historial (sin
+ * datos personales) y, si quedó esperando, se programa el pedido de datos para dentro de 1 hora. Si deja su número, en
+ * cualquier momento de la pausa, va a la hoja (llega el correo a Dekog), una vez por pausa; si ya se le habían pedido
+ * los datos, se le confirma.
+ */
+async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, sinLeer, ahora, t0 }) {
+  const kv = env.CONVERSACIONES;
   const escrito = ocultarDatosPersonales(texto);
   if (escrito || nota || imagen) {
     estado.mensajes.push({ role: 'user', content: [imagen ? NOTA_FOTO : '', nota, escrito].filter(Boolean).join(' ') });
   }
-  if (!(estado.esperaDesde > estado.humano)) {
+  // La espera empieza con un mensaje que pide respuesta (21-oct: a quien solo dio las gracias le llegaba «Disculpa la
+  // espera»). Un «gracias», un «ok» o un sticker que no se pudo abrir, no; una nota de voz o una foto, sí: suelen ser
+  // una pregunta para la asesora.
+  const pideRespuesta = (texto && !esCierre(texto)) || imagen || nota || sinLeer;
+  if (pideRespuesta && !(estado.esperaDesde > estado.humano)) {
     // Siempre después del último mensaje de la asesora (en el mismo milisegundo, 1 ms después): si no, la espera no cuenta.
     estado.esperaDesde = Math.max(ahora, (Number(estado.humano) || 0) + 1);
     await programarSeguimiento(env, igsid, estado.esperaDesde + ESPERA_MS);
   }
+  // Primero la memoria: si la hoja tarda (Apps Script dormido), lo que escribió no se pierde.
+  await guardarEstado(kv, clave, estado);
+
+  // La captura se cierra con el número, no con un nombre suelto (21-oct: «Soy de Maracay, ¿…?» cerraba la captura y el
+  // número del mensaje siguiente ya no llegaba a la hoja).
+  if (estado.datosTomados >= estado.humano) return; // ya dejó su número en esta pausa
+  const pedido = estado.seguimiento > estado.humano; // en esta pausa ya se le escribió por la espera
   const telefono = extraerTelefono(texto);
-  const nombre = nombreEscrito(texto, telefono);
-  if (estado.seguimiento > estado.humano && estado.datosTomados < estado.seguimiento && (telefono || nombre)) {
-    const usuario = await nombreDeUsuario(env, igsid);
-    const ok = await guardarCliente({
-      // Fila propia del día: la hoja solo manda el correo con las filas NUEVAS, y este cliente quizá ya tenía la suya.
-      conversacion: `ig-${igsid}-espera-${hoyCaracas()}`,
-      cliente: { nombre: [nombre, usuario].filter(Boolean).join(' · '), telefono, ciudad: '' },
-      interes: estado.interes,
-      resumen: [estado.resumen, 'Esperó más de 1 hora a la asesora en Instagram y dejó sus datos: escríbele.'].filter(Boolean).join(' · '),
-      canal: 'Instagram',
-    });
-    if (ok) {
-      estado.datosTomados = ahora;
-      await enviar(env, igsid, { text: GRACIAS_POR_LOS_DATOS });
-    }
+  if (!telefono) {
+    if (pedido && !dejoSuNumero(estado) && nombreEscrito(texto)) await enviar(env, igsid, { text: PIDE_EL_NUMERO });
+    return;
   }
-  await guardarEstado(env.CONVERSACIONES, clave, estado);
+  const usuario = await nombreDeUsuario(env, igsid);
+  const espero = estado.esperaDesde > estado.humano && ahora - estado.esperaDesde >= ESPERA_MS;
+  const ok = await guardarCliente({
+    // Fila propia del día: la hoja solo manda el correo con las filas NUEVAS, y este cliente quizá ya tenía la suya.
+    conversacion: `ig-${igsid}-espera-${hoyCaracas()}`,
+    cliente: { nombre: [nombreEscrito(texto, telefono), usuario].filter(Boolean).join(' · '), telefono, ciudad: '' },
+    interes: estado.interes,
+    resumen: [estado.resumen, espero
+      ? 'Esperó más de 1 hora a la asesora en Instagram y dejó sus datos: escríbele.'
+      : 'Dejó su WhatsApp mientras esperaba a la asesora en Instagram: escríbele.'].filter(Boolean).join(' · '),
+    canal: 'Instagram',
+  }, { hasta: t0 + PLAZO_HOJA_MS });
+  if (!ok) return; // con su próximo mensaje se vuelve a intentar
+  estado.datosTomados = ahora;
+  // El «¡Gracias!» solo si el asistente le pidió los datos: antes de la hora, el chat sigue siendo de la asesora.
+  if (pedido) await enviar(env, igsid, { text: GRACIAS_POR_LOS_DATOS });
+  await guardarEstado(kv, clave, estado);
 }
 
 /**
  * Tarea programada (cada 15 minutos): a los clientes que llevan 1 hora esperando a la asesora sin respuesta se les
- * piden su nombre y su WhatsApp, una vez por espera. Instagram deja escribirle hasta 24 h después de su último mensaje.
+ * escribe una vez por espera: se les piden su nombre y su WhatsApp, o solo se les pide disculpas si ya dejaron su
+ * número. Instagram deja escribirle hasta 24 h después de su último mensaje.
  */
 export async function seguimientosInstagram(env, ahora = Date.now()) {
   const kv = env.CONVERSACIONES;
   if (!kv) return;
-  const lista = (await kv.get(CLAVE_SEGUIMIENTOS, 'json').catch(() => null)) ?? {};
-  const vencidos = Object.keys(lista).filter((igsid) => lista[igsid] <= ahora);
-  if (!vencidos.length) return;
-  for (const igsid of vencidos) {
-    delete lista[igsid];
-    const clave = `ig:${igsid}`;
-    const estado = await cargarEstado(kv, clave);
-    const esperando = estado.esperaDesde > estado.humano && estado.seguimiento < estado.esperaDesde;
-    if (!esperando || ahora - estado.esperaDesde > 23 * HORA_MS) continue;
-    if (await enviar(env, igsid, { text: SEGUIMIENTO })) {
+  await pasarListaVieja(env);
+  let cursor;
+  do {
+    let pagina;
+    try {
+      pagina = await kv.list({ prefix: PREFIJO_SEGUIMIENTO, cursor });
+    } catch (e) {
+      console.warn('No se pudo leer los seguimientos de Instagram:', e?.message);
+      return;
+    }
+    for (const { name, metadata } of pagina.keys) {
+      const cuando = Number(metadata?.cuando ?? await kv.get(name).catch(() => null));
+      if (!(cuando <= ahora)) continue; // todavía no pasa la hora
+      await atenderSeguimiento(env, name, cuando, ahora)
+        .catch((e) => console.warn('No se pudo atender un seguimiento de Instagram:', e?.message));
+    }
+    cursor = pagina.list_complete ? undefined : pagina.cursor;
+  } while (cursor);
+}
+
+/** Una espera que ya cumplió la hora (su clave ig:seg:<igsid>): se le escribe si sigue esperando y la clave se borra. */
+async function atenderSeguimiento(env, nombreClave, cuando, ahora) {
+  const kv = env.CONVERSACIONES;
+  const igsid = nombreClave.slice(PREFIJO_SEGUIMIENTO.length);
+  const clave = `ig:${igsid}`;
+  const estado = await cargarEstado(kv, clave);
+  const esperando = estado.esperaDesde > estado.humano && estado.seguimiento < estado.esperaDesde;
+  if (esperando && ahora - estado.esperaDesde < ESPERA_MS) {
+    // La clave era de una espera anterior y la nueva no quedó anotada (o KV todavía no la lista): va a su hora.
+    await programarSeguimiento(env, igsid, estado.esperaDesde + ESPERA_MS);
+    return;
+  }
+  if (esperando && ahora - estado.esperaDesde <= 23 * HORA_MS) {
+    const yaLoDejo = dejoSuNumero(estado);
+    if (await enviar(env, igsid, { text: yaLoDejo ? DISCULPA_LA_ESPERA : SEGUIMIENTO })) {
       estado.seguimiento = ahora;
       await guardarEstado(kv, clave, estado);
-      console.log('Instagram: un cliente esperó 1 hora a la asesora; se le pidieron sus datos');
+      console.log('Instagram: un cliente esperó 1 hora a la asesora;', yaLoDejo ? 'ya había dejado su número' : 'se le pidieron sus datos');
     }
   }
-  await kv.put(CLAVE_SEGUIMIENTOS, JSON.stringify(lista), { expirationTtl: 3 * 86400 })
-    .catch((e) => console.warn('No se pudo actualizar los seguimientos de Instagram:', e?.message));
+  // Se borra si nadie la volvió a anotar mientras tanto (el cliente pudo empezar otra espera).
+  if (Number(await kv.get(nombreClave)) === cuando) await kv.delete(nombreClave);
+}
+
+/** Las esperas que queden en la lista vieja (ig:seguimientos) pasan a su clave; si todas pasan, la lista se borra. */
+async function pasarListaVieja(env) {
+  const kv = env.CONVERSACIONES;
+  const lista = await kv.get(LISTA_VIEJA, 'json').catch(() => null);
+  if (!lista || typeof lista !== 'object') return;
+  let todas = true;
+  for (const [igsid, cuando] of Object.entries(lista)) todas = (await programarSeguimiento(env, igsid, Number(cuando))) && todas;
+  if (todas) await kv.delete(LISTA_VIEJA).catch((e) => console.warn('No se pudo borrar ig:seguimientos:', e?.message));
 }
 
 // ── El mensaje de la promo (lib/promo.js), una vez por cliente y por promo ───────────────────────────────────────────
 const promoMandada = new Set(); // en esta instancia: dos mensajes seguidos del cliente se atienden a la vez
 
-async function enviarPromoSiToca(env, igsid, clave, estado) {
+async function enviarPromoSiToca(env, igsid, clave, estado, mid) {
   const promo = promoActiva();
   if (!promo || estado.promoVista === promo.id) return;
   estado.promoVista = promo.id;
@@ -428,8 +554,27 @@ async function enviarPromoSiToca(env, igsid, clave, estado) {
   if (promoMandada.has(marca) || (await cargarEstado(env.CONVERSACIONES, clave)).promoVista === promo.id) return;
   promoMandada.add(marca);
   if (promoMandada.size > 500) promoMandada.delete(promoMandada.values().next().value);
+  // Dos instancias pueden estar atendiendo a la vez sus primeros mensajes, y la memoria solo se guarda al final del turno.
+  if (!(await turnoDeLaPromo(env.CONVERSACIONES, `ig:promo:${igsid}:${promo.id}`, mid))) return;
   await enviarImagen(env, igsid, promo.imagen);
   await enviar(env, igsid, { text: textoDeLaPromo(promo) });
+}
+
+/**
+ * La promo la manda la vuelta que deja su mid en `clave` y lo vuelve a leer igual: 1 escritura y 2 lecturas de KV por
+ * cliente nuevo. KV no garantiza exclusión entre ubicaciones, pero la ventana baja de segundos a milisegundos. Si KV
+ * falla, no se manda: una promo de menos no molesta, una repetida sí.
+ */
+async function turnoDeLaPromo(kv, clave, mid) {
+  if (!kv || !mid) return true;
+  try {
+    if (await kv.get(clave)) return false;
+    await kv.put(clave, mid, { expirationTtl: 30 * 86400 });
+    return (await kv.get(clave)) === mid;
+  } catch (e) {
+    console.warn('No se pudo tomar el turno de la promo de Instagram:', e?.message);
+    return false;
+  }
 }
 
 // ── Lo que mandó el cliente ─────────────────────────────────────────────────────────────────────────────────────────
@@ -477,7 +622,11 @@ async function contenidoDe(m) {
 
 async function nombreDeUsuario(env, igsid) {
   try {
-    const r = await fetch(`${graph()}/${igsid}?fields=username,name`, { headers: { Authorization: `Bearer ${await tokenActual(env)}` } });
+    const { token } = await tokenActual(env);
+    // Con tope: va justo antes de la hoja, dentro de los 30 s (sin el @usuario la fila igual sirve).
+    const r = await fetch(`${graph()}/${igsid}?fields=username,name`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(3000),
+    });
     const j = await r.json();
     return j.username ? `@${j.username}${j.name ? ` (${j.name})` : ''}` : (j.name ?? '');
   } catch {
@@ -486,6 +635,7 @@ async function nombreDeUsuario(env, igsid) {
 }
 
 async function procesar(evento, env) {
+  const t0 = Date.now(); // llegó el aviso: desde aquí corren los 30 s de Cloudflare
   const igsid = evento.sender?.id;
   if (!igsid) return;
   if (await yaAtendido(env.CONVERSACIONES, evento.message.mid)) return; // aviso repetido de Meta
@@ -503,7 +653,7 @@ async function procesar(evento, env) {
 
   // Una asesora está atendiendo este chat: el asistente no le responde al cliente.
   if (estado.humano && ahora - estado.humano < PAUSA_ASESORA_MS) {
-    await atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, ahora });
+    await atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, sinLeer, ahora, t0 });
     return;
   }
 
@@ -514,7 +664,7 @@ async function procesar(evento, env) {
     if (!sinLeer || estado.avisoSinLeer === hoyCaracas()) return;
     estado.avisoSinLeer = hoyCaracas();
     await enviar(env, igsid, { text: presentarse(AVISO_SIN_LEER, estado.mensajes.length === 0) });
-    await enviarPromoSiToca(env, igsid, clave, estado);
+    await enviarPromoSiToca(env, igsid, clave, estado, evento.message.mid);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
@@ -522,6 +672,11 @@ async function procesar(evento, env) {
   const telefono = extraerTelefono(texto); // se guarda en la hoja; la IA no lo ve
   const escrito = ocultarDatosPersonales(texto);
   estado.mensajes.push({ role: 'user', content: [imagen ? NOTA_FOTO : '', nota, escrito].filter(Boolean).join(' ') });
+  // La pausa de la asesora ya venció y el asistente le responde: si quedaba una espera, ya está atendida y la tarea de
+  // los 15 minutos no le manda «Disculpa la espera».
+  if (estado.esperaDesde > estado.humano && estado.seguimiento < estado.esperaDesde) {
+    estado.seguimiento = Math.max(ahora, estado.esperaDesde);
+  }
 
   // Tocó una respuesta rápida de la vitrina: se responde SIN IA.
   const eleccion = eleccionDe(evento.message.quick_reply?.payload);
@@ -544,7 +699,16 @@ async function procesar(evento, env) {
     return;
   }
 
-  const r = await pensar(unirSeguidos(estado.mensajes), 'instagram', { imagen, kv: env.CONVERSACIONES });
+  const r = await pensar(unirSeguidos(estado.mensajes), 'instagram', { imagen, kv: env.CONVERSACIONES, hasta: t0 + PLAZO_IA_MS });
+  // La asesora pudo contestar mientras la IA pensaba: entonces no sale nada (ni foto, ni texto, ni pase, ni promo) y
+  // solo queda en la memoria el mensaje del cliente. Se compara con lo leído al principio, no con ahora: un eco que
+  // llegó mientras se bajaba la foto también cuenta.
+  const fresco = await cargarEstado(env.CONVERSACIONES, clave);
+  if (fresco.humano > (Number(estado.humano) || 0) && Date.now() - fresco.humano < PAUSA_ASESORA_MS) {
+    console.log('Instagram: la asesora contestó mientras la IA pensaba; el asistente no manda su respuesta');
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
   const { vitrina } = r;
 
@@ -562,12 +726,16 @@ async function procesar(evento, env) {
   if (r.whatsapp) await enviar(env, igsid, { text: bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) });
   if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su enlace.
-  await enviarPromoSiToca(env, igsid, clave, estado);
+  await enviarPromoSiToca(env, igsid, clave, estado, evento.message.mid);
   // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
   estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;
+  // Primero la memoria y después la hoja: con la IA lenta y Apps Script dormido se pasaban los 30 s y Cloudflare cortaba
+  // antes de guardar el turno (historial, promo y foto se repetían). Ahora lo que se corta es la hoja, que se reintenta
+  // con el próximo mensaje y actualiza la misma fila.
+  await guardarEstado(env.CONVERSACIONES, clave, estado);
   // Dio su teléfono, mostró interés o pidió una asesora: queda en la hoja con su @usuario (la
   // asesora puede escribirle por Instagram) y con su teléfono si lo dio; la misma fila se completa
   // cuando lo da más tarde o cambia lo que pide.
@@ -579,16 +747,20 @@ async function procesar(evento, env) {
       interes: estado.interes,
       resumen: estado.resumen,
       canal: 'Instagram',
-    });
-    if (ok) marcarEnHoja(estado, telefono);
+    }, { hasta: t0 + PLAZO_HOJA_MS });
+    if (ok) {
+      marcarEnHoja(estado, telefono);
+      await guardarEstado(env.CONVERSACIONES, clave, estado);
+    }
   }
-  await guardarEstado(env.CONVERSACIONES, clave, estado);
 }
 
 /** Tarea semanal: renueva el token de 60 días antes de que venza y lo guarda en KV. */
 export async function renovarTokenInstagram(env) {
-  const actual = await tokenActual(env);
-  if (!actual || !env.CONVERSACIONES) return;
+  const { token: actual, respaldo } = await tokenActual(env);
+  // Si KV no respondió, queda para la semana que viene: el token de respaldo puede ser uno viejo (y un 190 suyo borraría
+  // el bueno de KV).
+  if (!actual || !env.CONVERSACIONES || respaldo) return;
   const r = await fetch(`${RAIZ()}/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(actual)}`);
   const j = await r.json().catch(() => ({}));
   if (j.access_token) {
