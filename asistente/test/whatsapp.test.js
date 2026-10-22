@@ -180,37 +180,34 @@ const SOBRE_LAS_OFERTAS = '¡Sí! En queen tenemos varias camas en stock con des
 test('Pie de foto: con un texto largo se recorta el texto de la IA, nunca las líneas de precio en Bs (van al final)', async () => {
   delete config.PROMO; // las piezas en oferta son de la promo
   conIa({ respuesta: SOBRE_LAS_OFERTAS, productos: OFERTAS_QUEEN });
-  await wa(textoWa('¿La Manila, la Paris o la Florida queen las tienen en oferta?'), '584140000210');
+  await wa(textoWa('¿Cuánto cuestan la Manila, la Paris y la Florida queen?'), '584140000210'); // sin pedir ofertas: sin enlace
   const [foto] = mensajesWa();
   assert.equal(foto.type, 'image');
   const pie = foto.image.caption;
   assert.ok(pie.length <= 1024, `${pie.length} caracteres`);
   assert.match(pie, /…\n\n• Manila · Queen [^\n]+ahora REF 420 = Bs [\d.]+,\d\d \([^)]+\)\n• Paris · Queen [^\n]+ahora REF 750 = Bs [\d.]+,\d\d \([^)]+\)\n• Florida · Queen [^\n]+ahora REF 680 = Bs [\d.]+,\d\d \([^)]+\)$/);
+  // En el historial, lo que le llegó: el texto del pie, sin las líneas de precio (la IA nunca ve bolívares).
+  const dicho = (await estadoWa('584140000210')).mensajes.at(-1).content;
+  assert.ok(pie.startsWith(`${dicho}\n\n• Manila · Queen`), dicho);
 });
 
-test('Pie de foto: si recorta el enlace del catálogo de ofertas, el historial no lo da por dicho y llega en la vuelta siguiente', async () => {
+test('Pie de foto: si el texto con el enlace del catálogo de ofertas no cabe, va todo en UN mensaje de texto, con el enlace', async () => {
   delete config.PROMO;
-  const tel = '584140000224';
-  // Ya conversaban y ya le llegó el mensaje de la promo (con su botón): solo salen sus respuestas.
+  const tel = '584140000225';
   await env.CONVERSACIONES.put(`wa:PHONE123:${tel}`, JSON.stringify({
     mensajes: [{ role: 'user', content: 'Hola' }, { role: 'assistant', content: '¡Hola! Soy el asistente virtual de Dekog 👋 ¿En qué te ayudo?' }],
     procesados: [], promoVista: PROMO.id,
   }));
   conIa({ respuesta: SOBRE_LAS_OFERTAS, productos: OFERTAS_QUEEN });
   await wa(textoWa('¿Qué camas queen tienen en oferta?'), tel);
-  const [foto] = mensajesWa();
-  assert.equal(foto.type, 'image');
-  assert.ok(!foto.image.caption.includes(PROMO.enlace), 'con las tres líneas de precio, el enlace no cabe en el pie');
-  // En el historial, lo que le llegó: el texto del pie, sin las líneas de precio (la IA nunca ve bolívares) ni el enlace.
-  const dicho = (await estadoWa(tel)).mensajes.at(-1).content;
-  assert.ok(foto.image.caption.startsWith(`${dicho}\n\n• Manila · Queen`), dicho);
-  assert.ok(!dicho.includes(PROMO.enlace), dicho);
-  // Vuelve a preguntar por ofertas: ahora sí le llega el enlace (antes el historial lo daba por mandado).
-  conIa({ respuesta: 'En matrimonial también hay camas en stock con descuento, como la Noa y la Aurora. ¿Quieres que te cuente de alguna?' });
-  await wa(textoWa('¿Y en matrimonial qué tienen en oferta?'), tel);
-  const [, respuesta] = mensajesWa();
-  assert.equal(respuesta.type, 'text');
-  assert.ok(respuesta.text.body.endsWith(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}`), respuesta.text.body);
+  const [mensaje, ...otros] = mensajesWa();
+  assert.equal(otros.length, 0);
+  assert.equal(mensaje.type, 'text');
+  const cuerpo = mensaje.text.body;
+  assert.ok(cuerpo.startsWith(SOBRE_LAS_OFERTAS), cuerpo); // el texto de la IA entero, con su pregunta
+  assert.ok(cuerpo.includes(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}\n\n• Manila · Queen`), cuerpo);
+  assert.match(cuerpo, /• Florida · Queen [^\n]+ahora REF 680 = Bs [\d.]+,\d\d \([^)]+\)$/);
+  assert.ok((await estadoWa(tel)).mensajes.at(-1).content.includes(PROMO.enlace)); // ya se le dio: no se repite
 });
 
 test('Pie de foto: si los precios y las asesoras no le dejan lugar al texto, va todo en UN mensaje de texto, sin foto', async () => {
@@ -489,6 +486,16 @@ test('Sin número: en vez de prometerle que le escribirán, las dos asesoras con
   assert.match(conNumero, /te escribirá a tu WhatsApp/);
   assert.doesNotMatch(conNumero, /Línea 1/);
   assert.equal(filasHoja.at(-1).telefono, '+584140000223');
+});
+
+test('Sin número: si la IA además pasa a la asesora, tampoco queda la promesa de que le escribirán', async () => {
+  conIa({ respuesta: '¡Con gusto! Una asesora de Dekog te escribirá a tu WhatsApp para apartarla.', ofrecer_formulario: true,
+    derivar: { necesario: true, area: 'home', resumen: 'Quiere apartar la Toronto queen' } });
+  await entregar(whatsappPost, avisoSinNumero(textoWa('Quiero apartar la Toronto queen'), 'VE.777'), SECRETO_WA, env);
+  const cuerpo = mensajesWa().at(-1).text.body;
+  assert.doesNotMatch(cuerpo, /te escribirá/);
+  assert.match(cuerpo, /Para seguir, escríbele a la asesora que prefieras/);
+  assert.match(cuerpo, /Línea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}2$/);
 });
 
 test('Sin número: también se quitan «te va a contactar», «que te escriba», «se pondrá en contacto» y «ya tiene tu número»', async () => {

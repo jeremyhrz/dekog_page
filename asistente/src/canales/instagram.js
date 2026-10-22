@@ -175,8 +175,11 @@ export function partirPorBytes(texto, maximo = MAX_BYTES) {
   while (codificador.encode(resto).length > maximo) {
     let corte = resto.length;
     while (codificador.encode(resto.slice(0, corte)).length > maximo) corte = Math.floor(corte * 0.9);
-    const espacio = Math.max(resto.lastIndexOf(' ', corte), resto.lastIndexOf('\n', corte));
-    if (espacio > corte * 0.6) corte = espacio;
+    // Mejor en un salto de línea: así una línea de precio («… REF 420 = Bs …») no queda partida en dos mensajes.
+    const salto = resto.lastIndexOf('\n', corte);
+    const espacio = resto.lastIndexOf(' ', corte);
+    if (salto > corte * 0.5) corte = salto;
+    else if (espacio > corte * 0.6) corte = espacio;
     // No partir un emoji (par sustituto UTF-16) por la mitad: saldría "�".
     const previo = resto.charCodeAt(corte - 1);
     if (previo >= 0xd800 && previo <= 0xdbff) corte -= 1;
@@ -456,6 +459,17 @@ const dejoSuNumero = (estado) => estado.numeroTomado > 0 || Boolean(huellaEnHoja
  * cualquier momento de la pausa, va a la hoja (llega el correo a Dekog), una vez por pausa; si ya se le habían pedido
  * los datos, se le confirma.
  */
+/**
+ * El nombre que dejó junto a su número, solo si es de fiar: se le pidieron los datos, lo dice («me llamo…», «soy…») o
+ * parece un nombre propio («Ana Pérez»). Si no, nombreEscrito tomaría el resto de la frase («mi número es 0412… por si
+ * acaso» daba el nombre «por si acaso») y en la hoja queda solo el @usuario.
+ */
+function nombreConfiable(texto, telefono, pedido) {
+  const nombre = nombreEscrito(texto, telefono);
+  const propio = nombre.split(' ').every((p) => /^\p{Lu}/u.test(p));
+  return pedido || propio || /\b(me llamo|mi nombre es|soy)\b/i.test(texto) ? nombre : '';
+}
+
 async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, sinLeer, ahora, t0 }) {
   const kv = env.CONVERSACIONES;
   const escrito = ocultarDatosPersonales(texto);
@@ -491,7 +505,7 @@ async function atenderEnPausa(env, igsid, clave, estado, { texto, nota, imagen, 
   const ok = await guardarCliente({
     // Fila propia del día: la hoja solo manda el correo con las filas NUEVAS, y este cliente quizá ya tenía la suya.
     conversacion: `ig-${igsid}-espera-${hoyCaracas()}`,
-    cliente: { nombre: [nombreEscrito(texto, telefono), usuario].filter(Boolean).join(' · '), telefono, ciudad: '' },
+    cliente: { nombre: [nombreConfiable(texto, telefono, pedido), usuario].filter(Boolean).join(' · '), telefono, ciudad: '' },
     interes: estado.interes,
     resumen: [estado.resumen, espero
       ? 'Esperó más de 1 hora a la asesora en Instagram y dejó sus datos: escríbele.'

@@ -11,6 +11,7 @@ import {
   instagramConectar, instagramPost, instagramDesautorizar, instagramBorrarDatos, renovarTokenInstagram, cuentasPermitidas,
 } from '../src/canales/instagram.js';
 import { extraerTelefono, nombreEscrito } from '../src/canales/meta.js';
+import { partirPorBytes } from '../src/canales/instagram.js';
 
 let env;
 let filasHoja;
@@ -287,4 +288,19 @@ test('La memoria del turno se guarda ANTES de la hoja (y otra vez si la hoja res
   assert.equal(despues.guardado, true);
   assert.equal(despues.mensajes.length, 2);
   assert.ok(perfilConTope, 'el @usuario se pide sin tope de tiempo');
+});
+
+test('Partir un texto largo: corta en un salto de línea, así una línea de precio no queda en dos mensajes', () => {
+  const texto = `${'Tenemos varias camas en stock con descuento y te las muestro aquí. '.repeat(7)}\n`
+    + ['Manila', 'Paris', 'Florida'].map((m) => `• ${m} · Queen 1,60x1,90 M · en stock (gris 02 en chenille paño): antes REF 520, ahora REF 420 = Bs 413.389,20 (tasa BCV del euro)`).join('\n');
+  const trozos = partirPorBytes(texto, 600);
+  assert.ok(trozos.length > 1);
+  for (const trozo of trozos) assert.ok(!/^= Bs/.test(trozo) && !/^[\d.,]+ \(tasa/.test(trozo), trozo);
+  assert.ok(trozos.slice(1).every((t) => t.startsWith('•')), trozos.join('\n---\n'));
+});
+
+test('Un monto pegado detrás de otro número no se lleva el teléfono que sigue («700$ 0414…»)', () => {
+  assert.equal(extraerTelefono('Tengo 700$ 04145551234 llámame'), '04145551234');
+  assert.equal(extraerTelefono('El presupuesto es 550 REF 0414-555-1234'), '04145551234');
+  assert.equal(extraerTelefono('Son Bs 1.318.908'), ''); // un monto sigue sin ser un teléfono
 });

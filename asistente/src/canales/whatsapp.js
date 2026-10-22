@@ -504,9 +504,9 @@ async function procesar(valor, mensaje, env, vuelta) {
 
   const r = await pensar(estado.mensajes, 'whatsapp', { imagen, kv: env.CONVERSACIONES, hasta: t0 + PLAZO_IA_MS });
   // Sin número (solo su BSUID), si la IA le ofrece que lo contacten, el pase a las dos asesoras con lo que le interesa ya
-  // escrito, para que les escriba él, y sin esa promesa.
-  const sinNumero = !mensaje.from && r.formulario && !r.whatsapp;
-  const pase = sinNumero ? enlaceWhatsapp('home', r.interes || estado.interes, 'whatsapp') : r.whatsapp;
+  // escrito, para que les escriba él, y sin esa promesa (también cuando además deriva: nadie puede escribirle).
+  const sinNumero = !mensaje.from && Boolean(r.formulario || r.whatsapp);
+  const pase = r.whatsapp ?? (sinNumero ? enlaceWhatsapp('home', r.interes || estado.interes, 'whatsapp') : null);
   const respuesta = presentarse(sinNumero ? sinPromesaDeContacto(r.respuesta) : r.respuesta, estado.mensajes.length === 1);
   // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Si en la misma respuesta pasa a una asesora,
   // sus enlaces van dentro de la lista: la vitrina nunca se descarta (antes salía solo el pase, con un texto que pedía
@@ -529,10 +529,12 @@ async function procesar(valor, mensaje, env, vuelta) {
   const libre = 1024 - cola.length - 2; // lo que le queda al texto de la IA en el pie de foto
   let enviado = false;
   let dicho; // lo que le llegó del texto (el pie o la lista pueden recortarlo): eso queda en el historial
+  // Un texto que no cabe en el pie solo se recorta si no trae enlaces: el del catálogo de ofertas (o los PDF) lo pega el
+  // servidor al final y sería lo primero en perderse. Entonces va todo en un mensaje de texto (también 1 del cupo).
   if (vitrina) {
     dicho = await enviarVitrina(vuelta, base, vitrina, respuesta, asesorasDelPase);
     enviado = true;
-  } else if (principal && (respuesta.length <= libre || libre >= MINIMO_TEXTO_DEL_PIE)) {
+  } else if (principal && (respuesta.length <= libre || (libre >= MINIMO_TEXTO_DEL_PIE && !/https?:\/\//i.test(respuesta)))) {
     const pie = textoConCola(respuesta, cola, 1024);
     enviado = await enviar(vuelta, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption: pie.mensaje } });
     dicho = pie.dicho;
