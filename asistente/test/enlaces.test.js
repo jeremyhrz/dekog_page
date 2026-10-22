@@ -76,7 +76,7 @@ test('GET /a/<código>: redirige al WhatsApp de su línea; vencido, raro o ajeno
   assert.equal((await irAlEnlace('Vb7kTq2', undefined)).headers.get('Location'), LINEA_2);
 });
 
-test('Un pase: UNA escritura de KV con los dos destinos ({"1", "2"}), que dura más de 30 días; mismo orden y forma', async () => {
+test('Un pase: UNA escritura de KV con los dos destinos ({"1", "2"}), que dura 30 días; mismo orden y forma', async () => {
   config.ENLACE_CORTO_BASE = 'https://www.dekog.net';
   const escritas = [];
   const kv = kvEnMemoria();
@@ -88,8 +88,9 @@ test('Un pase: UNA escritura de KV con los dos destinos ({"1", "2"}), que dura m
   const letras = escritas[0].clave.replace(/^enlace:/, '');
   assert.match(letras, /^[A-Za-z0-9]{6}$/);
   assert.deepEqual(JSON.parse(escritas[0].valor), { 1: LARGO, 2: LARGO_2 });
-  // 180 días: en WhatsApp el chat no se borra y los clientes vuelven a tocar enlaces viejos.
-  assert.ok(escritas[0].opciones.expirationTtl >= 180 * 24 * 60 * 60, String(escritas[0].opciones.expirationTtl));
+  // 30 días, como la memoria: el texto del wa.me resume la conversación (privacidad.html promete borrarla a los 30 días).
+  // Un código vencido igual lleva a la línea de su dígito (prueba de GET /a/<código>).
+  assert.equal(escritas[0].opciones.expirationTtl, 30 * 24 * 60 * 60);
   assert.deepEqual(cortos, [
     { etiqueta: 'Línea 1', visible: '0414-584 7791', url: `https://www.dekog.net/a/${letras}1` },
     { etiqueta: 'Línea 2', visible: '0424-400 6086', url: `https://www.dekog.net/a/${letras}2` },

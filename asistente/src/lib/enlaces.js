@@ -7,8 +7,9 @@
  * gratis da 1.000 al día, compartidas con la memoria), y GET /a/<código> redirige al de su línea. dekog.net/a/* llega
  * al Worker por un rewrite de vercel.json.
  *
- * Duran 180 días (antes 30): en WhatsApp el chat no se borra y los clientes vuelven a tocar enlaces viejos; vivir más
- * solo ocupa almacenamiento, no suma escrituras. Y si el código ya venció, su dígito igual lleva a la línea del rótulo.
+ * Duran 30 días, como la memoria de la conversación: el texto del wa.me resume lo que habló el cliente, y la página de
+ * privacidad promete que lo de sus mensajes se borra a los 30 días. En WhatsApp el chat no se borra y los clientes
+ * vuelven a tocar enlaces viejos: un código vencido igual lleva a la línea del rótulo (su dígito), sin el texto.
  *
  * ENLACE_CORTO_BASE (variable del Worker) es el dominio de los enlaces; sin ella, el del propio Worker (ASISTENTE_URL).
  * Si KV falla, va el wa.me de la asesora sin el texto: corto y siempre en azul.
@@ -16,7 +17,7 @@
 import { config } from './config.js';
 import { lineas } from './negocio.js';
 
-const CIENTO_OCHENTA_DIAS = 180 * 24 * 60 * 60;
+const TREINTA_DIAS = 30 * 24 * 60 * 60;
 const LETRAS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/l/I: se leen sin dudas
 // 6 letras y la línea, si el número es de una asesora. Los enlaces del 21-oct no llevan línea (solo las 6 letras).
 const CODIGO = /^([A-Za-z0-9]{6})([12])?$/;
@@ -54,7 +55,7 @@ export async function enlacesCortos(kv, asesoras = []) {
   const sencillos = asesoras.map((a) => ({ ...a, url: String(a.url).split('?')[0] }));
   if (!kv || !Object.keys(destinos).length) return sencillos;
   try {
-    await kv.put(`enlace:${letras}`, JSON.stringify(destinos), { expirationTtl: CIENTO_OCHENTA_DIAS });
+    await kv.put(`enlace:${letras}`, JSON.stringify(destinos), { expirationTtl: TREINTA_DIAS });
   } catch (e) {
     console.warn('No se pudo guardar el enlace corto:', e?.message);
     return sencillos;

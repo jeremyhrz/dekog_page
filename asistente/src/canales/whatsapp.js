@@ -15,13 +15,15 @@
  * El número y el nombre del cliente nunca se envían a la IA.
  */
 import { config } from '../lib/config.js';
-import { pensar, ocultarDatosPersonales } from '../chat.js';
+import { pensar, ocultarDatosPersonales, enlaceWhatsapp } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
 import { NOTA_FOTO, asesorasDirectas } from '../lib/negocio.js';
 import { tasaBcv } from '../lib/bcv.js';
 import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
-import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
+import {
+  cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, yaAtendidoEnOtra, productosNuevos,
+} from './memoria.js';
 import { descargarImagen } from '../lib/imagen.js';
 import { enlacesCortos } from '../lib/enlaces.js';
 import { promoActiva, promoParaWhatsapp, promoParaWhatsappSinBoton, textoDeLaPromo } from '../lib/promo.js';
@@ -38,7 +40,7 @@ const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${con
  * siguiente. Aquí se cuentan los envíos aceptados para:
  *   - dejar un aviso en la hoja de clientes al llegar al 80 %;
  *   - al acercarse al tope, dejar de usar la IA y pasar a cada cliente nuevo, con UN mensaje,
- *     directo a la Línea 01 (y anotarlo en la hoja), en vez de que el asistente quede mudo.
+ *     directo a las dos asesoras (Línea 1 y Línea 2), y anotarlo en la hoja, en vez de que el asistente quede mudo.
  * WA_CUPO_MENSUAL cambia el tope; 0 lo desactiva (cuando Dekog cargue un método de pago en Meta).
  */
 const CUARENTA_DIAS = 60 * 60 * 24 * 40;
@@ -95,7 +97,7 @@ function avisarCupo(n) {
     conversacion: `aviso-cupo-whatsapp-${mesActual()}`,
     cliente: { nombre: '⚠️ AVISO DEL ASISTENTE', telefono: '', ciudad: '' },
     interes: `WhatsApp: ${n} de ${cupo} respuestas gratis usadas este mes`,
-    resumen: `Al llegar a ${tope}, el asistente de WhatsApp pasará a los clientes nuevos directo a la Línea 01 hasta el día 1 del próximo mes. Para no tener tope, carguen un método de pago en Meta.`,
+    resumen: `Al llegar a ${tope}, el asistente de WhatsApp pasará a los clientes nuevos directo a las asesoras (Línea 1 y Línea 2) hasta el día 1 del próximo mes. Para no tener tope, carguen un método de pago en Meta.`,
     canal: 'Sistema',
   }).catch((e) => console.warn('No se pudo anotar el aviso del cupo:', e?.message));
 }
@@ -300,10 +302,53 @@ async function enviarVitrina(vuelta, base, v, texto, asesoras = '') {
   if (!ok) await enviar(vuelta, { ...base, type: 'text', text: { body: textoDeVitrinaWa(v, cuerpo), preview_url: false } });
 }
 
+// Cloudflare corta lo que siga en waitUntil 30 s después de responderle a Meta: los plazos se cuentan desde que llegó el
+// aviso, como en Instagram. La IA (con el «leído» y la foto ya descontados) y después la hoja, que deja tiempo para
+// guardar la memoria otra vez.
+const PLAZO_IA_MS = 21000;
+const PLAZO_HOJA_MS = 27000;
+// La hoja solo manda el correo con las filas NUEVAS (y conserva la fecha del primer contacto): pasados 7 días, lo nuevo de
+// un cliente va en otra fila.
+const SIETE_DIAS_MS = 7 * 24 * 3600 * 1000;
+
 /**
- * Atiende un mensaje y cuenta en el cupo lo que se le mandó al cliente. procesar lo cuenta antes de la hoja (puede tardar
- * hasta 20 s, y el Worker corta a los 30); lo que quede, aquí al final. Si algo lanza a mitad de la vuelta (un fetch a
- * Meta que falla por la red), lo que ya salió se cuenta igual.
+ * Elige la fila de este cliente en la hoja (estado.filaHoja): la suya mientras tenga menos de 7 días; si no tiene, o ya es
+ * más vieja, una nueva con la fecha de hoy, sin guardar hasta que la hoja responda. Hasta el 22-oct era siempre
+ * wa-<número>: un cliente que volvía (la memoria vence a los 30 días) actualizaba en silencio su fila vieja, sin correo.
+ * Quien ya está en una de esas sigue en ella (ni fila ni correo repetidos) y sus 7 días cuentan desde ahora.
+ */
+function elegirFila(estado) {
+  const ahora = Date.now();
+  if (!estado.filaHojaDesde && estado.guardado) {
+    estado.filaHojaDesde = ahora;
+  } else if (!estado.filaHojaDesde || ahora - estado.filaHojaDesde >= SIETE_DIAS_MS) {
+    Object.assign(estado, { filaHoja: hoyCaracas(), filaHojaDesde: ahora, guardado: false });
+  }
+}
+
+/** El id de esa fila: wa-<número (o BSUID)>-<fecha>, o wa-<número> si es de antes del 22-oct. En KV va solo la fecha. */
+const idDeLaFila = (estado, cliente) => `wa-${cliente}${estado.filaHoja ? `-${estado.filaHoja}` : ''}`;
+
+// Sin número a la vista (usa nombre de usuario en WhatsApp: solo llega su BSUID) nadie puede escribirle. Si la IA le
+// ofrece que lo contacten («una asesora te escribirá a tu WhatsApp», como le pide el prompt, «te va a contactar», «se
+// pondrá en contacto contigo», «ya tenemos tu número»), esa oración se quita y va el pase a las dos asesoras.
+const PROMETE_CONTACTO = /\b(?:te|le)\s+(?:van?\s+a\s+)?(?:escrib|contact|llam)|\b(?:escribir|contactar|llamar)te\b|\bse\s+(?:comunic|pondr)|\btu\s+n[uú]mero\b/i;
+const ESCRIBELE = 'Para seguir, escríbele a la asesora que prefieras con los enlaces de abajo y te atiende con gusto 😊';
+const SIN_NUMERO = 'WhatsApp no da su número (usa nombre de usuario): se le pasaron los enlaces de las dos asesoras para que les escriba él.';
+
+/** El texto sin las oraciones que prometen escribirle (por líneas y oraciones, como sinPromesaDeVitrina en chat.js) y con
+ * la invitación a escribirle él a una asesora. */
+function sinPromesaDeContacto(texto) {
+  const queda = texto.split('\n')
+    .map((linea) => linea.split(/(?<=[.!?])\s+/).filter((o) => !PROMETE_CONTACTO.test(o)).join(' '))
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return [queda, ESCRIBELE].filter(Boolean).join('\n\n');
+}
+
+/**
+ * Atiende un mensaje y cuenta en el cupo lo que se le mandó al cliente. procesar lo cuenta en cuanto sale todo, antes de
+ * la memoria y de la hoja; lo que quede, aquí al final. Si algo lanza a mitad de la vuelta (un fetch a Meta que falla por
+ * la red), lo que ya salió se cuenta igual.
  */
 async function atenderMensaje(valor, mensaje, env) {
   const vuelta = { phoneId: valor.metadata?.phone_number_id, enviados: 0, contados: 0, avisoDelCupo: null };
@@ -316,6 +361,7 @@ async function atenderMensaje(valor, mensaje, env) {
 }
 
 async function procesar(valor, mensaje, env, vuelta) {
+  const t0 = Date.now(); // llegó el aviso: desde aquí corren los 30 s de Cloudflare
   // Clave estable de la conversación: el BSUID (from_user_id) llega siempre; el número (from)
   // puede faltar si el cliente usa nombre de usuario en WhatsApp.
   const usuario = mensaje.from_user_id ?? mensaje.from;
@@ -366,17 +412,19 @@ async function procesar(valor, mensaje, env, vuelta) {
       type: 'text',
       text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a una de nuestras asesoras:\n\n${asesoras}`, preview_url: false },
     });
-    // Primero el cupo y la memoria, después la hoja: si la hoja tarda, el aviso ya quedó contado y no se le vuelve a dar.
+    // Primero el cupo y la memoria (con su fila de la hoja), después la hoja: si la hoja tarda, el aviso ya quedó contado
+    // y no se le vuelve a dar.
+    if (mensaje.from) elegirFila(estado);
     await contarEnvios(env, vuelta);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     if (mensaje.from) {
       await guardarCliente({
-        conversacion: `wa-${mensaje.from}`,
+        conversacion: idDeLaFila(estado, mensaje.from),
         cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },
         interes: estado.interes,
         resumen: 'Escribió al WhatsApp del asistente cuando ya no le quedaban respuestas gratis este mes: escríbele tú.',
         canal: 'WhatsApp',
-      });
+      }, { hasta: t0 + PLAZO_HOJA_MS });
     }
     return;
   }
@@ -389,6 +437,11 @@ async function procesar(valor, mensaje, env, vuelta) {
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
   }
+
+  // Lo que sigue (bajar la foto y la IA) puede tardar hasta 21 s y procesados se guarda al final: si Meta repite el aviso
+  // y la repetición cae en otra instancia, la frena esta marca (al tocar una fila de la vitrina se responde al instante).
+  const eleccion = eleccionDeMensaje(mensaje);
+  if ((mensaje.type === 'image' || (texto && !eleccion)) && await yaAtendidoEnOtra(env.CONVERSACIONES, mensaje.id)) return;
 
   // "Leído" y "escribiendo…" mientras piensa (no consume cupo).
   await enviar(vuelta, { status: 'read', message_id: mensaje.id, typing_indicator: { type: 'text' } });
@@ -419,7 +472,6 @@ async function procesar(valor, mensaje, env, vuelta) {
   estado.mensajes.push({ role: 'user', content: [nota, escrito].filter(Boolean).join(' ') });
 
   // Tocó una fila de la vitrina: se responde SIN IA (al instante y sin gastar Gemini), con UN mensaje.
-  const eleccion = eleccionDeMensaje(mensaje);
   if (eleccion?.tipo === 'producto') {
     const ficha = fichaElegida(eleccion.id, await tasaBcv());
     // La misma foto que acaba de ver: solo el texto.
@@ -440,8 +492,12 @@ async function procesar(valor, mensaje, env, vuelta) {
     return;
   }
 
-  const r = await pensar(estado.mensajes, 'whatsapp', { imagen, kv: env.CONVERSACIONES });
-  const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
+  const r = await pensar(estado.mensajes, 'whatsapp', { imagen, kv: env.CONVERSACIONES, hasta: t0 + PLAZO_IA_MS });
+  // Sin número (solo su BSUID), si la IA le ofrece que lo contacten, el pase a las dos asesoras con lo que le interesa ya
+  // escrito, para que les escriba él, y sin esa promesa.
+  const sinNumero = !mensaje.from && r.formulario && !r.whatsapp;
+  const pase = sinNumero ? enlaceWhatsapp('home', r.interes || estado.interes, 'whatsapp') : r.whatsapp;
+  const respuesta = presentarse(sinNumero ? sinPromesaDeContacto(r.respuesta) : r.respuesta, estado.mensajes.length === 1);
   // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Si en la misma respuesta pasa a una asesora,
   // sus enlaces van dentro de la lista: la vitrina nunca se descarta (antes salía solo el pase, con un texto que pedía
   // tocar un «Ver modelos» que no llegaba).
@@ -456,7 +512,7 @@ async function procesar(valor, mensaje, env, vuelta) {
 
   // Pasa a una asesora: los enlaces de las DOS (Línea 1 y Línea 2) con el resumen ya escrito, cortos (lib/enlaces.js),
   // al final del mismo mensaje y siempre enteros (conCola). Antes era un botón con una sola línea (21-oct).
-  const asesorasDelPase = r.whatsapp ? bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) : '';
+  const asesorasDelPase = pase ? bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, pase.lineas)) : '';
   // Los precios en REF y Bs y las asesoras los arma el servidor: van enteros al final y, si no cabe todo, se recorta el
   // texto de la IA (antes el pie de foto cortaba por el final y lo primero que se perdía eran los precios en Bs).
   const cola = [precios, asesorasDelPase].filter(Boolean).join('\n\n');
@@ -472,27 +528,34 @@ async function procesar(valor, mensaje, env, vuelta) {
   if (!enviado) await enviar(vuelta, { ...base, type: 'text', text: { body: textoConCola(respuesta, cola, 4096), preview_url: false } });
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su botón.
   await enviarPromoSiToca(env, vuelta, base, clave, estado);
-  // Ya salió todo: el cupo se cuenta ahora, con una sola escritura y antes de la hoja (puede tardar hasta 20 s).
+  // Ya salió todo: el cupo se cuenta ahora, con una sola escritura, antes de la memoria y de la hoja.
   await contarEnvios(env, vuelta);
   // La nota le dice a la IA qué modelos vio (para «la tercera» u «otras») y a la vitrina qué no repetir.
   estado.mensajes.push({ role: 'assistant', content: vitrina ? `${respuesta}\n\n${vitrina.nota}` : respuesta });
 
   if (r.interes) estado.interes = r.interes;
   if (r.resumen) estado.resumen = r.resumen;
-  // Mostró interés o pidió una asesora: queda en la hoja con su número de WhatsApp, para que
-  // la asesora le escriba. Si después pide otra cosa, se actualiza su misma fila.
+  // Mostró interés o pidió una asesora: va a la hoja con su número de WhatsApp, para que la asesora le escriba (sin
+  // número, para que Dekog sepa del interés). Su fila se elige ya, así queda en la memoria aunque la hoja no responda.
   const interesado = r.formulario || Boolean(r.whatsapp);
-  if (mensaje.from && hayNovedadParaHoja(estado, { interesado })) {
-    const ok = await guardarCliente({
-      conversacion: `wa-${mensaje.from}`,
-      cliente: { nombre, telefono: `+${mensaje.from}`, ciudad: '' },
-      interes: estado.interes,
-      resumen: estado.resumen,
-      canal: 'WhatsApp',
-    });
-    if (ok) marcarEnHoja(estado);
-  }
+  if (interesado) elegirFila(estado);
+  // Primero la memoria y después la hoja: con la IA lenta y Apps Script dormido se pasaban los 30 s y Cloudflare cortaba
+  // antes de guardar el turno (historial, procesados y promo). Ahora lo que se corta es la hoja, que se reintenta con el
+  // próximo mensaje.
   await guardarEstado(env.CONVERSACIONES, clave, estado);
+  if (hayNovedadParaHoja(estado, { interesado })) {
+    const ok = await guardarCliente({
+      conversacion: idDeLaFila(estado, mensaje.from ?? usuario),
+      cliente: { nombre, telefono: mensaje.from ? `+${mensaje.from}` : '', ciudad: '' },
+      interes: estado.interes,
+      resumen: mensaje.from ? estado.resumen : [estado.resumen, SIN_NUMERO].filter(Boolean).join(' · '),
+      canal: 'WhatsApp',
+    }, { hasta: t0 + PLAZO_HOJA_MS });
+    if (ok) {
+      marcarEnHoja(estado);
+      await guardarEstado(env.CONVERSACIONES, clave, estado);
+    }
+  }
 }
 
 // Los mismos campos que tenía la app el 9-oct (si se manda solo «messages», Meta deja solo ese).

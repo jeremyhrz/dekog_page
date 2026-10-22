@@ -1,17 +1,21 @@
 /**
  * Memoria de cada conversación de WhatsApp e Instagram en Cloudflare KV
- * (plan gratuito: 1.000 escrituras al día; aquí se hacen 2 o 3 por mensaje:
- * la marca de "visto", el estado y, en WhatsApp, el contador del cupo).
+ * (plan gratuito: 1.000 escrituras al día). Por mensaje se escribe el estado al
+ * final, y otra vez si la hoja respondió; en WhatsApp, además, el contador del
+ * cupo y, si va a la IA, la marca de que se está atendiendo (yaAtendidoEnOtra).
  * WhatsApp e Instagram no mandan el historial, así que se guarda aquí:
  *   mensajes   — últimos turnos, ya SIN datos personales (lo que ve la IA)
  *   procesados — ids de mensajes ya atendidos (Meta reintenta y duplica avisos)
- *   guardado   — si el cliente ya quedó en la hoja
+ *   guardado   — si el cliente ya quedó en la hoja (en WhatsApp, en su fila de ahora)
  *   interes, resumen — lo último que mostró interés, para la hoja
- *   resumenEnHoja, telefonoEnHoja — lo que ya se envió a la hoja, para actualizar
- *              la fila solo cuando hay algo nuevo (del teléfono, solo sus 4 últimos
- *              dígitos: el número no se guarda aquí)
+ *   resumenEnHoja, interesEnHoja, telefonoEnHoja — lo que ya se envió a la hoja, para
+ *              actualizar la fila solo cuando hay algo nuevo (del teléfono, solo sus 4
+ *              últimos dígitos: el número no se guarda aquí)
  *   promoVista — id de la promoción cuyo mensaje ya recibió (lib/promo.js): una vez por promo
  *   avisoSinLeer — día (Caracas) en que se le dijo que no se leen audios ni videos: uno al día
+ * Solo WhatsApp (whatsapp.js → elegirFila):
+ *   filaHoja, filaHojaDesde — la fecha de su fila en la hoja (wa-<número>-<fecha>; '' en la
+ *              de antes del 22-oct, wa-<número>) y desde cuándo la usa (0: todavía no tiene)
  * Solo Instagram, donde una asesora puede escribir en el mismo chat (instagram.js):
  *   humano     — cuándo escribió la asesora por última vez (el asistente se calla en ese chat)
  *   esperaDesde — primer mensaje del cliente que la asesora todavía no ha respondido
@@ -22,9 +26,9 @@
  */
 const TREINTA_DIAS = 60 * 60 * 24 * 30;
 
-// Mensajes que esta instancia ya está atendiendo. Meta a veces repite el mismo aviso casi al instante: así se
-// ignora sin gastar una escritura de KV (el plan gratis da 1.000 al día). Entre instancias distintas, el
-// duplicado lo frena estado.procesados.
+// Mensajes que esta instancia ya está atendiendo. Meta a veces repite el mismo aviso casi al instante: así se ignora sin
+// tocar KV. Si la repetición cae en otra instancia, la frena estado.procesados, que se guarda al final de la vuelta; en
+// WhatsApp, mientras baja la foto y piensa la IA, también la marca de yaAtendidoEnOtra.
 const enCurso = new Set();
 
 /** true si el mensaje ya se está atendiendo en esta instancia; si no, lo marca. */
@@ -33,6 +37,31 @@ export function yaAtendido(_kv, idMensaje) {
   if (enCurso.has(idMensaje)) return true;
   enCurso.add(idMensaje);
   if (enCurso.size > 500) enCurso.delete(enCurso.values().next().value);
+  return false;
+}
+
+/** Para las pruebas: esta instancia olvida lo que está atendiendo (el aviso siguiente es como si cayera en otra). */
+export function olvidarEnCurso() {
+  enCurso.clear();
+}
+
+/**
+ * true si otra instancia ya está atendiendo este mensaje; si no, lo marca en KV. Para lo largo (bajar la foto y la IA,
+ * hasta 21 s), cuando procesados aún no se guardó: una repetición de Meta que cae en otra instancia se respondía dos
+ * veces. Una clave por mensaje, que vence a los 10 minutos: guardar antes la memoria de la conversación chocaba con los
+ * guardados de otros mensajes seguidos del mismo cliente (KV admite una escritura por segundo en la misma clave) y se
+ * perdían turnos.
+ * KV no garantiza exclusión entre ubicaciones, pero la ventana baja de segundos a milisegundos. Nunca lanza.
+ */
+export async function yaAtendidoEnOtra(kv, idMensaje) {
+  if (!kv || !idMensaje) return false;
+  const clave = `visto:${idMensaje}`;
+  try {
+    if (await kv.get(clave)) return true;
+    await kv.put(clave, '1', { expirationTtl: 600 });
+  } catch (e) {
+    console.warn('No se pudo marcar el mensaje en curso:', e?.message); // se responde igual
+  }
   return false;
 }
 
@@ -46,7 +75,8 @@ export async function cargarEstado(kv, clave) {
   }
   const estado = {
     mensajes: [], procesados: [], guardado: false, interes: '', resumen: '',
-    resumenEnHoja: null, telefonoEnHoja: '', avisoCupo: '', ultimaTarjeta: '', hoy: { fecha: '', n: 0, avisado: false },
+    resumenEnHoja: null, interesEnHoja: null, telefonoEnHoja: '', filaHoja: '', filaHojaDesde: 0,
+    avisoCupo: '', ultimaTarjeta: '', hoy: { fecha: '', n: 0, avisado: false },
     promoVista: '', avisoSinLeer: '', humano: 0, esperaDesde: 0, seguimiento: 0, datosTomados: 0,
     ...(guardado ?? {}),
   };
@@ -68,14 +98,17 @@ const huella = (telefono) => String(telefono).replace(/\D/g, '').slice(-4);
 
 /**
  * ¿Hay que (re)enviar el cliente a la hoja? Solo si mostró interés y hay algo
- * nuevo: aún no está, cambió lo que pide, o dio un teléfono distinto del último
- * que se mandó (el mismo número en cada mensaje no se reenvía). La hoja
- * actualiza la misma fila, así que repetir no duplica.
+ * nuevo: aún no está, cambió lo que pide (el resumen o lo que le interesa), o dio
+ * un teléfono distinto del último que se mandó (el mismo número en cada mensaje
+ * no se reenvía). La hoja actualiza la misma fila, así que repetir no duplica.
  */
 export function hayNovedadParaHoja(estado, { interesado, telefono = '' }) {
   if (!interesado) return false;
-  // Hasta el 22-oct telefonoEnHoja era un sí/no: un true viejo no es una huella, así que el número se reenvía una vez.
-  return !estado.guardado || estado.resumen !== estado.resumenEnHoja || Boolean(telefono && huella(telefono) !== estado.telefonoEnHoja);
+  // Hasta el 22-oct telefonoEnHoja era un sí/no: un true viejo no es una huella, así que el número se reenvía una vez. Y
+  // lo que le interesaba no se anotaba (un interés nuevo con el mismo resumen no llegaba): el de antes cuenta una vez.
+  return !estado.guardado || estado.resumen !== estado.resumenEnHoja
+    || Boolean(estado.interes && estado.interes !== estado.interesEnHoja)
+    || Boolean(telefono && huella(telefono) !== estado.telefonoEnHoja);
 }
 
 /**
@@ -93,6 +126,7 @@ export function productosNuevos(estado, productos = []) {
 export function marcarEnHoja(estado, telefono = '') {
   estado.guardado = true;
   estado.resumenEnHoja = estado.resumen;
+  estado.interesEnHoja = estado.interes;
   if (telefono) estado.telefonoEnHoja = huella(telefono);
 }
 
@@ -106,16 +140,22 @@ export function fusionar(actual, estado) {
   const nuevos = estado.mensajes.slice(desde);
   // Si KV devolvió menos de lo que ya se había leído (vencido o desactualizado), se usa lo leído.
   const base = actual.mensajes.length >= desde ? actual.mensajes : estado.mensajes.slice(0, desde);
+  // La fila de la hoja (WhatsApp) es la más reciente, la de esta vuelta o la de KV, y `guardado` es de esa fila: una
+  // nueva queda sin guardar hasta que la hoja responda. Si es la misma, basta con que una de las dos vueltas la guardara.
+  const fila = (Number(estado.filaHojaDesde) || 0) > (Number(actual.filaHojaDesde) || 0) ? estado : actual;
   return {
     mensajes: conservarNotas([...base, ...nuevos], 16),
     procesados: [...new Set([...actual.procesados, ...estado.procesados])].slice(-50),
-    guardado: Boolean(actual.guardado || estado.guardado),
+    guardado: estado.filaHoja === actual.filaHoja ? Boolean(actual.guardado || estado.guardado) : Boolean(fila.guardado),
     interes: estado.interes || actual.interes,
     resumen: estado.resumen || actual.resumen,
     resumenEnHoja: estado.resumenEnHoja ?? actual.resumenEnHoja,
+    interesEnHoja: estado.interesEnHoja ?? actual.interesEnHoja,
     // La huella del último número que llegó a la hoja: la de esta vuelta si la cambió; si no, la de KV (otra vuelta pudo
     // mandar un número nuevo mientras tanto).
     telefonoEnHoja: estado.telefonoEnHoja !== estado.huellaLeida ? estado.telefonoEnHoja : actual.telefonoEnHoja,
+    filaHoja: fila.filaHoja ?? '',
+    filaHojaDesde: Number(fila.filaHojaDesde) || 0,
     avisoCupo: estado.avisoCupo || actual.avisoCupo, // mes en que ya se le avisó del cupo agotado
     ultimaTarjeta: estado.ultimaTarjeta || actual.ultimaTarjeta, // última foto/precio mostrados
     hoy: (estado.hoy?.fecha ?? '') >= (actual.hoy?.fecha ?? '') ? estado.hoy : actual.hoy, // mensajes del cliente hoy
@@ -177,7 +217,7 @@ export function conservarNotas(mensajes, maximo) {
 
 /** Guarda la conversación. Nunca lanza: si KV falla (por ejemplo, se acabaron las escrituras gratis del día), el
  * cliente ya tiene su respuesta y solo se pierde la memoria de este turno. Devuelve si se pudo guardar.
- * Se puede llamar más de una vez en la misma vuelta (instagram.js guarda antes de la hoja y otra vez si la hoja
+ * Se puede llamar más de una vez en la misma vuelta (los dos canales guardan antes de la hoja y otra vez si la hoja
  * respondió): lo guardado pasa a ser la base y la segunda vez no se repiten los mensajes de esta vuelta. */
 export async function guardarEstado(kv, clave, estado) {
   if (!kv) return false;
