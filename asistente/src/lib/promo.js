@@ -17,8 +17,9 @@ export const PROMO = {
   id: 'stock-2026-10',
   titulo: 'Hasta 20 % de descuento en mobiliario en stock',
   hasta: 20,
-  // El enlace que se manda: una página de dekog.net (public/ofertas.html) que abre el PDF de Drive al instante y le da a
-  // Instagram y WhatsApp una vista previa con la imagen de la promo (la del PDF salía rota en Instagram, 21-oct).
+  // El enlace que se manda: una página de dekog.net (public/ofertas.html) con la promo, el PDF dentro, el botón para
+  // abrirlo y las dos asesoras; su vista previa en Instagram y WhatsApp es la imagen de la promo (la del PDF de Drive
+  // salía rota en Instagram, 21-oct).
   enlace: 'https://www.dekog.net/ofertas',
   pdf: 'https://drive.google.com/file/d/11zOVmCloih4kKsjbuVt7HLGT4EvPrU2-/view?usp=sharing',
   // JPEG de verdad (WhatsApp rechaza una imagen cuyo tipo no coincide con la extensión) y una WebP liviana para la web.
@@ -209,5 +210,5 @@ export function promoParaWhatsappSinBoton(p = promoActiva()) {
 export function textoDeLaPromo(p = promoActiva(), { formato = false } = {}) {
   const titulo = formato ? p.titulo.replace(/^Hasta (\d+ %) de descuento/, 'Hasta *$1 de descuento*') : p.titulo;
   return `🏷️ ${formato ? '*¡Tenemos promo!*' : '¡Tenemos promo!'} ${titulo}: camas ya fabricadas, a precio especial (hasta agotar existencia).\n\n`
-    + `Mira todas las ofertas aquí 👉 ${p.enlace}\n\n${PIE}`;
+    + `Mira todas las ofertas aquí 👇\n${p.enlace}\n\n${PIE}`; // el enlace solo en su línea (Instagram, 21-oct)
 }

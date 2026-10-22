@@ -34,19 +34,19 @@ import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { descargarImagen } from '../lib/imagen.js';
 import { NOTA_FOTO } from '../lib/negocio.js';
 import { promoActiva, textoDeLaPromo } from '../lib/promo.js';
-import { enlaceCorto } from '../lib/enlaces.js';
+import { enlacesCortos } from '../lib/enlaces.js';
 import {
   cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos, unirSeguidos,
 } from './memoria.js';
 import {
   verificarSuscripcion, firmaValida, lineaPrecio, extraerTelefono, nombreEscrito, presentarse, pideBolivares,
-  eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram, recortar,
+  eleccionDe, fichaElegida, carruselDeVitrina, respuestasRapidas, cierreInstagram, recortar, bloqueAsesoras, enlacesEnSuLinea,
 } from './meta.js';
 
 const RAIZ = () => config.IG_API_BASE || 'https://graph.instagram.com';
 const graph = () => `${RAIZ()}/${config.IG_API_VERSION || 'v25.0'}`;
-// Límite de Instagram por mensaje de texto: 1000 bytes, menos los 3 de la MARCA que va al final.
-const MAX_BYTES = 1000 - 3;
+// Límite de Instagram por mensaje de texto: 1000 bytes, menos los 4 del espacio y la MARCA que van al final.
+const MAX_BYTES = 1000 - 4;
 
 async function tokenActual(env) {
   return (await env.CONVERSACIONES?.get('ig:token')) || config.IG_TOKEN;
@@ -59,7 +59,7 @@ async function tokenActual(env) {
  * pausa solo funciona después de ver un eco que la conserva (ig:marca en KV, se renueva cada semana); si un eco de un
  * texto del asistente vuelve sin ella, se desactiva sola. Así el asistente nunca se calla por error.
  */
-export const MARCA = '⁣'; // INVISIBLE SEPARATOR: no se ve en ningún teléfono
+export const MARCA = '\u2063'; // INVISIBLE SEPARATOR: no se ve en ningún teléfono
 const propios = new Set(); // ids (mid) y textos de lo que mandó el asistente desde esta instancia
 function recordar(valor) {
   if (!valor) return;
@@ -68,12 +68,18 @@ function recordar(valor) {
 }
 const sinMarca = (texto) => String(texto ?? '').replaceAll(MARCA, '').trim();
 
+/**
+ * El texto como sale: cada enlace solo en su línea y la MARCA al final, separada por un espacio. Pegada a un enlace
+ * que cierra el mensaje, Instagram lo cortaba en la última «/» (21-oct: dekog.net/a/p4Xed8 llevaba a dekog.net/a).
+ */
+export const textoParaInstagram = (texto) => `${enlacesEnSuLinea(texto).replace(/\s+$/, '')} ${MARCA}`;
+
 async function enviar(env, igsid, message) {
   const texto = typeof message.text === 'string' ? message.text : null;
   const r = await fetch(`${graph()}/me/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${await tokenActual(env)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ recipient: { id: igsid }, message: texto === null ? message : { ...message, text: `${texto}${MARCA}` } }),
+    body: JSON.stringify({ recipient: { id: igsid }, message: texto === null ? message : { ...message, text: textoParaInstagram(texto) } }),
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
@@ -134,15 +140,18 @@ async function enviarVitrina(env, igsid, v, tasa) {
   }
 }
 
-/** Parte un texto en trozos de como mucho 1000 bytes, sin cortar palabras si se puede. */
+/**
+ * Parte un texto en trozos de como mucho 1000 bytes, sin cortar palabras si se puede (ni un enlace: con cada uno solo
+ * en su línea, el corte cae en un salto de línea o en un espacio).
+ */
 export function partirPorBytes(texto, maximo = MAX_BYTES) {
   const codificador = new TextEncoder();
   const trozos = [];
-  let resto = texto;
+  let resto = enlacesEnSuLinea(texto);
   while (codificador.encode(resto).length > maximo) {
     let corte = resto.length;
     while (codificador.encode(resto.slice(0, corte)).length > maximo) corte = Math.floor(corte * 0.9);
-    const espacio = resto.lastIndexOf(' ', corte);
+    const espacio = Math.max(resto.lastIndexOf(' ', corte), resto.lastIndexOf('\n', corte));
     if (espacio > corte * 0.6) corte = espacio;
     // No partir un emoji (par sustituto UTF-16) por la mitad: saldría "�".
     const previo = resto.charCodeAt(corte - 1);
@@ -547,9 +556,10 @@ async function procesar(evento, env) {
   // Pidió el monto en bolívares (o la respuesta lo promete) del MISMO producto: la foto no se repite, el precio sí.
   const repetidos = !vitrina && !nuevos.length && pideBolivares(texto, respuesta) ? r.productos : [];
   let cuerpo = [respuesta, [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
-  // El enlace a la asesora, corto (lib/enlaces.js): el largo, con el resumen, Instagram lo mostraba a medias en gris.
-  if (r.whatsapp) cuerpo += `\n\nHabla con una asesora por WhatsApp 👉 ${await enlaceCorto(env.CONVERSACIONES, r.whatsapp.url)}`;
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
+  // Pasa a una asesora: las DOS líneas (pedido de la dueña, 21-oct), en un mensaje aparte y con enlaces cortos
+  // (lib/enlaces.js): el wa.me largo, con el resumen, Instagram lo mostraba a medias en gris.
+  if (r.whatsapp) await enviar(env, igsid, { text: bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) });
   if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su enlace.
   await enviarPromoSiToca(env, igsid, clave, estado);

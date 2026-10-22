@@ -139,8 +139,11 @@ test('dekog.net/ofertas abre el PDF de la promo y trae su vista previa (JPEG 120
   const leer = (ruta) => readFileSync(new URL(`../../${ruta}`, import.meta.url));
   const html = leer('public/ofertas.html').toString('utf8');
   assert.equal(PROMO.enlace, 'https://www.dekog.net/ofertas');
-  assert.ok(html.includes(`location.replace('${PROMO.pdf}')`), 'el redireccionamiento lleva al PDF de promo.js');
-  assert.ok(html.includes(`href="${PROMO.pdf}"`), 'el botón de respaldo lleva al PDF de promo.js');
+  // Página de verdad, la misma para todos: sin redirección (Instagram no la mostraba como enlace, 21-oct).
+  assert.ok(!/location\.(replace|assign|href)|http-equiv="refresh"/i.test(html), 'ofertas.html no redirige');
+  assert.ok(html.includes(`href="${PROMO.pdf}"`), 'el botón lleva al PDF de promo.js');
+  assert.ok(html.includes(`src="${PROMO.pdf.replace(/\/view.*$/, '/preview')}"`), 'el visor muestra el PDF de promo.js');
+  for (const numero of ['584145847791', '584244006086']) assert.ok(html.includes(`https://wa.me/${numero}?text=`), `falta la línea ${numero}`);
   const imagen = /property="og:image" content="https:\/\/www\.dekog\.net\/([^"]+)"/.exec(html)[1];
   const bytes = leer(`public/${imagen}`);
   assert.deepEqual([...bytes.subarray(0, 3)], [0xff, 0xd8, 0xff], `${imagen} no es JPEG`);
@@ -166,7 +169,7 @@ test('Qué cuenta como pedir ofertas y como pedir el catálogo de ofertas', () =
 
 test('Web: preguntar por descuentos trae el enlace del catálogo de ofertas; «el catálogo de ofertas» no manda los otros dos', async () => {
   const r = await pensar([{ role: 'user', content: '¿Tienen descuentos o alguna promoción?' }], 'web');
-  assert.ok(r.respuesta.endsWith(`🏷️ Catálogo de ofertas: ${PROMO.enlace}`), r.respuesta);
+  assert.ok(r.respuesta.endsWith(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}`), r.respuesta); // el enlace solo en su línea
   const o = await pensar([{ role: 'user', content: 'Buenas noches... Pudiera por favor enviarme el catálogo de ofertas... Gracias' }], 'web');
   assert.ok(o.respuesta.includes(PROMO.enlace));
   for (const [, url] of catalogosPdf) assert.ok(!o.respuesta.includes(url));
@@ -210,7 +213,7 @@ test('WhatsApp: un sticker no se responde; dos notas de voz el mismo día → UN
   assert.equal(meta.enviados.length, 0);
   await wa({ type: 'audio', audio: { id: 'a1' } });
   await wa({ type: 'audio', audio: { id: 'a2' } });
-  const avisos = mensajesWa().filter((m) => /notas de voz/.test(m.interactive?.body?.text ?? ''));
+  const avisos = mensajesWa().filter((m) => /notas de voz/.test(m.text?.body ?? ''));
   assert.equal(avisos.length, 1);
 });
 
@@ -219,7 +222,7 @@ test('Instagram: «Hola» → el saludo, la imagen de la promo y su texto con el
   const envios = enviosIg();
   assert.match(sinMarca(envios[0].text), /Bienvenido a DEKOG/);
   assert.equal(envios[1].attachment.payload.url, PROMO.imagen);
-  assert.match(sinMarca(envios[2].text), new RegExp(`Mira todas las ofertas aquí 👉 ${PROMO.enlace.replace(/[.?]/g, '\\$&')}`));
+  assert.ok(sinMarca(envios[2].text).includes(`Mira todas las ofertas aquí 👇\n${PROMO.enlace}\n\n`), envios[2].text);
   await ig({ text: '¿Cuánto es la Toronto queen?' });
   assert.equal(enviosIg().filter((m) => m.attachment?.payload?.url === PROMO.imagen).length, 1);
   assert.equal(estadoIg().promoVista, PROMO.id);

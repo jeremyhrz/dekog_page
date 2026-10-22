@@ -56,11 +56,21 @@ function excedeLimite(ip) {
 
 const ORIGEN = { web: 'de la web', whatsapp: 'de WhatsApp', instagram: 'de Instagram' };
 
+/**
+ * El pase a una asesora, con el resumen ya escrito. `url`: la línea de esa área (la web saca de ahí el texto para sus
+ * botones). `lineas`: las DOS asesoras en orden, Línea 1 y Línea 2 (pedido de la dueña, 21-oct: Instagram y WhatsApp
+ * muestran los dos enlaces; la web, dos botones).
+ */
 function enlaceWhatsapp(area, resumen, canal = 'web') {
   const codigo = lineaPorArea[area] ?? '01';
   const linea = lineas[codigo];
   const texto = `Hola Dekog, vengo del asistente ${ORIGEN[canal] ?? ORIGEN.web} 👋\n${resumen}`.trim();
-  return { url: `https://wa.me/${linea.numero}?text=${encodeURIComponent(texto)}`, linea: linea.nombre };
+  const url = (numero) => `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+  return {
+    url: url(linea.numero),
+    linea: linea.nombre,
+    lineas: Object.values(lineas).map((l) => ({ etiqueta: l.etiqueta, visible: l.visible, url: url(l.numero) })),
+  };
 }
 
 // Si un mensaje largo del asistente trae al final la nota de la vitrina («[Vitrina «Camas»: …]», lib/vitrina.js),
@@ -122,10 +132,11 @@ export function ocultarDatosPersonales(entrada) {
 
 const texto = (valor, max) => String(valor ?? '').trim().slice(0, max);
 
+// Después de este texto van los enlaces (o, en la web, los botones) de las dos asesoras.
 const AVISO_EMERGENCIA = {
-  web: 'Disculpa, en este momento no puedo responder. Toca el botón de WhatsApp y una asesora de Dekog te atiende.',
-  whatsapp: 'Disculpa, en este momento no puedo responder. Toca «Hablar con asesora» y te atiende una persona de Dekog.',
-  instagram: 'Disculpa, en este momento no puedo responder. Escríbele a una asesora de Dekog por WhatsApp:',
+  web: 'Disculpa, en este momento no puedo responder 🙏 Escríbele a una asesora de Dekog por WhatsApp con los botones de abajo.',
+  whatsapp: 'Disculpa, en este momento no puedo responder 🙏 Escríbele directo a una asesora de Dekog.',
+  instagram: 'Disculpa, en este momento no puedo responder 🙏 Escríbele directo a una asesora de Dekog.',
 };
 
 function respuestaDeEmergencia(canal) {
@@ -183,9 +194,12 @@ export function sinPromesaDeVitrina(texto) {
   return limpio || texto;
 }
 
-/** «Toca el botón de hablar con asesora» (o «la asesora… botón»): la respuesta promete el botón de WhatsApp. */
+/** «Toca el botón de hablar con asesora» (o «escríbele a una asesora por los enlaces de abajo»): la respuesta promete
+ * el pase a una asesora aunque la IA no lo marcó. */
 export function prometeBotonDeAsesora(texto) {
-  return /bot[oó]n[^.!?\n]{0,60}asesor|asesor[^.!?\n]{0,60}bot[oó]n/i.test(texto ?? '');
+  // «el enlace del catálogo; una asesora te confirma…» no cuenta: solo el botón o los enlaces «de abajo» o «de WhatsApp».
+  return /bot[oó]n[^.!?\n]{0,60}asesor|asesor[^.!?\n]{0,60}bot[oó]n|enlaces? (de )?(abajo|whatsapp)[^.!?\n]{0,40}asesor|asesor[^.!?\n]{0,60}enlaces? (de )?(abajo|whatsapp)/i
+    .test(texto ?? '');
 }
 
 // La IA a veces dice «te lo muestro abajo en bolívares» aunque no mande ningún producto: sin tarjeta, esa frase
@@ -378,7 +392,8 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
     // catálogo de ofertas», solo el de la promo (abajo).
     respuesta = sinPromesaDeVitrina(respuesta);
     if (pideCatalogo(ultimo) && !pideCatalogoDeOfertas(ultimo) && !catalogosPdf.some(([, url]) => respuesta.includes(url))) {
-      respuesta += `\n\n${catalogosPdf.map(([nombre, url]) => `📖 ${nombre}: ${url}`).join('\n')}`;
+      // Cada enlace solo en su línea: Instagram no detecta bien uno pegado a otro texto (21-oct).
+      respuesta += `\n\n${catalogosPdf.map(([nombre, url]) => `📖 ${nombre}:\n${url}`).join('\n\n')}`;
     }
   }
   // Preguntó por ofertas, descuentos o promociones (o la IA habla del catálogo de ofertas): va su enlace. Lo agrega el
@@ -390,7 +405,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   if (promo && !salida.emergencia && conOferta) respuesta += `\n\n${ofertasDelModelo(conOferta.id, conOferta.talla ?? '')}`;
   if (promo && !salida.emergencia && (pideOfertas(ultimo) || /cat[aá]logo de ofertas/i.test(respuesta))
     && !respuesta.includes(promo.enlace)) {
-    respuesta += `\n\n🏷️ Catálogo de ofertas: ${promo.enlace}`;
+    respuesta += `\n\n🏷️ Catálogo de ofertas:\n${promo.enlace}`;
   }
   if ((productos.length || vitrina) && !tasa) {
     respuesta += '\n\n(Nota: ahora mismo no pude consultar la tasa BCV, así que el monto en bolívares te lo confirma una asesora.)';

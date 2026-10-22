@@ -12,9 +12,14 @@
 // (0412-4423350) pasó a ser el número de ESTE asistente el 8-oct: nunca se usa para pasar clientes a una persona.
 export const lineas = {
   // Home: la de los muebles; recibe los botones de la web salvo los de proyectos, que van a Arquitectura.
-  '01': { numero: '584145847791', nombre: 'Home' },
-  '02': { numero: '584244006086', nombre: 'Arquitectura' },
+  // `etiqueta` y `visible` son como las llama la web (src/utils/whatsapp.js → LINEAS_WHATSAPP; lo vigila una prueba).
+  '01': { numero: '584145847791', nombre: 'Home', etiqueta: 'Línea 1', visible: '0414-584 7791' },
+  '02': { numero: '584244006086', nombre: 'Arquitectura', etiqueta: 'Línea 2', visible: '0424-400 6086' },
 };
+
+/** Las dos asesoras con su wa.me sin texto (avisos cortos de WhatsApp, donde no hace falta el resumen). */
+export const asesorasDirectas = () => Object.values(lineas)
+  .map((l) => ({ etiqueta: l.etiqueta, visible: l.visible, url: `https://wa.me/${l.numero}` }));
 
 // Dekog convierte sus precios REF a bolívares con la tasa oficial del BCV del euro.
 export const monedaTasa = 'EUR';

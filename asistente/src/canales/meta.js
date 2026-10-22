@@ -86,6 +86,37 @@ export function recortar(texto, maximo) {
   return `${texto.slice(0, corte)}…`;
 }
 
+/**
+ * Los enlaces de las DOS asesoras (pedido de la dueña, 21-oct), cada uno solo en su línea: Instagram no detecta bien
+ * un enlace pegado a otro texto o a un emoji (el de ofertas salió sin azul y el de la asesora, cortado).
+ *   Habla con una asesora por WhatsApp 👇
+ *
+ *   Línea 1 (0414-584 7791):
+ *   https://www.dekog.net/a/k3P9xQ
+ *
+ *   Línea 2 (0424-400 6086):
+ *   https://www.dekog.net/a/Zt7mQ2
+ * `enlaces`: [{ etiqueta, visible, url }] (chat.js → enlaceWhatsapp().lineas, o negocio.js → asesorasDirectas()).
+ * Sin `titulo` (null), solo las líneas.
+ */
+export function bloqueAsesoras(enlaces, titulo = 'Habla con una asesora por WhatsApp 👇') {
+  return [titulo, ...enlaces.map((l) => `${l.etiqueta} (${l.visible}):\n${l.url}`)].filter(Boolean).join('\n\n');
+}
+
+/**
+ * Cada enlace solo en su línea, sin la puntuación pegada al final (Instagram, 21-oct: «🏷️ Catálogo de ofertas:
+ * https://www.dekog.net/ofertas» salió sin azul, y un enlace pegado a otro texto se detecta a medias). No cambia un
+ * texto que ya cumple, así que se puede aplicar dos veces.
+ */
+export function enlacesEnSuLinea(texto) {
+  return String(texto).replace(/[ \t]*(https?:\/\/[^\s]*[^\s.,;:!?)\]}»"'])[.,;:!?)\]}»"']*[ \t]*/g, (m, url, desde, todo) => {
+    const antes = desde === 0 || todo[desde - 1] === '\n' ? '' : '\n';
+    const fin = desde + m.length;
+    const despues = fin >= todo.length || todo[fin] === '\n' ? '' : '\n';
+    return `${antes}${url}${despues}`;
+  });
+}
+
 // ── Vitrina («quiero ver camas») ─────────────────────────────────────────────────────────────────
 
 /** El texto recortado para que la cola (guía + enlace) quepa siempre entera dentro de `maximo`. */
@@ -193,7 +224,8 @@ export function cierreInstagram(v, { conTarjetas, tasa }) {
   const lista = conTarjetas ? `Modelos: ${v.productos.map((t) => t.nombre).join(', ')}.` : vitrinaEnTexto(v);
   const bs = conTarjetas && tasa ? `\nBs a la ${tasa.etiqueta} del ${tasa.fecha}.` : '';
   const mas = v.mas ? '\nEscríbeme «más» para ver otros modelos.' : '';
-  return `${lista}${bs}\n\n${GUIA_IG}${mas}\n${v.boton}: ${v.url}`;
+  // El enlace solo en su línea (Instagram no detecta bien un enlace pegado a otro texto).
+  return `${lista}${bs}\n\n${GUIA_IG}${mas}\n\n${v.boton}:\n${v.url}`;
 }
 
 /** Primer número de teléfono (7 a 15 dígitos) escrito en el texto, o ''. */

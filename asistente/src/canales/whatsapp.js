@@ -17,16 +17,17 @@
 import { config } from '../lib/config.js';
 import { pensar, ocultarDatosPersonales } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
-import { lineas, NOTA_FOTO } from '../lib/negocio.js';
+import { NOTA_FOTO, asesorasDirectas } from '../lib/negocio.js';
 import { tasaBcv } from '../lib/bcv.js';
 import { fotoParaCanales } from '../lib/catalogo.js';
 import { vitrinaSiguiente } from '../lib/vitrina.js';
 import { cargarEstado, guardarEstado, hayNovedadParaHoja, marcarEnHoja, yaAtendido, productosNuevos } from './memoria.js';
 import { descargarImagen } from '../lib/imagen.js';
+import { enlacesCortos } from '../lib/enlaces.js';
 import { promoActiva, promoParaWhatsapp, promoParaWhatsappSinBoton, textoDeLaPromo } from '../lib/promo.js';
 import {
   verificarSuscripcion, firmaValida, lineaPrecio, recortar, presentarse, eleccionDe, fichaElegida, listaDeVitrina, textoDeVitrinaWa,
-  pideBolivares,
+  pideBolivares, bloqueAsesoras, conCola,
 } from './meta.js';
 
 const graph = () => `${config.WA_API_BASE || 'https://graph.facebook.com'}/${config.WA_API_VERSION || 'v25.0'}`;
@@ -244,7 +245,8 @@ async function procesar(valor, mensaje, env) {
   const contacto = valor.contacts?.find((c) => (mensaje.from && c.wa_id === mensaje.from)
     || (mensaje.from_user_id && c.user_id === mensaje.from_user_id));
   const nombre = contacto?.profile?.name ?? '';
-  const asesora = `https://wa.me/${lineas['01'].numero}`;
+  // Las dos asesoras (Línea 1 y Línea 2) con su wa.me sin texto, para los avisos cortos (pedido de la dueña, 21-oct).
+  const asesoras = bloqueAsesoras(asesorasDirectas(), null);
 
   // Tope por cliente y por día: pasado el tope, UN aviso con la asesora y luego silencio (sin escribir en KV).
   const hoy = hoyCaracas();
@@ -256,7 +258,7 @@ async function procesar(valor, mensaje, env) {
     await enviar(env, phoneId, {
       ...base,
       type: 'text',
-      text: { body: `Para seguir atendiéndote hoy, escríbele directo a una asesora de Dekog 😊 ${asesora}`, preview_url: false },
+      text: { body: `Para seguir atendiéndote hoy, escríbele directo a una asesora de Dekog 😊\n\n${asesoras}`, preview_url: false },
     });
     await guardarEstado(env.CONVERSACIONES, clave, estado);
     return;
@@ -273,7 +275,7 @@ async function procesar(valor, mensaje, env) {
     await enviar(env, phoneId, {
       ...base,
       type: 'text',
-      text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a nuestra asesora: ${asesora}`, preview_url: false },
+      text: { body: `¡Hola! 👋 Gracias por escribir a Dekog. Para atenderte ahora mismo, escríbele directo a una de nuestras asesoras:\n\n${asesoras}`, preview_url: false },
     });
     // Primero la memoria y después la hoja: si la hoja tarda, al menos no se le vuelve a avisar.
     await guardarEstado(env.CONVERSACIONES, clave, estado);
@@ -314,12 +316,8 @@ async function procesar(valor, mensaje, env) {
       : AVISO_SIN_TEXTO[mensaje.type] ?? AVISO_SIN_TEXTO.otro;
     await enviar(env, phoneId, {
       ...base,
-      type: 'interactive',
-      interactive: {
-        type: 'cta_url',
-        body: { text: presentarse(aviso, estado.mensajes.length === 0) },
-        action: { name: 'cta_url', parameters: { display_text: 'Hablar con asesora', url: asesora } },
-      },
+      type: 'text',
+      text: { body: `${presentarse(aviso, estado.mensajes.length === 0)}\n\n${asesoras}`, preview_url: false },
     });
     await enviarPromoSiToca(env, phoneId, base, clave, estado);
     await guardarEstado(env.CONVERSACIONES, clave, estado);
@@ -353,7 +351,7 @@ async function procesar(valor, mensaje, env) {
 
   const r = await pensar(estado.mensajes, 'whatsapp', { imagen, kv: env.CONVERSACIONES });
   const respuesta = presentarse(r.respuesta, estado.mensajes.length === 1);
-  // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Con asesora, manda su botón.
+  // Pidió ver una categoría: UNA lista (la foto va cuando elige un modelo). Con asesora, los enlaces de las dos.
   const vitrina = r.whatsapp ? null : r.vitrina;
   // La foto y el precio solo van cuando cambian: si el cliente pregunta por el pago o el envío del
   // mismo producto, repetir la misma foto se siente robótico. Con vitrina, los modelos van en la lista.
@@ -363,27 +361,20 @@ async function procesar(valor, mensaje, env) {
   const repetidos = !vitrina && !nuevos.length && pideBolivares(texto, respuesta) ? r.productos : [];
   const cuerpo = [respuesta, [...nuevos, ...repetidos].map((p) => lineaPrecio(p, r.tasa)).join('\n')].filter(Boolean).join('\n\n');
 
+  // Pasa a una asesora: los enlaces de las DOS (Línea 1 y Línea 2) con el resumen ya escrito, cortos (lib/enlaces.js),
+  // al final del mismo mensaje y siempre enteros (conCola). Antes era un botón con una sola línea (21-oct).
+  const asesorasDelPase = r.whatsapp ? bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) : '';
   let enviado = false;
   if (vitrina) {
     await enviarVitrina(env, phoneId, base, vitrina, cuerpo);
     enviado = true;
-  } else if (r.whatsapp) {
-    enviado = await enviar(env, phoneId, {
-      ...base,
-      type: 'interactive',
-      interactive: {
-        type: 'cta_url',
-        ...(principal ? { header: { type: 'image', image: { link: fotoParaCanales(principal.id) } } } : {}),
-        body: { text: recortar(cuerpo, 1024) },
-        action: { name: 'cta_url', parameters: { display_text: 'Hablar con asesora', url: r.whatsapp.url } },
-      },
-    });
   } else if (principal) {
-    enviado = await enviar(env, phoneId, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption: recortar(cuerpo, 1024) } });
+    const caption = asesorasDelPase ? conCola(cuerpo, asesorasDelPase, 1024) : recortar(cuerpo, 1024);
+    enviado = await enviar(env, phoneId, { ...base, type: 'image', image: { link: fotoParaCanales(principal.id), caption } });
   }
   if (!enviado) {
-    const conEnlace = r.whatsapp ? `${cuerpo}\n\nHabla con una asesora: ${r.whatsapp.url}` : cuerpo;
-    await enviar(env, phoneId, { ...base, type: 'text', text: { body: recortar(conEnlace, 4096), preview_url: false } });
+    const body = asesorasDelPase ? conCola(cuerpo, asesorasDelPase, 4096) : recortar(cuerpo, 4096);
+    await enviar(env, phoneId, { ...base, type: 'text', text: { body, preview_url: false } });
   }
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su botón.
   await enviarPromoSiToca(env, phoneId, base, clave, estado);

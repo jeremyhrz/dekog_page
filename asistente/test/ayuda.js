@@ -16,8 +16,8 @@ configurar({
   PROMO: 'no',
 });
 
-/** El texto que mandó el asistente a Instagram, sin la marca invisible del final (canales/instagram.js → MARCA). */
-export const sinMarca = (texto) => (typeof texto === 'string' ? texto.replace(/⁣$/, '') : texto);
+/** El texto que mandó el asistente a Instagram, sin el espacio y la marca invisible del final (instagram.js → MARCA). */
+export const sinMarca = (texto) => (typeof texto === 'string' ? texto.replace(/ ?\u2063$/, '') : texto);
 
 export function kvEnMemoria() {
   const datos = new Map();

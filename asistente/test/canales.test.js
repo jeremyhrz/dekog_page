@@ -77,13 +77,16 @@ test('WhatsApp: si Meta rechaza la lista, va el texto con los modelos y el enlac
   assert.equal(cupoWa(), 1);
 });
 
-test('WhatsApp: lo de antes sigue igual (modelo concreto → foto; comprar → botón de asesora; id viejo → IA)', async () => {
+test('WhatsApp: modelo concreto → foto; comprar → los enlaces de las DOS asesoras en el mismo mensaje; id viejo → IA', async () => {
   await wa(textoWa('¿Cuánto es la Toronto queen en bolívares?'));
   await wa(textoWa('Me gusta, quiero comprarla. ¿La envían a Maracay?'));
   await wa(filaWa('prod:9999', 'Modelo retirado'));
   const tipos = mensajesWa().map((m) => m.interactive?.type ?? m.type);
-  assert.deepEqual(tipos.slice(0, 2), ['image', 'cta_url']);
+  assert.deepEqual(tipos.slice(0, 2), ['image', 'text']);
   assert.notEqual(tipos[2], 'list');
+  const pase = mensajesWa()[1].text.body;
+  assert.match(pase, /Habla con una asesora por WhatsApp 👇\n\nLínea 1 \(0414-584 7791\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}\n\nLínea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]{6}$/);
+  assert.equal(cupoWa(), 3); // un mensaje por mensaje del cliente: los dos enlaces van en el mismo
 });
 
 test('WhatsApp: con el cupo casi agotado, ni lista ni foto: el aviso de siempre', async () => {
@@ -92,7 +95,8 @@ test('WhatsApp: con el cupo casi agotado, ni lista ni foto: el aviso de siempre'
   await wa(filaWa('prod:48', 'Toronto'));
   const [aviso] = mensajesWa();
   assert.equal(aviso.type, 'text');
-  assert.match(aviso.text.body, /escríbele directo a nuestra asesora/);
+  assert.match(aviso.text.body, /escríbele directo a una de nuestras asesoras/);
+  assert.match(aviso.text.body, /Línea 1 \(0414-584 7791\):\nhttps:\/\/wa\.me\/584145847791\n\nLínea 2 \(0424-400 6086\):\nhttps:\/\/wa\.me\/584244006086$/);
 });
 
 test('Instagram (modo texto, por defecto): texto de la IA + lista en texto con 10 respuestas rápidas', async () => {
