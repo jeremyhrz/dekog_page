@@ -111,6 +111,12 @@ export function ofertaElegida(id, medida, precio) {
   return ofertasDe(id).filter((o) => o.ahora === Number(precio) && (!m || m.startsWith(plano(o.medida))));
 }
 
+/** ¿Tiene ese modelo piezas en oferta en esa medida («Queen 1,60x1,90 M» o «Queen»)? Sin medida, ¿tiene alguna? */
+export function hayOfertaEn(id, medida = '') {
+  const m = plano(medida);
+  return ofertasDe(id).some((o) => !m || m.startsWith(plano(o.medida)));
+}
+
 /** «gris 01 en terciopelo / fucsia en terciopelo», con la nota de la pieza si la tiene. */
 export function describirPiezas(piezas) {
   return piezas.map((o) => `${[o.color, o.tela].filter(Boolean).join(' en ')}${o.nota ? ` (${o.nota})` : ''}`).join(' / ');

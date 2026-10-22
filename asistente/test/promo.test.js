@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg, sinMarca } from './ayuda.js';
 import { config } from '../src/lib/config.js';
-import { PROMO, OFERTAS, COPETES, ofertaElegida, ofertasDelModelo, pideOfertas, pideCatalogoDeOfertas } from '../src/lib/promo.js';
+import { PROMO, OFERTAS, COPETES, ofertaElegida, ofertasDelModelo, hayOfertaEn, pideOfertas, pideCatalogoDeOfertas } from '../src/lib/promo.js';
 import { tarjeta, montosInventados, buscarProducto } from '../src/lib/catalogo.js';
 import { lineaPrecio, fichaElegida, nombreEscrito } from '../src/canales/meta.js';
 import { unirSeguidos } from '../src/canales/memoria.js';
@@ -128,11 +128,14 @@ test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el ser
   assert.equal(ofertasDelModelo(31, 'Queen 1,60x1,90 M'),
     '🏷️ En stock con descuento: Queen gris 02 en chenille paño / gris oscuro en lino / gris 01 en terciopelo, a REF 420 (antes REF 520).');
   assert.equal(ofertasDelModelo(1), ''); // un sofá sin piezas en oferta
-  // La IA de prueba responde la Toronto Queen sin hablar de ofertas: no hay Toronto Queen en stock, van las de otras medidas.
-  const r = await pensar([{ role: 'user', content: '¿Cuánto es la Toronto queen?' }], 'whatsapp');
-  assert.ok(r.respuesta.endsWith('🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 (antes REF 405); Matrimonial gris en sedoso, a REF 395 (antes REF 495).'), r.respuesta);
-  config.PROMO = 'no';
+  // La IA de prueba responde la Manila Queen sin hablar de ofertas: hay tres Manila Queen en stock, va la línea.
+  const r = await pensar([{ role: 'user', content: '¿Cuánto es la Manila queen?' }], 'whatsapp');
+  assert.ok(r.respuesta.endsWith('🏷️ En stock con descuento: Queen gris 02 en chenille paño / gris oscuro en lino / gris 01 en terciopelo, a REF 420 (antes REF 520).'), r.respuesta);
+  // La Toronto Queen no tiene piezas en stock en esa medida: a quien la quiere no le sirven la individual ni la matrimonial.
   assert.doesNotMatch((await pensar([{ role: 'user', content: '¿Cuánto es la Toronto queen?' }], 'whatsapp')).respuesta, /En stock con descuento/);
+  assert.ok(hayOfertaEn(48, '') && hayOfertaEn(48, 'Individual 1,00x1,90 M') && !hayOfertaEn(48, 'Queen 1,60x1,90 M'));
+  config.PROMO = 'no';
+  assert.doesNotMatch((await pensar([{ role: 'user', content: '¿Cuánto es la Manila queen?' }], 'whatsapp')).respuesta, /En stock con descuento/);
 });
 
 test('dekog.net/ofertas abre el PDF de la promo y trae su vista previa (JPEG 1200 x 630); los rewrites van antes del comodín', () => {

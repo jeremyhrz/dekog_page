@@ -275,9 +275,17 @@ function dePrueba(mensajes) {
       ofrecer_formulario: false,
     };
   }
+  if (ultimo.includes('manila')) {
+    return {
+      respuesta: 'La Manila Queen (1,60 x 1,90 m) está en REF 520, con el box liso incluido.',
+      productos: [{ id: 31, talla: 'Queen 1,60x1,90 M' }],
+      derivar: { necesario: false, area: 'home', resumen: '' },
+      ofrecer_formulario: false,
+    };
+  }
   if (ultimo.includes('comprar') || ultimo.includes('envío') || ultimo.includes('envio')) {
     return {
-      respuesta: '¡Perfecto! Una asesora te confirma el envío y las formas de pago. Toca el botón de WhatsApp y te atiende con tu pedido ya escrito.',
+      respuesta: '¡Perfecto! Una asesora te confirma el envío y las formas de pago. Escríbele a la que prefieras con los enlaces de abajo y te atiende con tu pedido ya escrito.',
       productos: [{ id: 48, talla: 'Queen 1,60x1,90 M' }],
       derivar: { necesario: true, area: 'home', resumen: 'Cama Toronto · Queen 1,60x1,90 M · box liso · REF 550 · pregunta por envío' },
       ofrecer_formulario: false,
