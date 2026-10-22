@@ -26,8 +26,10 @@ export function proveedorActivo() {
 export class RechazoDelModelo extends Error {}
 
 let anthropic;
-async function conClaude(mensajes, sistema) {
-  // Máximo 20 s por intento: un cliente no debe quedarse viendo "escribiendo…".
+async function conClaude(mensajes, sistema, hasta) {
+  // Máximo 20 s por intento: un cliente no debe quedarse viendo "escribiendo…". Y nunca después de `hasta`: para
+  // entonces pensar() ya respondió con el aviso de emergencia, así que el pedido se cancela.
+  const opciones = Number.isFinite(hasta) ? { signal: AbortSignal.timeout(Math.max(1, hasta - Date.now())) } : undefined;
   if (!anthropic) {
     const { default: Anthropic } = await import('@anthropic-ai/sdk');
     anthropic = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
@@ -46,12 +48,12 @@ async function conClaude(mensajes, sistema) {
     },
   };
   const respuesta = esHaiku
-    ? await anthropic.messages.create(pedido)
+    ? await anthropic.messages.create(pedido, opciones)
     : await anthropic.beta.messages.create({
       ...pedido,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
-    });
+    }, opciones);
   if (respuesta.stop_reason === 'refusal') throw new RechazoDelModelo();
   const texto = respuesta.content.find((b) => b.type === 'text')?.text;
   return JSON.parse(texto);
@@ -101,6 +103,8 @@ export function esReintentable(e) {
 export function escalonar(modelos, pedir, {
   hasta = Date.now() + TOPE_MS, escalonMs = ESCALON_MS, pausaMs = PAUSA_SEGUNDA_VUELTA_MS,
 } = {}) {
+  // Sin tiempo (por ejemplo, las hojas de una foto tardaron más que el plazo): ni se pregunta, sería un pedido perdido.
+  if (Date.now() >= hasta) return Promise.reject(new Error('Gemini no respondió a tiempo'));
   const cancelar = new AbortController();
   return new Promise((resolver, rechazar) => {
     let lista = modelos;
@@ -306,7 +310,7 @@ function dePrueba(mensajes) {
  */
 export async function responder(mensajes, canal = 'web', { hasta, imagen, kv } = {}) {
   const p = proveedorActivo();
-  if (p === 'claude') return conClaude(mensajes, sistemaPara(canal));
+  if (p === 'claude') return conClaude(mensajes, sistemaPara(canal), hasta);
   if (p === 'gemini') return conGemini(mensajes, canal, hasta, imagen, kv);
   if (p === 'prueba') return dePrueba(mensajes);
   throw new Error('No hay clave de IA configurada (ANTHROPIC_API_KEY o GEMINI_API_KEY).');

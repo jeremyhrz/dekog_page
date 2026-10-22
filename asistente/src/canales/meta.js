@@ -58,6 +58,9 @@ export function lineaPrecio(p, tasa) {
   // Una pieza en stock de la promoción: «• Toronto · Individual 1,00x1,90 M · 🏷️ oferta en stock (gris 02 en chenille
   // paño): antes REF 405, ahora REF 330 = Bs …».
   if (p.oferta) return `• ${p.nombre} · ${p.talla} · 🏷️ oferta en stock (${p.pieza}): antes REF ${miles(p.antes)}, ahora REF ${miles(p.ref)}${bs}`;
+  // Un copete en stock, sin precio anterior: «• Copete (solo el cabecero) Manila · King 2,00x2,00 M · en stock (gris 01
+  // en terciopelo): REF 455 = Bs …».
+  if (p.copete) return `• Copete (solo el cabecero) ${p.nombre} · ${p.talla} · en stock (${p.pieza}): REF ${miles(p.ref)}${bs}`;
   const partes = [p.nombre, p.talla, p.box, p.tela, p.puff];
   if (p.cantidad > 1) partes.push(`${p.cantidad} × REF ${miles(p.unitario)}`);
   const cual = partes.filter(Boolean).join(' · ');

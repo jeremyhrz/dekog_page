@@ -6,8 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg, sinMarca } from './ayuda.js';
 import { config } from '../src/lib/config.js';
-import { PROMO, OFERTAS, COPETES, ofertaElegida, ofertasDelModelo, hayOfertaEn, pideOfertas, pideCatalogoDeOfertas } from '../src/lib/promo.js';
-import { tarjeta, montosInventados, buscarProducto } from '../src/lib/catalogo.js';
+import {
+  PROMO, OFERTAS, COPETES, ofertaElegida, copeteElegido, ofertasDelModelo, hayOfertaEn, pideOfertas, pideCatalogoDeOfertas,
+} from '../src/lib/promo.js';
+import { tarjeta, montosInventados, totalesIncoherentes, buscarProducto } from '../src/lib/catalogo.js';
 import { lineaPrecio, fichaElegida, nombreEscrito } from '../src/canales/meta.js';
 import { unirSeguidos } from '../src/canales/memoria.js';
 import { ESQUEMA, sistemaPara } from '../src/lib/prompt.js';
@@ -93,6 +95,46 @@ test('Montos: los de la promo valen cuando el texto habla de ella; el «hasta 20
   assert.deepEqual(montosInventados('Tenemos hasta 20 % de descuento.'), ['20 %']);
 });
 
+test('Montos de la promo: solo en la oración que habla de ella (o justo después); «por ahora» o «elegantes» no cuentan', () => {
+  // La Bali Queen cuesta REF 990 y la Toronto Queen REF 550: 790 y 580 son montos de la promo, no sus precios.
+  assert.deepEqual(montosInventados('Por ahora la Bali Queen está en REF 790', { ids: [6] }), ['REF 790']);
+  assert.deepEqual(montosInventados('La Bali Queen ahora está en REF 790', { ids: [6] }), ['REF 790']);
+  assert.deepEqual(montosInventados('Antes de fabricarla, la Bali Queen está en REF 790.', { ids: [6] }), ['REF 790.']);
+  assert.deepEqual(montosInventados('Ahora mismo la Toronto Queen está en REF 580', { ids: [48] }), ['REF 580']);
+  assert.deepEqual(montosInventados('La Toronto Queen es de líneas elegantes y cuesta REF 580.', { ids: [48] }), ['REF 580.']);
+  // Otra oración del mismo texto que sí habla de la promo no salva un precio equivocado.
+  assert.deepEqual(montosInventados('La Bali Queen está en REF 790. Si quieres, te cuento de las piezas en stock.', { ids: [6] }), ['REF 790.']);
+  // Como lo escriben la ficha y lineaPrecio, la oración de antes, y un monto con punto de miles («REF 1.060»).
+  assert.deepEqual(montosInventados('La Manila Queen gris 02: antes REF 520, ahora REF 420.', { ids: [31] }), []);
+  assert.deepEqual(montosInventados('Tenemos piezas en stock. La Manila Queen gris 02 está a REF 420.', { ids: [31] }), []);
+  assert.deepEqual(montosInventados('La Hamburgo Queen en oferta está a REF 850 en vez de REF 1.060.', { ids: [24] }), []);
+  assert.deepEqual(montosInventados('El copete de la Manila King en stock está a REF 455.', { ids: [31] }), []);
+  assert.deepEqual(montosInventados('La Manila Queen gris 02 está rebajada: antes a REF 520, ahora a REF 420.', { ids: [31] }), []);
+});
+
+test('El 50 % de anticipo vale aunque la oración hable de una pieza en oferta; pegado a un descuento o a Cashea, no', () => {
+  assert.deepEqual(montosInventados('Las piezas en oferta se apartan con el 50 % de anticipo.'), []);
+  assert.deepEqual(montosInventados('Para apartar la Toronto individual en oferta pagas el 50 % de anticipo.'), []);
+  assert.deepEqual(montosInventados('Apártala con 50 % de descuento.'), ['50 %']);
+  assert.deepEqual(montosInventados('Te damos un descuento del 50 % si la apartas hoy.'), ['50 %']);
+  assert.deepEqual(montosInventados('Te hacemos una rebaja de hasta 50 % al apartarla.'), ['50 %']);
+  assert.deepEqual(montosInventados('Con Cashea das el 50 % de inicial para apartarla.'), ['50 %']);
+});
+
+test('totalesIncoherentes: un monto de la promo solo vale donde se habla de ella; un total mal sumado se caza igual', () => {
+  const king = tarjeta(48, 'King', null, { box: 'nube', telaPremium: true }); // 665 + 150 + 150 = 965
+  assert.equal(king.ref, 965);
+  // 785 es la Hamburgo en stock: la segunda oración, que sí habla de la promo, no la vuelve válida en la primera.
+  assert.deepEqual(
+    totalesIncoherentes('La Toronto King con box nube y tela premium te queda en REF 785. Y si te sirve, tenemos una Toronto individual en stock a REF 330 en vez de REF 405.', [king]),
+    [{ dicho: 'REF 785.', correcto: 'REF 965' }],
+  );
+  assert.deepEqual(totalesIncoherentes('Con box nube y tela premium la Toronto King te queda en REF 815.', [king]), [{ dicho: 'REF 815.', correcto: 'REF 965' }]);
+  assert.deepEqual(totalesIncoherentes('La Toronto individual con box nube te queda en REF 635.', [tarjeta(48, 'Individual', null, { box: 'nube' })]),
+    [{ dicho: 'REF 635.', correcto: 'REF 555' }]);
+  assert.deepEqual(totalesIncoherentes('Te queda en REF 965. Y en stock tenemos la Toronto individual a REF 330 en vez de REF 405.', [king]), []);
+});
+
 test('Tarjeta de una pieza en oferta: su precio en REF y en Bs, el de antes, color y tela; si no coincide, la normal', () => {
   const t = tarjeta(48, 'Individual', TASA, { oferta: 330, box: 'nube', telaPremium: true, cantidad: 2 });
   assert.equal(t.oferta, true);
@@ -122,6 +164,62 @@ test('WhatsApp e Instagram: la línea del precio de la pieza y la ficha del mode
   assert.match(ficha.caption, /🏷️ En stock con descuento: Individual gris 02 en chenille paño, a REF 330 \(antes REF 405\); Matrimonial gris en sedoso, a REF 395 \(antes REF 495\)\./);
   assert.match(ficha.texto, /En stock con descuento/);
   assert.doesNotMatch(fichaElegida(1, TASA).caption, /En stock con descuento/); // un sofá sin piezas en oferta
+});
+
+test('Copete en stock: su propia tarjeta con su precio (no la cama completa) y su línea sin «antes»', () => {
+  const t = tarjeta(31, 'King', TASA, { oferta: 455 });
+  assert.equal(t.ref, 455);
+  assert.equal(t.unitario, 455);
+  assert.equal(t.copete, true);
+  assert.equal(t.oferta, false); // no es un descuento: no tiene precio anterior
+  assert.equal(t.enOferta, false);
+  assert.equal(t.antes, undefined);
+  assert.equal(t.talla, 'King 2,00x2,00 M');
+  assert.equal(t.pieza, 'gris 01 en terciopelo');
+  assert.equal(t.bs, '45.500,00');
+  assert.equal(t.cantidad, 1);
+  assert.equal(t.partes, null);
+  const linea = lineaPrecio(t, TASA);
+  assert.equal(linea, '• Copete (solo el cabecero) Manila · King 2,00x2,00 M · en stock (gris 01 en terciopelo): REF 455 = Bs 45.500,00 (tasa BCV euro 21/10/2026)');
+  assert.doesNotMatch(linea, /antes/);
+  assert.equal(tarjeta(31, '', null, { oferta: 455 }).talla, 'King 2,00x2,00 M'); // sin medida: la del copete
+  assert.equal(tarjeta(28, 'Matrimonial', null, { oferta: 330 }).pieza, 'gris 01 en terciopelo / gris 01 en chenille paño');
+  for (const [id, talla, precio] of [[44, 'Queen', 435], [45, 'King', 835], [30, 'King', 835], [32, 'Individual', 315]]) {
+    assert.equal(tarjeta(id, talla, null, { oferta: precio }).ref, precio, `${id} ${talla}`);
+  }
+  assert.deepEqual(copeteElegido(31, 'King 2,00x2,00 M', 455).map((c) => c.color), ['gris 01']);
+  // En otra medida no hay copete a ese precio: la tarjeta normal de la cama (Manila Queen REF 520).
+  assert.equal(tarjeta(31, 'Queen', null, { oferta: 455 }).ref, 520);
+  config.PROMO = 'no';
+  assert.equal(tarjeta(31, 'King', null, { oferta: 455 }).ref, 760);
+});
+
+test('«¿Qué camas tienen en oferta?»: sin la vitrina de camas a precio de catálogo, que taparía las piezas en oferta', async () => {
+  for (const pregunta of ['¿Qué camas tienen en oferta?', 'Muéstrame las camas en descuento', 'quiero ver las camas de la promo']) {
+    const r = await pensar([{ role: 'user', content: pregunta }], 'whatsapp');
+    assert.equal(r.vitrina, null, pregunta);
+    assert.ok(r.productos.length > 0, pregunta); // las tarjetas que eligió la IA
+  }
+  assert.equal((await pensar([{ role: 'user', content: 'Quiero ver camas' }], 'whatsapp')).vitrina?.clave, 'camas');
+  // Sin promo no hay piezas que mostrar: la vitrina de siempre.
+  config.PROMO = 'no';
+  assert.equal((await pensar([{ role: 'user', content: '¿Qué camas tienen en oferta?' }], 'whatsapp')).vitrina?.clave, 'camas');
+});
+
+test('La línea de las piezas en oferta y el enlace del catálogo de ofertas van una vez, no en cada respuesta', async () => {
+  const historial = [];
+  const turno = async (texto) => {
+    historial.push({ role: 'user', content: texto });
+    const r = await pensar([...historial], 'whatsapp');
+    historial.push({ role: 'assistant', content: r.respuesta }); // como lo guardan WhatsApp e Instagram
+    return r.respuesta;
+  };
+  // La IA de prueba responde la Manila Queen sin hablar de ofertas en los tres turnos.
+  const manila = [await turno('¿Cuánto cuesta la Manila queen?'), await turno('¿Y la Manila cuánto tarda?'), await turno('La Manila la quiero en Zaga roja')];
+  assert.deepEqual(manila.map((r) => r.includes('🏷️ En stock con descuento: Queen')), [true, false, false]);
+  // El enlace: la primera vez que pregunta por descuentos; después, solo si vuelve a pedir el catálogo de ofertas.
+  const enlace = [await turno('¿Tienen descuentos?'), await turno('¿Y qué otros descuentos hay?'), await turno('Pásame otra vez el catálogo de ofertas')];
+  assert.deepEqual(enlace.map((r) => r.includes(PROMO.enlace)), [true, false, true]);
 });
 
 test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el servidor agrega la línea', async () => {
@@ -168,14 +266,24 @@ test('Qué cuenta como pedir ofertas y como pedir el catálogo de ofertas', () =
   for (const s of ['¿Cuánto sale la Toronto?', 'Pásame el catálogo', 'hola']) assert.ok(!pideOfertas(s), s);
   assert.ok(pideCatalogoDeOfertas('Buenas noches... Pudiera por favor enviarme el catálogo de ofertas... Gracias'));
   assert.ok(!pideCatalogoDeOfertas('Pásame el catálogo de camas'));
+  for (const s of ['Pásame el catálogo de la promo', 'el catálogo de la promoción', 'catálogo de la oferta', 'el catálogo con las ofertas',
+    'el catálogo de productos en oferta', 'el catálogo en descuento', 'catálogo de las ofertas', 'catálogo de stock', 'catálogo de descuentos',
+    'catalogo de la promo', 'el catálogo de mobiliario en stock']) {
+    assert.ok(pideCatalogoDeOfertas(s), s);
+  }
+  for (const s of ['el catálogo', 'el catálogo de mobiliario', 'catálogo de sofás', '¿hacen modelos fuera del catálogo?', 'el catálogo de camas no tiene descuentos']) {
+    assert.ok(!pideCatalogoDeOfertas(s), s);
+  }
 });
 
 test('Web: preguntar por descuentos trae el enlace del catálogo de ofertas; «el catálogo de ofertas» no manda los otros dos', async () => {
   const r = await pensar([{ role: 'user', content: '¿Tienen descuentos o alguna promoción?' }], 'web');
   assert.ok(r.respuesta.endsWith(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}`), r.respuesta); // el enlace solo en su línea
-  const o = await pensar([{ role: 'user', content: 'Buenas noches... Pudiera por favor enviarme el catálogo de ofertas... Gracias' }], 'web');
-  assert.ok(o.respuesta.includes(PROMO.enlace));
-  for (const [, url] of catalogosPdf) assert.ok(!o.respuesta.includes(url));
+  for (const pedido of ['Buenas noches... Pudiera por favor enviarme el catálogo de ofertas... Gracias', 'Pásame el catálogo de la promo']) {
+    const o = await pensar([{ role: 'user', content: pedido }], 'web');
+    assert.ok(o.respuesta.includes(PROMO.enlace), pedido);
+    for (const [, url] of catalogosPdf) assert.ok(!o.respuesta.includes(url), pedido);
+  }
   const c = await pensar([{ role: 'user', content: 'Pásame el catálogo' }], 'web');
   assert.ok(catalogosPdf.every(([, url]) => c.respuesta.includes(url)));
   assert.ok(!c.respuesta.includes(PROMO.enlace));

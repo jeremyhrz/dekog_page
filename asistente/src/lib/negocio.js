@@ -11,7 +11,7 @@
 // Líneas de WhatsApp de las asesoras, con los nombres que usa la dueña (8-oct). La que era «Home 2»
 // (0412-4423350) pasó a ser el número de ESTE asistente el 8-oct: nunca se usa para pasar clientes a una persona.
 export const lineas = {
-  // Home: la de los muebles; recibe los botones de la web salvo los de proyectos, que van a Arquitectura.
+  // Las dos atienden todo y en cada pase van las dos: el cliente elige (21-oct). `nombre` es como las llamaba la dueña;
   // `etiqueta` y `visible` son como las llama la web (src/utils/whatsapp.js → LINEAS_WHATSAPP; lo vigila una prueba).
   '01': { numero: '584145847791', nombre: 'Home', etiqueta: 'Línea 1', visible: '0414-584 7791' },
   '02': { numero: '584244006086', nombre: 'Arquitectura', etiqueta: 'Línea 2', visible: '0424-400 6086' },
@@ -46,7 +46,6 @@ export const opcionesDelSaludo = {
   3: 'Quiero hablar con una asesora.',
 };
 
-// Qué línea recibe cada tipo de cliente: los de arquitectura van a la suya (confirmado por la dueña el 8-oct).
 // Lo que queda en el historial cuando el cliente manda una foto (la foto no se guarda): lib/imagen.js.
 export const NOTA_FOTO = '[Foto del cliente]';
 
@@ -56,6 +55,8 @@ export const catalogosPdf = [
   ['Catálogo de mobiliario (sofás, puffs y mesas)', 'https://drive.google.com/file/d/177KJwPkHzjgh88FgSTqLXcRNWTrR3byE/view'],
 ];
 
+// La línea de cada área: la del `url` del pase (la web saca de ahí el texto de sus botones). Al cliente le llegan
+// siempre las dos (chat.js → enlaceWhatsapp().lineas).
 export const lineaPorArea = {
   home: '01',
   arquitectura: '02',
@@ -74,14 +75,15 @@ con dos líneas de servicio:
   interiorismo. Proyectos en todo el país. Más de 120 proyectos realizados (ejemplos: un área médica, oficinas
   corporativas, una funeraria, el spa Kaella, la tienda Maviz, el salón de belleza Piel Morena y la Casa MOS83).
   La asesoría (consulta inicial) de un proyecto es gratuita, presencial o virtual, y no incluye renders; se pide en
-  la tienda o por WhatsApp, con la línea de Arquitectura. Proceso: consulta inicial, propuesta de diseño, aprobación
+  la tienda o por WhatsApp con una asesora. Proceso: consulta inicial, propuesta de diseño, aprobación
   y contratación, desarrollo del proyecto, entrega y seguimiento.
 
 Showroom: Centro Comercial Vía Veneto, Nivel Roma, Local R17 (Mañongo, Naguanagua, Carabobo).
 Horario de atención: lunes a sábado de 9:00 a. m. a 6:00 p. m.
 Trabajan a nivel nacional.
-Asesoras por WhatsApp: dos líneas, Home y Arquitectura, y las DOS atienden todo (presupuestos, información, compras,
-muebles y arquitectura); el asistente pasa a muebles por la Home y a arquitectura por la de Arquitectura.
+Asesoras por WhatsApp: dos líneas, Línea 1 y Línea 2, y las DOS atienden todo (presupuestos, información, compras,
+muebles y arquitectura). Cuando el asistente pasa a un cliente con una asesora, el sistema le da las dos líneas y el
+cliente elige la que prefiera.
 El WhatsApp 0412-4423350 es el de este asistente virtual (atiende a cualquier hora).
 Correo: dekog.inf@gmail.com · Instagram: @dekog.home y @dekog.arquitectura · Web: dekog.net
 

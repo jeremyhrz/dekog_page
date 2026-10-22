@@ -225,7 +225,7 @@ export const ESQUEMA = {
           cantidad: { type: 'integer', description: 'Unidades que quiere el cliente (1 si no lo dijo).' },
           tela_premium: { type: 'boolean', description: 'true si el cliente eligió una tela PREMIUM (con recargo); false si no lo dijo o es una tela incluida.' },
           con_puff: { type: 'boolean', description: 'true si pidió el sofá con su puff a juego (solo los sofás que lo ofrecen); si no, false.' },
-          oferta: { type: 'integer', description: 'Precio de oferta (REF) de la pieza en stock de la PROMOCIÓN VIGENTE de la que hablas, con su medida en talla; 0 si no hablas de una pieza en oferta.' },
+          oferta: { type: 'integer', description: 'Precio de oferta (REF) de la pieza en stock de la PROMOCIÓN VIGENTE de la que hablas, con su medida en talla (si es un copete, el precio del copete y su medida); 0 si no hablas de una pieza en stock.' },
         },
         required: ['id', 'talla', 'box', 'cantidad', 'tela_premium', 'con_puff', 'oferta'],
         additionalProperties: false,

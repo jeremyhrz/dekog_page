@@ -6,7 +6,7 @@
 import { productos } from '../../../src/data/productos.js';
 import { recargosBox, nombresBox, porcentajesValidos, recargosTelaPremium, puffsOpcionales } from './negocio.js';
 import { fichas } from './conocimiento.js';
-import { promoActiva, montosDeLaPromo, ofertasDe, ofertaElegida, describirPiezas } from './promo.js';
+import { promoActiva, montosDeLaPromo, ofertasDe, ofertaElegida, copeteElegido, describirPiezas } from './promo.js';
 
 const SITIO = 'https://www.dekog.net';
 // Líneas de camas que cobran el box alta gama o el nube aparte (Clásicas y Kids), cada una con sus recargos.
@@ -86,13 +86,23 @@ const RECARGO_DE_BOX = new RegExp(
   'i',
 );
 
+// Una oración que lo niega («va incluido y no suma nada», «sin costo adicional»: lo que enseñan el prompt y las
+// ESPECIFICACIONES) no atribuye ningún recargo, salvo que lleve un monto pegado al box («no está incluido y suma REF 150»).
+// Exigir solo el monto no basta: el precio de la cama suele ir en la misma oración.
+const NIEGA = /\b(no|nunca|sin|ning[uú]n\w*|nada|incluid[oa]s?)\b/i;
+const MONTO_DEL_BOX = /(recargo|adicional|suma|cuesta|vale|sale)\s+(?:de\s+|del\s+|un\s+)?(?:ref\.?\s*)?\d|\+\s*ref\.?\s*\d/i;
+const MONTO_ANTES_DEL_BOX = /\+\s*ref\.?\s*\d[^.!?\n;,]{0,30}\bbox\b/i;
+const atribuyeRecargoDeBox = (oracion) => RECARGO_DE_BOX.test(oracion)
+  && (MONTO_DEL_BOX.test(oracion.slice(oracion.search(/\bbox\b/i))) || MONTO_ANTES_DEL_BOX.test(oracion) || !NIEGA.test(oracion));
+
 /** Camas Alta Gama a las que el texto les atribuye un recargo de box (si en la respuesta no hay también una
  * Clásica o Kids, a las que sí les corresponde). */
 export function recargoDeBoxEnAltaGama(texto, sugeridos) {
   const elegidos = (sugeridos ?? []).map((s) => buscarProducto(s.id)).filter(Boolean);
   const altaGama = elegidos.filter((p) => p.subcategoria === 'Camas Alta Gama');
-  if (!altaGama.length || elegidos.some((p) => CON_BOX.has(p.subcategoria)) || !RECARGO_DE_BOX.test(texto ?? '')) return [];
-  return altaGama;
+  if (!altaGama.length || elegidos.some((p) => CON_BOX.has(p.subcategoria))) return [];
+  // Por oración (un «.» seguido de un dígito es de un monto, «REF 1.125», y no la corta).
+  return String(texto ?? '').split(/[!?\n;]|\.(?!\d)/).some(atribuyeRecargoDeBox) ? altaGama : [];
 }
 
 /** "Queen 1,60x1,90 M" → "queen160x190m", para comparar sin importar mayúsculas, espacios ni signos. */
@@ -169,16 +179,44 @@ function leerMonto(texto) {
   return Number(limpio);
 }
 
-// Los montos de la promoción vigente (lib/promo.js): valen en un texto que habla de la oferta o del stock.
+// Los montos de la promoción vigente (lib/promo.js): valen en la oración que habla de la oferta o del stock, o en la
+// siguiente («Tenemos piezas en stock. La Manila Queen gris 02 está a REF 420.»). Por palabras enteras y por oración:
+// «por ahora», «antes de fabricarla» o «elegantes» no hablan de la promo, así que un precio equivocado que coincide con
+// uno de la promo no pasa («Por ahora la Bali Queen está en REF 790»: 790 es la Bali en stock; la Queen cuesta 990).
+// «antes REF 520, ahora REF 420» sí habla de ella: es como lo escriben la ficha y lineaPrecio.
 const montosDePromo = new Set(montosDeLaPromo());
-const HABLA_DE_LA_PROMO = /oferta|promo|descuento|rebaja|stock|antes|ahora|copete|en vez de/i;
+const HABLA_DE_LA_PROMO = /\b(ofertas?|promos?|promoci[oó]n(es)?|promocional(es)?|descuentos?|rebajas?|rebajad[oa]s?|stock|copetes?|en vez de)\b|\b(antes|ahora)\s*:?\s*((de|a|en)\s+)?REF\b/i;
+// Una oración termina en ! ? ; o un salto de línea, o en un punto que no va seguido de un dígito («REF 1.125» no se parte).
+const FIN_DE_ORACION = /[!?;\n]|\.(?!\d)/g;
+
+/**
+ * (monto, posición en el texto) → ¿es un monto de la promo dicho donde se habla de ella? Las oraciones se arman solo
+ * la primera vez que aparece un monto de la promo, y sin promo nunca vale.
+ */
+function promoDichaEn(texto) {
+  let oraciones = null; // [fin, ¿habla de la promo?] de cada oración con algo escrito
+  return (n, indice) => {
+    if (!montosDePromo.has(n) || !promoActiva()) return false;
+    if (!oraciones) {
+      oraciones = [];
+      let desde = 0;
+      for (const fin of [...[...texto.matchAll(FIN_DE_ORACION)].map((m) => m.index + 1), texto.length]) {
+        const oracion = texto.slice(desde, fin);
+        if (oracion.trim()) oraciones.push([fin, HABLA_DE_LA_PROMO.test(oracion)]);
+        desde = fin;
+      }
+    }
+    const k = oraciones.findIndex(([fin]) => indice < fin);
+    return k >= 0 && (oraciones[k][1] || (k > 0 && oraciones[k - 1][1]));
+  };
+}
 
 /**
  * Montos del texto que la IA no debería haber escrito:
  *   - REF, $, USD o "dólares" que no correspondan al catálogo (de los productos
  *     citados si se indican, o de todo el catálogo), salvo montos que el propio
  *     cliente escribió (un presupuesto, por ejemplo) y los de las piezas de la
- *     promoción vigente cuando el texto habla de ella;
+ *     promoción vigente en una oración que habla de ella;
  *   - cualquier monto en bolívares (esos los calcula el sistema);
  *   - porcentajes no confirmados por Dekog.
  */
@@ -187,11 +225,12 @@ export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
   // Se consultan los conjuntos de cada producto citado en vez de unirlos en uno nuevo en cada mensaje.
   const conjuntos = citados.length ? citados.map(montosDe) : [montosDelCatalogo];
   const permitidos = new Set(delCliente);
-  if (promoActiva() && HABLA_DE_LA_PROMO.test(texto)) conjuntos.push(montosDePromo);
+  const montoDeLaPromo = promoDichaEn(texto);
   const malos = [];
-  const revisar = (crudo, coincidencia) => {
+  const revisar = (crudo, coincidencia, indice) => {
     const n = leerMonto(crudo);
-    if (Number.isFinite(n) && !conjuntos.some((c) => c.has(n)) && !permitidos.has(n)) malos.push(coincidencia.trim());
+    if (!Number.isFinite(n) || conjuntos.some((c) => c.has(n)) || permitidos.has(n) || montoDeLaPromo(n, indice)) return;
+    malos.push(coincidencia.trim());
   };
   const monedas = [
     /\bREF\.?\s*:?\s*\$?\s*(\d[\d.,]*)/gi,
@@ -200,7 +239,7 @@ export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
     /(\d[\d.,]*)\s*(?:\$|\bUSD\b|d[oó]lares)/gi,
   ];
   for (const patron of monedas) {
-    for (const m of texto.matchAll(patron)) revisar(m[1], m[0]);
+    for (const m of texto.matchAll(patron)) revisar(m[1], m[0], m.index);
   }
   for (const m of texto.matchAll(/(?:\bBs\.?|bol[ií]vares)\s*\d[\d.,]*|\d[\d.,]*\s*(?:\bBs\b\.?|bol[ií]vares)/gi)) malos.push(m[0].trim());
   const promo = promoActiva();
@@ -213,7 +252,12 @@ export function montosInventados(texto, { ids = [], delCliente = [] } = {}) {
     const cerca = `${antes}${m[0]}${despues}`;
     const n = leerMonto(m[1]);
     const deCashea = /cashea|inicial|cuota/i.test(cerca);
-    const delAnticipo = porcentajesValidos.includes(n) && !deCashea && !/descuento|promoci|rebaja|oferta|\boff\b/i.test(cerca);
+    // Si la oración habla de apartar o del anticipo, solo un descuento pegado al porcentaje lo hace inventado: «la pieza
+    // en oferta se aparta con el 50 %» es lo que dicen las políticas, «apártala con 50 % de descuento» no.
+    const pegadoADescuento = /^\s*(de\s+)?(descuento|rebaja|off)\b/i.test(despues)
+      || /(descuento|rebaja)\s+(de|del)\s*((un|el|hasta)\s+)?$/i.test(antes);
+    const delAnticipo = porcentajesValidos.includes(n) && !deCashea
+      && (/anticipo|ap[aá]rt|abono/i.test(cerca) ? !pegadoADescuento : !/descuento|promoci|rebaja|oferta|\boff\b/i.test(cerca));
     const deLaPromo = Boolean(promo) && n === promo.hasta && !deCashea;
     if (!delAnticipo && !deLaPromo) malos.push(m[0]);
   }
@@ -226,31 +270,45 @@ const preciosDeLista = new Set(productos.flatMap((p) => [p.precio, ...(p.tallas 
 /**
  * Totales del texto que contradicen las tarjetas. Si el cliente armó una configuración con
  * recargos (box, tela premium, puff o varias unidades), cada REF del texto debe ser un precio de
- * lista, un recargo de esa configuración o su total exacto. Así se caza «King con box nube y tela
- * premium: total REF 785» cuando la tarjeta suma 665 + 120 + 150 = 935 (785 es un monto válido de
- * otra combinación, por eso montosInventados no lo ve). Devuelve [{ dicho, correcto }].
+ * lista, un recargo de esa configuración o su total exacto. Así se caza «Toronto King con box nube y
+ * tela premium: total REF 815» cuando la tarjeta suma 665 + 150 + 150 = 965 (815 es un monto válido
+ * de otra combinación, solo el box o solo la tela, por eso montosInventados no lo ve). Un monto de la
+ * promo vale solo en la oración que habla de ella. Devuelve [{ dicho, correcto }].
  */
 export function totalesIncoherentes(texto, tarjetas) {
   const conExtras = (tarjetas ?? []).filter((t) => t && !t.desde && (t.recargo || t.recargoTela || t.recargoPuff || t.cantidad > 1));
   if (!conExtras.length) return [];
   const validos = new Set(preciosDeLista);
-  if (promoActiva()) montosDePromo.forEach((n) => validos.add(n)); // «y la Toronto individual en stock está a REF 330»
   for (const t of conExtras) {
     [t.recargo, t.recargoTela, t.recargoPuff, t.unitario, t.ref].filter(Boolean).forEach((n) => validos.add(n));
   }
+  const montoDeLaPromo = promoDichaEn(texto); // «y la Toronto individual en stock está a REF 330»
   const malos = [];
   for (const m of texto.matchAll(/\bREF\.?\s*:?\s*\$?\s*(\d[\d.,]*)|(\d[\d.,]*)\s*REF\b/gi)) {
     const n = leerMonto(m[1] ?? m[2]);
-    if (Number.isFinite(n) && !validos.has(n)) malos.push({ dicho: m[0].trim(), correcto: conExtras.map((t) => `REF ${t.ref}`).join(' / ') });
+    if (Number.isFinite(n) && !validos.has(n) && !montoDeLaPromo(n, m.index)) {
+      malos.push({ dicho: m[0].trim(), correcto: conExtras.map((t) => `REF ${t.ref}`).join(' / ') });
+    }
   }
   return malos;
 }
 
-/** Números que escribió el cliente (presupuestos, cantidades): se pueden repetir. */
+// Lo que instagram.js agrega al mensaje del cliente cuando comparte una publicación o un reel (con su pie) o responde a
+// una historia. Eso no lo escribió el cliente: la IA lo ve, pero no cuenta para los controles del servidor (el pie
+// «Conoce nuestros modelos de camas» abría la vitrina de camas, y «Pide nuestro catálogo» mandaba los PDF).
+const NOTAS_DE_INSTAGRAM = /\((?:compartió (?:una publicación|un reel) de Instagram(?::\s*«[\s\S]*?»)?|respondió a una historia de Dekog)\)/g;
+
+/** «[Foto del cliente] (compartió una publicación de Instagram: «…») ¿precio?» → «[Foto del cliente] ¿precio?» */
+export function sinNotasDeInstagram(texto) {
+  return String(texto ?? '').replace(NOTAS_DE_INSTAGRAM, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Números que escribió el cliente (presupuestos, cantidades): se pueden repetir. Los del pie de lo que compartió en
+ * Instagram no los escribió él. */
 export function numerosDelCliente(mensajes) {
   return mensajes
     .filter((m) => m.role === 'user')
-    .flatMap((m) => [...m.content.matchAll(/\d[\d.,]*/g)].map((x) => leerMonto(x[0])))
+    .flatMap((m) => [...sinNotasDeInstagram(m.content).matchAll(/\d[\d.,]*/g)].map((x) => leerMonto(x[0])))
     .filter(Number.isFinite);
 }
 
@@ -274,11 +332,15 @@ export function formatoBs(n) {
 }
 
 /**
- * Tarjeta de una pieza en stock de la promoción vigente: su precio de oferta tal cual está (sin box, tela ni puff
- * aparte, y de a una: es una pieza ya fabricada), el de antes y de qué color y tela es.
+ * Tarjeta de una pieza en stock de la promoción vigente: su precio tal cual está (sin box, tela ni puff aparte, y de a
+ * una: es una pieza ya fabricada) y de qué color y tela es. La de una cama en oferta lleva además el precio de antes.
+ * La de un copete (solo el cabecero) no es una oferta, porque no tiene precio anterior: la distingue `copete`, va sin
+ * `antes` (lineaPrecio escribiría «antes REF undefined») y con `oferta` y `enOferta` en false (la web diría «Oferta en
+ * stock» y chat.js le agregaría la línea de las ofertas de la cama).
  */
-function tarjetaDeOferta(p, talla, piezas, tasa) {
+function tarjetaEnStock(p, talla, piezas, tasa, { copete = false } = {}) {
   const [pieza] = piezas;
+  const precio = copete ? pieza.precio : pieza.ahora;
   const medida = talla ?? (p.tallas ?? []).find((t) => normalizar(t.nombre).startsWith(normalizar(pieza.medida)));
   return {
     id: p.id,
@@ -294,14 +356,12 @@ function tarjetaDeOferta(p, talla, piezas, tasa) {
     puff: null,
     recargoPuff: 0,
     cantidad: 1,
-    unitario: pieza.ahora,
-    ref: pieza.ahora,
+    unitario: precio,
+    ref: precio,
     partes: null,
-    oferta: true,
-    enOferta: true,
-    antes: pieza.antes,
+    ...(copete ? { copete: true, oferta: false, enOferta: false } : { oferta: true, enOferta: true, antes: pieza.antes }),
     pieza: describirPiezas(piezas),
-    bs: tasa ? formatoBs(pieza.ahora * tasa.valor) : null,
+    bs: tasa ? formatoBs(precio * tasa.valor) : null,
     imagen: SITIO + encodeURI(p.imagen),
   };
 }
@@ -311,15 +371,20 @@ function tarjetaDeOferta(p, talla, piezas, tasa) {
  * tasa del día (la IA nunca escribe montos en Bs) e incluye el box elegido
  * (solo Camas Clásicas y Kids), la tela premium (camas, según la medida), el
  * puff a juego (sofás que lo ofrecen) y la cantidad. Con `oferta` (el precio de
- * una pieza en stock de la promoción vigente, de ese modelo y esa medida), la
- * tarjeta es la de esa pieza; si no coincide con ninguna, la normal.
+ * una pieza en stock de la promoción vigente, de ese modelo y esa medida: una
+ * cama en oferta o un copete), la tarjeta es la de esa pieza; si no coincide
+ * con ninguna, la normal.
  */
 export function tarjeta(id, tallaPedida, tasa, { box = '', cantidad = 1, telaPremium = false, puff = false, oferta = 0 } = {}) {
   const p = buscarProducto(id);
   if (!p) return null;
   const talla = elegirTalla(p, tallaPedida);
   const piezas = oferta ? ofertaElegida(p.id, talla?.nombre ?? '', oferta) : [];
-  if (piezas.length) return tarjetaDeOferta(p, talla, piezas, tasa);
+  if (piezas.length) return tarjetaEnStock(p, talla, piezas, tasa);
+  // Un copete en stock va con su precio, nunca como la cama completa con otro (el texto decía REF 455 y la tarjeta, la
+  // Manila King entera a REF 760, también en bolívares).
+  const copetes = oferta ? copeteElegido(p.id, talla?.nombre ?? '', oferta) : [];
+  if (copetes.length) return tarjetaEnStock(p, talla, copetes, tasa, { copete: true });
   const base = talla ? talla.precio : p.precio;
   const porBox = boxDe(p);
   const conBox = porBox && Object.hasOwn(porBox, box) ? box : '';
