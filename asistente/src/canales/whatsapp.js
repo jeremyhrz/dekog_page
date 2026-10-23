@@ -163,8 +163,17 @@ const topeDiario = () => {
 };
 const hoyCaracas = () => new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
 
+// Cada vez que la tarea de cada hora vuelve a suscribir el webhook (reconectarWebhookWhatsapp), Meta lo avisa con un
+// account_update de event «WEBHOOK…»: no es nada de la cuenta, y en la hoja era una fila y un correo vacío por hora
+// (23-oct, captura de la dueña). Los avisos de verdad (restricción, verificación, bloqueo…) traen otros event.
+export const esEcoDeReconexion = (cambio) => cambio?.field === 'account_update' && /^WEBHOOK/i.test(String(cambio?.value?.event ?? ''));
+
 async function avisarCambioDeCuenta(cambio, idCuenta) {
   const valor = cambio.value ?? {};
+  if (esEcoDeReconexion(cambio)) {
+    console.log('Meta confirmó la reconexión del webhook:', valor.event);
+    return;
+  }
   const detalle = JSON.stringify(valor).slice(0, 280);
   console.warn('Aviso de Meta sobre la cuenta:', cambio.field, detalle);
   await guardarCliente({
