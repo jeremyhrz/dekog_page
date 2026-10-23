@@ -270,6 +270,17 @@ export function sinBolivaresAbajo(texto, { soloPreguntas = false } = {}) {
   return limpio || texto;
 }
 
+// La dueña quiere las marcas (23-oct): la IA resumía «tarjetas Visa y Mastercard» como «tarjetas de crédito». En una
+// lista («…, tarjetas de crédito y Cashea») queda «Visa, Mastercard y Cashea»; si ya trae las marcas, solo se van
+// «de crédito» (y «o débito»).
+const TARJETAS_DE_CREDITO = /\btarjetas?\s+(?:de\s+)?cr[eé]dito(?:\s*(?:,|y|o|\/)\s*(?:de\s+)?d[eé]bito)?(\s*\(?\s*(?:Visa|Mastercard)[^)\n.]*\)?)?/giu;
+export function tarjetasConMarca(texto) {
+  return texto.replace(TARJETAS_DE_CREDITO, (m, marcas, desde, todo) => {
+    if (marcas) return `tarjetas${marcas}`;
+    return /^\s+y\s/.test(todo.slice(desde + m.length)) ? 'Visa, Mastercard' : 'Visa y Mastercard';
+  });
+}
+
 // Palabras de un saludo suelto («hola», «buenas tardes», «hola, ¿cómo estás?»): ninguna pregunta todavía.
 const SALUDO = new Set(['hola', 'holaa', 'holaaa', 'holi', 'buenas', 'buenos', 'buen', 'dia', 'dias', 'tardes', 'noches', 'hey',
   'saludos', 'que', 'tal', 'epa', 'alo', 'como', 'estas', 'esta', 'estan', 'dekog', 'amiga', 'amigo', 'equipo']);
@@ -468,7 +479,7 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
 
   // Solo hay algo «abajo» con bolívares si va una tarjeta, o la vitrina de la web (la de WhatsApp no lleva Bs).
   const conTarjeta = Boolean(productos.length || (vitrina && canal !== 'whatsapp'));
-  let respuesta = negritasPara(canal, sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta }));
+  let respuesta = negritasPara(canal, tarjetasConMarca(sinBolivaresAbajo(salida.respuesta, { soloPreguntas: conTarjeta })));
   if (!vitrina) {
     // Sin vitrina no hay «Ver modelos»: si la IA lo promete, esa frase se quita (13-oct: el cliente pidió el catálogo,
     // le dijeron «toca Ver modelos» y no le llegó nada). Si pidió «el catálogo», van los dos en PDF; si pidió «el
