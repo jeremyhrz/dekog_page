@@ -1,7 +1,16 @@
 import React, { Component, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowRight, ArrowUpRight, RotateCw } from 'lucide-react';
+import TextoDividido, { Enfasis } from '../components/efectos/TextoDividido';
+import Magnetico from '../components/efectos/Magnetico';
+import { LogoDekog, MarcaD } from '../components/marca/Logo';
+import { IconoWhatsapp } from '../components/asistente/comun';
 import { LINEAS_WHATSAPP, lineaWhatsapp, propsWhatsapp } from '../utils/whatsapp';
 import { rutaDesconocida } from '../utils/rutas';
+import { EXPO } from '../lib/movimiento';
+import { horasEnteras } from '../sections/contacto/texto';
+import '../sections/contacto/aviso.css';
 
 /**
  * NoEncontrada — cualquier ruta que la web no tiene (App.jsx → <Route path="*">). Antes la página quedaba en blanco,
@@ -10,22 +19,79 @@ import { rutaDesconocida } from '../utils/rutas';
  *
  * ErrorDePagina — si una página falla al pintarse (un error de nuestro código, o su archivo no carga tras publicar una
  * versión nueva), se ve un aviso con los WhatsApp en vez de la página en blanco.
+ *
+ * Estilo editorial de 2026: el rótulo con su filete, el titular en Bodoni (*énfasis* en cursiva madera) y la D de rayas
+ * enorme de fondo, que se dibuja raya a raya (sections/contacto/aviso.css).
  */
 
-const BOTON_NEGRO = 'btn-primary inline-flex items-center justify-center rounded-xl bg-black px-8 py-4 text-xs font-bold uppercase tracking-widest text-white';
-const BOTON_CLARO = 'inline-flex items-center justify-center rounded-xl bg-[#FDFCFA] px-8 py-4 text-xs font-bold uppercase tracking-widest text-black ring-1 ring-black/10 transition hover:ring-black';
-const ENLACE = 'text-xs font-semibold text-gray-600 underline hover:text-black';
+const BOTONES = 'flex flex-col sm:flex-row sm:flex-wrap sm:items-center';
+const ENLACE = 'group inline-flex min-h-[44px] items-center text-[0.9375rem] text-grafito transition-colors duration-300 hover:text-madera-oscuro';
+const FLECHA = 'h-4 w-4 transition-transform duration-500 ease-expo group-hover:translate-x-1';
 
-/** Título, una frase y lo que se puede hacer. */
-function Aviso({ titulo, texto, children }) {
+/**
+ * Lo que aparece con una entrada suave (rótulo, bajada, acciones). Sin `animar` (el aviso de error), un elemento quieto:
+ * ese aviso tiene que pintarse aunque lo que falló sea justo lo que anima.
+ */
+function Entrar({ animar, como = 'div', retraso = 0, className, children }) {
+  if (!animar) {
+    const Elemento = como;
+    return <Elemento className={className}>{children}</Elemento>;
+  }
+  const Elemento = motion[como];
   return (
-    <section className="px-6 pb-24 pt-36 text-[#1a1a1a]">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-6 text-center">
-        <div>
-          <h1 className="font-display text-3xl font-black uppercase tracking-tight md:text-4xl">{titulo}</h1>
-          <p className="mt-3 text-sm leading-relaxed text-gray-500 md:text-base">{texto}</p>
+    <Elemento
+      className={className}
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.95, ease: EXPO, delay: retraso }}
+    >
+      {children}
+    </Elemento>
+  );
+}
+
+/** Rótulo, título, una frase y lo que se puede hacer, con la D de rayas de fondo. `conLogo`: sin el Layout (error). */
+function Aviso({ rotulo, titulo, texto, animar = true, conLogo = false, children }) {
+  const claseTitulo = 'titulo-display mt-5 text-[clamp(2.75rem,7.4vw,6.1rem)] lg:mt-7';
+  return (
+    <section className="relative isolate overflow-hidden bg-hueso text-tinta">
+      {/* La D entera (su curva es lo que la hace reconocible): a la derecha en escritorio; en el teléfono, de marca de
+          agua detrás del aviso. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[55%] -z-10 w-[86%] max-w-[600px] -translate-x-1/2 -translate-y-1/2 text-arena/60 sm:left-auto sm:right-[3%] sm:top-1/2 sm:w-[46%] sm:translate-x-0 lg:right-[4%] lg:top-[calc(50%+2.5rem)] lg:w-[38%] lg:text-arena"
+      >
+        <MarcaD animacion="aviso" className="h-auto w-full" />
+      </div>
+
+      {conLogo && (
+        <div className="absolute left-0 right-0 top-0 z-10">
+          <div className="contenedor flex h-16 items-center lg:h-20">
+            <a href="/" aria-label="Dekog, ir al inicio" className="-ml-1 block rounded-md p-1">
+              <LogoDekog alt="" className="h-9 w-auto lg:h-11" />
+            </a>
+          </div>
         </div>
-        {children}
+      )}
+
+      <div className="contenedor relative flex min-h-[82vh] flex-col justify-center pb-24 pt-32 lg:min-h-[90vh] lg:pb-28 lg:pt-40">
+        <div className="max-w-[50rem]">
+          <Entrar animar={animar} como="p" retraso={0.05} className="etiqueta flex items-center text-madera-oscuro">
+            <span aria-hidden="true" className="mr-3 h-px w-8 bg-current" />
+            {rotulo}
+          </Entrar>
+          {animar ? (
+            <TextoDividido como="h1" texto={titulo} alVer={false} retraso={0.15} escalon={0.06} duracion={1.05} className={claseTitulo} />
+          ) : (
+            <Enfasis como="h1" texto={titulo} className={claseTitulo} />
+          )}
+          <Entrar animar={animar} retraso={0.45} className="mt-7 max-w-md">
+            <p className="text-[1.0625rem] leading-relaxed text-grafito lg:text-[1.15rem]">{texto}</p>
+          </Entrar>
+          <Entrar animar={animar} retraso={0.55} className="mt-10">
+            {children}
+          </Entrar>
+        </div>
       </div>
     </section>
   );
@@ -34,13 +100,28 @@ function Aviso({ titulo, texto, children }) {
 /** Los WhatsApp de las dos asesoras, cada uno con su número a la vista (como en el selector de línea). */
 function LineasWhatsapp() {
   return (
-    <div className="grid w-full gap-3 sm:grid-cols-2">
+    <div className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
       {LINEAS_WHATSAPP.map((l) => (
-        <a key={l.numero} href={lineaWhatsapp(l.linea)} target="_blank" rel="noopener noreferrer"
+        <a
+          key={l.numero}
+          href={lineaWhatsapp(l.linea)}
+          target="_blank"
+          rel="noopener noreferrer"
           aria-label={`WhatsApp de la Línea ${l.linea}, ${l.visible}`}
-          className="flex items-center justify-between gap-3 rounded-2xl bg-[#0e7a3e] px-5 py-4 text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-[#f4f0ec]">
-          <span className="text-base font-semibold">Línea {l.linea}</span>
-          <span className="text-sm text-white/85">{l.visible}</span>
+          className="group flex items-center rounded-[18px] bg-tinta px-5 py-4 text-papel transition-colors duration-500 ease-expo hover:bg-madera-oscuro"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-papel/10">
+            <IconoWhatsapp size={18} />
+          </span>
+          <span className="ml-4 min-w-0 flex-1 text-left">
+            <span className="block font-display text-[1.6rem] leading-none">Línea {l.linea}</span>
+            <span className="etiqueta mt-2 block text-papel/70">{l.visible}</span>
+          </span>
+          <ArrowUpRight
+            className="ml-3 h-5 w-5 shrink-0 text-papel/70 transition-transform duration-500 ease-expo group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
         </a>
       ))}
     </div>
@@ -58,32 +139,55 @@ export default function NoEncontrada() {
 
   if (tipo === 'ofertas') {
     return (
-      <Aviso titulo="Catálogo de ofertas" texto="Te estamos llevando al catálogo de ofertas…">
-        <a href="/ofertas" className={BOTON_NEGRO}>Ver las ofertas</a>
+      <Aviso rotulo="Ofertas en stock" titulo="Catálogo de *ofertas*" texto="Te estamos llevando al catálogo de ofertas…">
+        <a href="/ofertas" className="boton boton-oscuro group w-full sm:w-auto">
+          <span>Ver las ofertas</span>
+          <ArrowUpRight className="h-4 w-4 transition-transform duration-500 ease-expo group-hover:-translate-y-0.5 group-hover:translate-x-0.5" strokeWidth={1.6} aria-hidden="true" />
+        </a>
       </Aviso>
     );
   }
   if (tipo === 'asesoras') {
     return (
-      <Aviso titulo="Escríbele a una asesora"
-        texto="Te atiende una asesora de Dekog por WhatsApp, de lunes a sábado de 9:00 a. m. a 6:00 p. m. Las dos líneas atienden muebles y arquitectura.">
+      <Aviso
+        rotulo="Asesoras de Dekog"
+        titulo="Escríbele a una *asesora*"
+        texto={horasEnteras('Te atiende una asesora de Dekog por WhatsApp, de lunes a sábado de 9:00 a. m. a 6:00 p. m. Las dos líneas atienden muebles y arquitectura.')}
+      >
         <LineasWhatsapp />
-        <Link to="/" className={ENLACE}>Ir al inicio</Link>
+        <Link to="/" className={`${ENLACE} mt-7`}>
+          <span className="enlace-linea pb-0.5">Ir al inicio</span>
+          <ArrowRight className={`ml-2 ${FLECHA}`} strokeWidth={1.6} aria-hidden="true" />
+        </Link>
       </Aviso>
     );
   }
   return (
-    <Aviso titulo="No encontramos esta página" texto="Puede que el enlace esté incompleto o que la página ya no exista.">
-      <div className="flex flex-wrap justify-center gap-3">
-        <Link to="/" className={BOTON_NEGRO}>Ir al inicio</Link>
-        <Link to="/?categoria=todos#catalogo" className={BOTON_CLARO}>Ver el catálogo</Link>
+    <Aviso rotulo="Error 404" titulo="No encontramos esta *página*" texto="Puede que el enlace esté incompleto o que la página ya no exista.">
+      <div className={BOTONES}>
+        <Magnetico className="w-full sm:mr-3 sm:w-auto">
+          <Link to="/" className="boton boton-oscuro group w-full sm:w-auto">
+            <span>Ir al inicio</span>
+            <ArrowRight className={FLECHA} strokeWidth={1.6} aria-hidden="true" />
+          </Link>
+        </Magnetico>
+        <Magnetico className="mt-3 w-full sm:mt-0 sm:w-auto">
+          <Link to="/?categoria=todos#catalogo" className="boton boton-linea w-full sm:w-auto">Ver el catálogo</Link>
+        </Magnetico>
       </div>
-      <a {...propsWhatsapp()} className={ENLACE}>¿Te ayudamos? Escríbenos por WhatsApp</a>
+      <a {...propsWhatsapp()} className={`${ENLACE} mt-7`}>
+        <IconoWhatsapp size={15} />
+        <span className="enlace-linea ml-2 pb-0.5">¿Te ayudamos? Escríbenos por WhatsApp</span>
+      </a>
     </Aviso>
   );
 }
 
-/** Va alrededor de las rutas (App.jsx). Al cambiar de ruta (`ruta`: location.key) vuelve a intentarlo. */
+/**
+ * Va alrededor de las rutas (App.jsx). Al cambiar de ruta (`ruta`: location.key) vuelve a intentarlo.
+ * El estado va en el constructor, nunca como campo de clase («state = …»): iOS 13 no lee campos de clase y la web
+ * entera quedaría en blanco (lo vigila scripts/compatibilidad.mjs --salida).
+ */
 export class ErrorDePagina extends Component {
   constructor(props) {
     super(props);
@@ -101,16 +205,27 @@ export class ErrorDePagina extends Component {
 
   render() {
     if (!this.state.fallo) return this.props.children;
-    // Sin el Layout (también pudo fallar): a pantalla completa, y con enlaces de página entera.
+    // Sin el Layout (también pudo fallar): a pantalla completa, sin animaciones y con enlaces de página entera.
     return (
-      <div className="min-h-screen bg-[#f4f0ec]">
-        <Aviso titulo="No pudimos mostrar esta página"
-          texto="Recárgala o escríbenos por WhatsApp: una asesora te atiende de lunes a sábado de 9:00 a. m. a 6:00 p. m.">
-          <div className="flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={() => window.location.reload()} className={BOTON_NEGRO}>Recargar la página</button>
-            <a href="/" className={BOTON_CLARO}>Ir al inicio</a>
+      <div className="min-h-screen bg-hueso">
+        <Aviso
+          animar={false}
+          conLogo
+          rotulo="Algo falló"
+          titulo="No pudimos mostrar esta *página*"
+          texto={horasEnteras('Recárgala o escríbenos por WhatsApp: una asesora te atiende de lunes a sábado de 9:00 a. m. a 6:00 p. m.')}
+        >
+          <div className={BOTONES}>
+            <button type="button" onClick={() => window.location.reload()} className="boton boton-oscuro w-full sm:mr-3 sm:w-auto">
+              <RotateCw className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+              <span>Recargar la página</span>
+            </button>
+            <a href="/" className="boton boton-linea mt-3 w-full sm:mt-0 sm:w-auto">Ir al inicio</a>
           </div>
-          <LineasWhatsapp />
+          <p className="etiqueta mt-12 text-grafito/70">O escríbele a una asesora</p>
+          <div className="mt-4">
+            <LineasWhatsapp />
+          </div>
         </Aviso>
       </div>
     );

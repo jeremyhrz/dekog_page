@@ -1,63 +1,69 @@
 import React from 'react';
-import { ShoppingCart, Eye } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import Imagen from './Imagen';
 
+const miles = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+/**
+ * Tarjeta de producto del catálogo (renovación de 2026): la foto 4:5 con zoom suave y «Vista rápida» al pasar el
+ * cursor (en el teléfono, el botón siempre a la vista), el nombre en Bodoni y el precio «desde». Con medidas abre la
+ * vista rápida para elegirla; sin medidas (mesas), «Añadir» va directo al carrito.
+ */
 export default function ProductCard({ product, onAdd, onQuickView }) {
+  const conMedidas = product.tallas && product.tallas.length > 0;
+  const linea = product.subcategoria || product.categoria;
   return (
-    <div className="product-card group flex flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden">
-      <div className="relative aspect-[4/5] overflow-hidden bg-gray-50">
+    <article className="group flex h-full flex-col">
+      <div
+        className="relative cursor-pointer overflow-hidden rounded-[16px] bg-arena"
+        style={{ paddingBottom: '125%' }}
+        data-cursor="Ver"
+        onClick={() => onQuickView(product)}
+      >
         <Imagen
           src={product.imagen}
-          sizes="(min-width: 1280px) 300px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          sizes="(min-width: 1280px) 300px, (min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
           alt={product.nombre}
-          className="product-image w-full h-full object-cover opacity-0 transition-opacity duration-500"
+          className="absolute left-0 top-0 h-full w-full object-cover opacity-0 transition-[opacity,transform] duration-700 ease-expo group-hover:scale-[1.05]"
           loading="lazy"
-          onLoad={(e) => e.target.classList.replace('opacity-0', 'opacity-100')}
+          onLoad={(e) => e.currentTarget.classList.replace('opacity-0', 'opacity-100')}
         />
-        {/* Overlay with buttons */}
-        <div className="product-overlay absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-4 gap-2">
-          {product.tallas && product.tallas.length > 0 ? (
-            <button
-              onClick={() => onQuickView(product)}
-              className="w-full bg-white text-black py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-colors"
-            >
-              <ShoppingCart size={14} /> Elegir Talla
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onQuickView(product); }}
+          className="etiqueta absolute bottom-3 left-3 right-3 flex min-h-[44px] items-center justify-center rounded-full bg-papel/90 text-[10px] text-tinta backdrop-blur-sm transition duration-500 ease-expo hover:bg-papel lg:translate-y-[140%] lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100 lg:focus:translate-y-0 lg:focus:opacity-100"
+          aria-label={`Vista rápida de ${product.nombre}`}
+        >
+          <Eye className="mr-2 h-3.5 w-3.5" strokeWidth={1.6} aria-hidden="true" />
+          Vista rápida
+        </button>
+      </div>
+
+      <div className="mt-4 flex flex-1 flex-col">
+        <p className="etiqueta !text-[10px] text-madera-oscuro">{linea}</p>
+        <div className="mt-1.5 flex items-start justify-between">
+          <div className="min-w-0 pr-3">
+            <h3 className="font-display text-[1.55rem] leading-[1.1]">{product.nombre}</h3>
+            <p className="mt-1 text-[13px] text-grafito/70">{product.desc}</p>
+          </div>
+          <p className="shrink-0 text-right">
+            {conMedidas && <span className="etiqueta block !text-[9px] text-grafito/60">Desde</span>}
+            <span className="font-display text-[1.35rem] leading-none">REF {miles(product.precio)}</span>
+          </p>
+        </div>
+        <div className="mt-auto pt-4">
+          {conMedidas ? (
+            <button type="button" onClick={() => onQuickView(product)} className="boton boton-linea min-h-[42px] w-full !py-2.5 !text-[11px]">
+              Elegir medida
             </button>
           ) : (
-            <button
-              onClick={() => onAdd(product)}
-              className="w-full bg-white text-black py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-colors"
-            >
-              <ShoppingCart size={14} /> Añadir
+            <button type="button" onClick={() => onAdd(product)} className="boton boton-linea min-h-[42px] w-full !py-2.5 !text-[11px]">
+              <Plus className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+              <span>Añadir</span>
             </button>
           )}
-          <button
-            onClick={() => onQuickView(product)}
-            className="w-full bg-white/20 backdrop-blur-sm text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-white/30 transition-colors"
-          >
-            <Eye size={14} /> Vista Rápida
-          </button>
         </div>
       </div>
-      <div className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-bold text-sm uppercase tracking-tight">{product.nombre}</h3>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{product.desc}</p>
-          </div>
-          <div className="text-right flex flex-col">
-            {product.tallas && product.tallas.length > 0 && (
-              <span className="text-[8px] uppercase tracking-widest text-gray-400 font-bold -mb-1">Desde</span>
-            )}
-            <span className="text-lg font-black text-black"><span className="font-light mr-1 text-[0.8em]">REF</span>{product.precio}</span>
-          </div>
-        </div>
-        <div className="mt-3">
-          <span className="inline-block text-[8px] uppercase tracking-widest font-semibold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
-            {product.categoria}
-          </span>
-        </div>
-      </div>
-    </div>
+    </article>
   );
 }

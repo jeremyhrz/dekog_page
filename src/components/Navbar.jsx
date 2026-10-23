@@ -1,174 +1,243 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Menu, X, Instagram, MapPin } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion';
+import { Instagram, Search, ShoppingBag, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LogoDekog } from './marca/Logo';
+import MenuMovil from './MenuMovil';
+import { ENLACES, DEKOG } from '../data/sitio';
+import { useIntroTerminada } from '../lib/intro';
+import { EXPO, cx } from '../lib/movimiento';
+import { irA, useBloquearScroll } from '../lib/scroll';
 
-export default function Navbar({ cartCount = 0, onCartOpen = () => {}, onSearch = () => {}, onCategoryClick = () => {} }) {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+/**
+ * Navegación fija (renovación de 2026): el logo arriba a la izquierda, las páginas al centro y búsqueda, Instagram y
+ * carrito a la derecha. En la portada empieza transparente; al bajar, hueso translúcido con desenfoque. Se esconde al
+ * bajar y vuelve al subir. Teléfono: menú a pantalla completa (MenuMovil).
+ * Props (de App.jsx, vía Layout): cartCount, onCartOpen, onSearch, onCategoryClick.
+ */
+export default function Navbar({ cartCount = 0, onCartOpen = () => {}, onSearch = () => {} }) {
+  const listo = useIntroTerminada();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [abierto, setAbierto] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [oculta, setOculta] = useState(false);
+  const [solida, setSolida] = useState(false);
+  const { scrollY } = useScroll();
 
+  useBloquearScroll(abierto);
+
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    const previo = scrollY.getPrevious();
+    const delta = y - (previo === undefined ? y : previo);
+    setSolida(y > 24);
+    if (y < 140) setOculta(false);
+    else if (delta > 4) setOculta(true);
+    else if (delta < -4) setOculta(false);
+  });
+
+  // Una pieza entró al carrito: la barra se deja ver para que se note el número (aunque se esté bajando).
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    if (cartCount > 0) setOculta(false);
+  }, [cartCount]);
 
-  const navLinks = [
-    { label: 'Inicio',        path: '/' },
-    { label: 'Nosotros',      path: '/nosotros' },
-    { label: 'Home',          path: '/home' },
-    { label: 'Arquitectura',  path: '/arquitectura' },
-    { label: 'Proyectos',     path: '/proyectos' },
-    { label: 'Servicios',     path: '/servicios' },
-  ];
+  // Al cambiar de página: menú cerrado y barra a la vista.
+  useEffect(() => {
+    setAbierto(false);
+    setOculta(false);
+  }, [location.pathname]);
 
-  const isTransparentPage = ['/'].includes(location.pathname);
-  const isDarkNavbar = scrolled || !isTransparentPage;
+  // Escape cierra el menú.
+  useEffect(() => {
+    if (!abierto) return undefined;
+    const tecla = (e) => e.key === 'Escape' && setAbierto(false);
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [abierto]);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      onSearch(searchQuery.trim());
-      setSearchOpen(false);
-      setSearchQuery('');
-    }
-  };
+  const enPortada = location.pathname === '/';
+  const conFondo = (solida || !enPortada) && !abierto;
 
-  const handleLinkClick = (path) => {
-    if (location.pathname === path) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    setMobileOpen(false);
+  const alPulsar = (ruta) => () => {
+    if (location.pathname === ruta) irA(0);
+    setAbierto(false);
   };
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isDarkNavbar ? 'glass-nav-scrolled py-3' : 'bg-transparent py-5'}`}
-        style={{ backdropFilter: isDarkNavbar ? 'blur(20px)' : 'none', background: isDarkNavbar ? 'rgba(244, 240, 236, 0.95)' : 'transparent' }}
+      <AnimatePresence>{abierto && <MenuMovil ruta={location.pathname} alElegir={alPulsar} />}</AnimatePresence>
+
+      <motion.header
+        className={cx('fixed left-0 right-0 top-0 transition-colors duration-500', abierto ? 'z-[59] text-hueso' : 'z-nav text-tinta')}
+        initial={false}
+        animate={{ y: oculta && !abierto && !buscando ? '-100%' : '0%' }}
+        transition={{ duration: 0.6, ease: EXPO }}
       >
-        <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
-          {/* Logo */}
-          <Link 
-            to="/" 
-            onClick={() => handleLinkClick('/')}
-            className="flex flex-col gap-0 group mt-1"
-          >
-            <span className={`whitespace-nowrap font-light text-3xl md:text-4xl tracking-[0.4em] uppercase transition-colors ${isDarkNavbar ? 'text-black' : 'text-white'}`} style={{fontFamily: 'system-ui, -apple-system, sans-serif'}}>
-              D E K O G
-            </span>
-            <span className={`whitespace-nowrap text-[8px] md:text-[9px] font-bold uppercase tracking-[0.3em] mt-1 transition-colors ${isDarkNavbar ? 'text-gray-500' : 'text-white/70'}`}>
-              DISEÑAMOS CONSTRUIMOS AMOBLAMOS
-            </span>
+        <div
+          aria-hidden="true"
+          className={cx(
+            'absolute left-0 top-0 h-full w-full border-b border-tinta/[0.06] bg-hueso/90 backdrop-blur-xl transition-opacity duration-500',
+            conFondo ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+        <motion.div
+          className="contenedor relative flex h-16 items-center justify-between lg:h-20"
+          initial={{ opacity: 0, y: -18 }}
+          animate={listo ? { opacity: 1, y: 0 } : undefined}
+          transition={{ duration: 0.9, ease: EXPO, delay: 0.3 }}
+        >
+          <Link to="/" onClick={alPulsar('/')} aria-label="Dekog, ir al inicio" className="-ml-1 block rounded-md p-1">
+            <LogoDekog tono={abierto ? 'blanco' : 'negro'} alt="" className="h-9 w-auto lg:h-11" />
           </Link>
 
-          {/* Desktop Nav Links */}
-          <div className="hidden lg:flex items-center lg:gap-4 xl:gap-7">
-            {navLinks.map((link) => {
-              // Para la ruta raíz '/', solo marcar activo si ES exactamente '/'
-              const isActive = link.path === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(link.path);
-              return (
-                <Link
-                  key={link.label}
-                  to={link.path}
-                  className={`nav-link text-[11px] uppercase tracking-widest transition-all duration-200 ${
-                    isDarkNavbar ? 'text-gray-700 hover:text-black' : 'text-white/80 hover:text-white'
-                  } ${isActive ? 'font-black border-b border-current pb-0.5' : 'font-semibold'}`}
-                  onClick={() => handleLinkClick(link.path)}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
+          <nav aria-label="Páginas" className="absolute left-1/2 hidden -translate-x-1/2 lg:block">
+            <ul className="flex items-center">
+              {ENLACES.map((enlace) => {
+                const actual = enlace.ruta === '/' ? location.pathname === '/' : location.pathname.indexOf(enlace.ruta) === 0;
+                return (
+                  <li key={enlace.ruta} className="px-3 xl:px-[1.1rem]">
+                    <Link
+                      to={enlace.ruta}
+                      onClick={alPulsar(enlace.ruta)}
+                      aria-current={actual ? 'page' : undefined}
+                      className={cx(
+                        'etiqueta relative block whitespace-nowrap py-2 tracking-[0.18em] transition-colors duration-300 hover:text-madera-oscuro',
+                        actual && 'text-madera-oscuro',
+                      )}
+                    >
+                      {enlace.nombre}
+                      {actual && (
+                        <motion.span
+                          layoutId="nav-activo"
+                          className="absolute bottom-0 left-0 right-0 h-px bg-madera"
+                          transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+                        />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
 
-          {/* Right icons (gap-2 en teléfono: con gap-3 el menú se salía 2 px de una pantalla de 390) */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={() => setSearchOpen(true)} className={`p-2 rounded-full transition-colors ${isDarkNavbar ? 'hover:bg-gray-100 text-black' : 'hover:bg-white/10 text-white'}`} aria-label="Buscar">
-              <Search size={20} />
-            </button>
-            <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer"
-              className={`p-2 rounded-full transition-colors hidden md:flex ${isDarkNavbar ? 'hover:bg-gray-100 text-black' : 'hover:bg-white/10 text-white'}`} aria-label="Instagram">
-              <Instagram size={20} />
-            </a>
-            <button onClick={onCartOpen} className={`relative p-2 rounded-full transition-colors ${isDarkNavbar ? 'hover:bg-gray-100 text-black' : 'hover:bg-white/10 text-white'}`} aria-label="Carrito">
-              <ShoppingCart size={20} />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-[9px] w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-            <button onClick={() => setMobileOpen(true)} className={`lg:hidden p-2 rounded-full transition-colors ${isDarkNavbar ? 'hover:bg-gray-100 text-black' : 'hover:bg-white/10 text-white'}`} aria-label="Menú">
-              <Menu size={22} />
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Search Overlay */}
-      {searchOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-start justify-center pt-32 search-overlay" onClick={() => setSearchOpen(false)}>
-          <div className="w-full max-w-2xl px-6" onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus
-                placeholder="Buscar productos..."
-                className="w-full bg-transparent border-b-2 border-white/30 focus:border-white text-white text-3xl md:text-4xl font-light py-4 outline-none placeholder:text-white/30"
-              />
-              <button type="button" onClick={() => setSearchOpen(false)} className="absolute right-0 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
-                <X size={28} />
-              </button>
-            </form>
-            <p className="text-white/30 text-xs mt-4 uppercase tracking-widest">Presiona Enter para buscar</p>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Menu — Immersive & Premium */}
-      {mobileOpen && (
-        <div className="mobile-menu fixed inset-0 z-[60] bg-[#f4f0ec] flex flex-col animate-in fade-in slide-in-from-right duration-500">
-          <div className="flex items-center justify-between p-6">
-            <div className="flex flex-col">
-              <span className="font-light text-2xl tracking-[0.3em] uppercase">DEKOG</span>
-              <span className="text-[7px] font-bold uppercase tracking-[0.2em] text-gray-400">Diseñamos Construimos Amoblamos</span>
-            </div>
-            <button 
-              onClick={() => setMobileOpen(false)}
-              className="p-3 bg-black text-white rounded-full hover:scale-110 transition-transform"
+          <div className="-mr-2 flex items-center">
+            <button
+              type="button"
+              onClick={() => { setAbierto(false); setBuscando(true); }}
+              aria-label="Buscar en el catálogo"
+              className="grid h-11 w-11 place-items-center rounded-full transition-colors duration-300 hover:text-madera-oscuro"
             >
-              <X size={24} />
+              <Search className="h-[20px] w-[20px]" strokeWidth={1.4} aria-hidden="true" />
+            </button>
+            <a
+              href={DEKOG.instagram.home}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram de Dekog Home"
+              className="hidden h-11 w-11 place-items-center rounded-full transition-colors duration-300 hover:text-madera-oscuro md:grid"
+            >
+              <Instagram className="h-[20px] w-[20px]" strokeWidth={1.4} aria-hidden="true" />
+            </a>
+            <button
+              type="button"
+              onClick={() => { setAbierto(false); onCartOpen(); }}
+              aria-label={cartCount ? `Abrir el carrito (${cartCount})` : 'Abrir el carrito (vacío)'}
+              className="relative grid h-11 w-11 place-items-center rounded-full transition-colors duration-300 hover:text-madera-oscuro"
+            >
+              <ShoppingBag className="h-[21px] w-[21px]" strokeWidth={1.4} aria-hidden="true" />
+              <motion.span
+                aria-hidden="true"
+                className="absolute right-[3px] top-[5px] grid h-[18px] min-w-[18px] place-items-center rounded-full bg-madera px-1 text-[10px] font-semibold leading-none text-papel"
+                initial={false}
+                animate={{ scale: cartCount > 0 ? 1 : 0 }}
+                transition={{ type: 'spring', stiffness: 520, damping: 22 }}
+              >
+                {cartCount > 0 ? cartCount : ''}
+              </motion.span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAbierto((v) => !v)}
+              aria-expanded={abierto}
+              aria-controls="menu-movil"
+              aria-label={abierto ? 'Cerrar el menú' : 'Abrir el menú'}
+              className="relative grid h-11 w-11 place-items-center lg:hidden"
+            >
+              <span
+                className="absolute h-[1.5px] w-[22px] rounded-full bg-current transition-transform duration-500 ease-expo"
+                style={{ transform: abierto ? 'rotate(45deg)' : 'translateY(-4px)' }}
+              />
+              <span
+                className="absolute h-[1.5px] w-[22px] rounded-full bg-current transition-transform duration-500 ease-expo"
+                style={{ transform: abierto ? 'rotate(-45deg)' : 'translateY(4px)' }}
+              />
             </button>
           </div>
-          
-          <div className="flex-1 flex flex-col justify-center px-10 gap-8">
-            {navLinks.map((link, i) => (
-              <Link 
-                key={link.label} 
-                to={link.path} 
-                onClick={() => handleLinkClick(link.path)}
-                className="text-4xl font-black uppercase tracking-tighter text-black hover:text-gray-400 transition-all duration-300 transform hover:translate-x-4"
-                style={{ animationDelay: `${i * 0.1}s` }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+        </motion.div>
+      </motion.header>
 
-          <div className="p-10 border-t border-gray-200 bg-white/50">
-            <div className="flex items-center gap-3 text-gray-500 text-[10px] mb-3 uppercase tracking-widest font-bold">
-              <MapPin size={14} className="text-black" />
-              <span>CC Vía Veneto · Local R17</span>
-            </div>
-            <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer" 
-              className="flex items-center gap-3 text-black font-black text-sm uppercase tracking-widest">
-              <Instagram size={18} /> @dekog.home
-            </a>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {buscando && (
+          <Busqueda
+            alCerrar={() => setBuscando(false)}
+            alBuscar={(q) => {
+              onSearch(q);
+              setBuscando(false);
+              // El catálogo solo está en la portada: desde otra página, se va allí con los resultados.
+              if (location.pathname !== '/') navigate('/#catalogo');
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
+  );
+}
+
+/** Búsqueda a pantalla completa: escribe y Enter lleva al catálogo con los resultados (handleSearch de App.jsx). */
+function Busqueda({ alCerrar, alBuscar }) {
+  const [texto, setTexto] = useState('');
+  const campo = useRef(null);
+  useBloquearScroll(true);
+  useEffect(() => {
+    const t = window.setTimeout(() => campo.current && campo.current.focus(), 60);
+    const tecla = (e) => e.key === 'Escape' && alCerrar();
+    window.addEventListener('keydown', tecla);
+    return () => { window.clearTimeout(t); window.removeEventListener('keydown', tecla); };
+  }, [alCerrar]);
+  const enviar = (e) => {
+    e.preventDefault();
+    if (texto.trim()) alBuscar(texto.trim());
+  };
+  return (
+    <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Buscar en el catálogo"
+      data-lenis-prevent
+      className="fixed left-0 top-0 z-[60] flex h-full w-full items-start justify-center bg-noche/95 pt-[22vh] text-hueso backdrop-blur-md"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.35 }}
+      onClick={alCerrar}
+    >
+      <div className="contenedor max-w-3xl" onClick={(e) => e.stopPropagation()}>
+        <p className="etiqueta text-madera-claro">Catálogo</p>
+        <form onSubmit={enviar} className="relative mt-4">
+          <input
+            ref={campo}
+            type="search"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="¿Qué buscas? Cama, sofá, mesa…"
+            className="w-full border-b border-hueso/30 bg-transparent py-4 pr-12 font-display text-[clamp(2rem,6vw,3.6rem)] leading-tight text-hueso outline-none transition-colors placeholder:text-hueso/30 focus:border-hueso"
+          />
+          <button type="button" onClick={alCerrar} aria-label="Cerrar la búsqueda" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-hueso/60 hover:text-hueso">
+            <X className="h-7 w-7" strokeWidth={1.3} />
+          </button>
+        </form>
+        <p className="etiqueta mt-5 text-hueso/40">Presiona Enter para buscar</p>
+      </div>
+    </motion.div>
   );
 }
