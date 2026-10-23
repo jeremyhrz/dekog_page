@@ -1,18 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Plus, X } from 'lucide-react';
 import Imagen from './Imagen';
+import { IconoWhatsapp } from './asistente/comun';
+import { EXPO, cx } from '../lib/movimiento';
 import { propsWhatsapp } from '../utils/whatsapp';
 
+const miles = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+/**
+ * Vista rápida de un producto (renovación de 2026): la foto, el nombre en Bodoni, las medidas para elegir y el precio
+ * de la elegida; «Añadir al carrito» o «Consultar por WhatsApp» con el producto, la medida y el precio ya escritos.
+ */
 export default function QuickView({ product, onClose, onAdd }) {
   const [selectedTalla, setSelectedTalla] = useState(null);
 
   useEffect(() => {
-    if (product?.tallas && product.tallas.length > 0) {
-      setSelectedTalla(product.tallas[0]);
-    } else {
-      setSelectedTalla(null);
-    }
+    if (product && product.tallas && product.tallas.length > 0) setSelectedTalla(product.tallas[0]);
+    else setSelectedTalla(null);
   }, [product]);
+
+  // Escape cierra la vista rápida.
+  useEffect(() => {
+    if (!product) return undefined;
+    const tecla = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [product, onClose]);
 
   if (!product) return null;
 
@@ -24,7 +38,7 @@ export default function QuickView({ product, onClose, onAdd }) {
         ...product,
         id: `${product.id}-${selectedTalla.nombre}`,
         nombre: `${product.nombre} (${selectedTalla.nombre})`,
-        precio: selectedTalla.precio
+        precio: selectedTalla.precio,
       });
     } else {
       onAdd(product);
@@ -33,70 +47,78 @@ export default function QuickView({ product, onClose, onAdd }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-white rounded-3xl max-w-3xl w-full max-h-[80vh] overflow-y-auto shadow-2xl modal-content flex flex-col md:flex-row"
-        onClick={(e) => e.stopPropagation()}>
-        {/* Image */}
-        <div className="md:w-1/2 aspect-square md:aspect-auto bg-gray-50">
-          <Imagen src={product.imagen} sizes="(min-width: 768px) 384px, 100vw" alt={product.nombre} className="w-full h-full object-cover" />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={product.nombre} data-lenis-prevent>
+      <motion.div className="absolute inset-0 bg-noche/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }} />
+      <motion.div
+        className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-y-auto rounded-[24px] bg-hueso text-tinta shadow-[0_40px_80px_-30px_rgb(21_19_17/0.6)] md:flex-row"
+        initial={{ opacity: 0, y: 30, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: EXPO }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative shrink-0 bg-arena md:w-1/2">
+          <div className="relative md:h-full" style={{ paddingBottom: '100%' }}>
+            <Imagen src={product.imagen} sizes="(min-width: 768px) 450px, 100vw" alt={product.nombre} className="absolute left-0 top-0 h-full w-full object-cover" />
+          </div>
         </div>
-        {/* Info */}
-        <div className="md:w-1/2 p-8 flex flex-col justify-between">
+
+        <div className="flex flex-col justify-between p-7 md:w-1/2 md:p-9">
           <div>
-            <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <X size={20} />
+            <button type="button" onClick={onClose} aria-label="Cerrar" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-hueso/80 backdrop-blur-sm transition-colors hover:bg-hueso">
+              <X className="h-5 w-5" strokeWidth={1.4} />
             </button>
-            <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-semibold">{product.categoria}</span>
-            <h2 className="text-3xl font-black uppercase tracking-tight mt-2 mb-2 font-display">{product.nombre}</h2>
-            <p className="text-gray-500 text-sm mb-4">{product.desc}</p>
-            
+            <p className="etiqueta text-madera-oscuro">{product.subcategoria || product.categoria}</p>
+            <h2 className="mt-3 font-display text-[clamp(2.3rem,5vw,3.2rem)] leading-[1.02]">{product.nombre}</h2>
+            <p className="mt-2 text-[15px] text-grafito/80">{product.desc}</p>
+
             {product.tallas && product.tallas.length > 0 && (
-              <div className="mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Selecciona la Talla</p>
-                <div className="flex flex-wrap gap-2">
-                  {product.tallas.map((talla, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => setSelectedTalla(talla)}
-                      className={`px-4 py-2 border rounded-xl text-xs font-bold transition-colors ${selectedTalla?.nombre === talla.nombre ? 'border-black bg-black text-white' : 'border-gray-200 text-gray-600 hover:border-black'}`}
-                    >
-                      {talla.nombre}
-                    </button>
-                  ))}
+              <div className="mt-7">
+                <p className="etiqueta text-grafito/60">Elige la medida</p>
+                <div className="mt-3 flex flex-wrap">
+                  {product.tallas.map((talla) => {
+                    const elegida = selectedTalla && selectedTalla.nombre === talla.nombre;
+                    return (
+                      <button
+                        key={talla.nombre}
+                        type="button"
+                        onClick={() => setSelectedTalla(talla)}
+                        aria-pressed={elegida}
+                        className={cx(
+                          'mb-2 mr-2 rounded-full px-4 py-2 text-[13px] transition-colors duration-300',
+                          elegida ? 'bg-tinta text-papel' : 'text-grafito ring-1 ring-tinta/15 hover:ring-tinta/40',
+                        )}
+                      >
+                        {talla.nombre}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
-            
-            <p className="text-4xl font-black mb-6"><span className="font-light mr-1 text-[0.7em]">REF</span>{displayPrice}</p>
-            <div className="space-y-3 text-xs text-gray-400">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                <span>Disponible para envío inmediato</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
-                <span>Garantía de calidad Dekog Home</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
-                <span>Consultar colores y telas disponibles</span>
-              </div>
-            </div>
+
+            <p className="mt-6 font-display text-[2.6rem] leading-none">REF {miles(displayPrice)}</p>
+            <ul className="mt-6 space-y-2 text-[14px] text-grafito/75">
+              <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Hecho a la medida</li>
+              <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Garantía de calidad Dekog Home</li>
+              <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Consulta los colores y telas disponibles</li>
+            </ul>
           </div>
-          <div className="mt-6 space-y-3">
-            <button onClick={handleAdd}
-              className="btn-primary w-full bg-black text-white py-4 rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2">
-              <ShoppingCart size={16} /> Añadir al Carrito
+
+          <div className="mt-8">
+            <button type="button" onClick={handleAdd} className="boton boton-oscuro w-full">
+              <Plus className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+              <span>Añadir al carrito</span>
             </button>
-            <a {...propsWhatsapp(`Hola, me interesa el producto: ${product.nombre}${selectedTalla ? ` (${selectedTalla.nombre})` : ''} (REF ${displayPrice})`)}
-              target="_blank" rel="noopener noreferrer"
-              className="block text-center w-full border-2 border-black text-black py-4 rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-black hover:text-white transition-colors">
-              Consultar por WhatsApp
+            <a
+              {...propsWhatsapp(`Hola, me interesa el producto: ${product.nombre}${selectedTalla ? ` (${selectedTalla.nombre})` : ''} (REF ${displayPrice})`)}
+              className="boton boton-linea mt-3 w-full"
+            >
+              <IconoWhatsapp size={16} />
+              <span>Consultar por WhatsApp</span>
             </a>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

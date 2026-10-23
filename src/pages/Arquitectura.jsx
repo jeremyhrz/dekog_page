@@ -2,22 +2,10 @@ import React from 'react';
 import ArquitecturaSection from '../components/ArquitecturaSection';
 
 /**
- * Arquitectura — Página /arquitectura
- *
- * Usa íntegramente ArquitecturaSection.jsx que contiene:
- *   - Hero con imagen principal + descripción
- *   - Servicio Integral (6 íconos: diseño, 3D, planos, ejecución, supervisión, entrega)
- *   - Tipos de Proyectos (galería con renders: Residencial, Comercial, Oficinas, etc.)
- *   - CTA Banner oscuro con valorres
- *   - Nuestro Enfoque (imagen + 3 pilares)
- *   - Proceso "Así trabajamos" (timeline 01-05 sobre fondo oscuro)
- *
- * El pt-24 compensa la Navbar fija (h ≈ 80px).
+ * Arquitectura — Página /arquitectura (Dekog Arquitectura). Todo el contenido está en ArquitecturaSection.jsx, que
+ * arma la página con las secciones de src/sections/arquitectura/. Sin relleno arriba: la cabecera (CabeceraPagina)
+ * ya deja el aire de la navegación fija.
  */
 export default function Arquitectura() {
-  return (
-    <div className="pt-24">
-      <ArquitecturaSection />
-    </div>
-  );
+  return <ArquitecturaSection />;
 }

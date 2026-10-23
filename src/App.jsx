@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import { pageTransition, animatePresenceConfig } from './utils/animations';
+import { MotionConfig, motion } from 'framer-motion';
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
 import Layout from './components/Layout';
 import SelectorWhatsapp from './components/SelectorWhatsapp';
+import { MarcaD } from './components/marca/Logo';
 // Sin carga perezosa: el aviso de error tiene que estar aunque no cargue el archivo de una página.
 import NoEncontrada, { ErrorDePagina } from './pages/NoEncontrada';
+import { ProveedorScroll, irA } from './lib/scroll';
+import { EXPO } from './lib/movimiento';
 
 // ─── Páginas reales cargadas perezosamente (Code Splitting) ───────────────────
 const Home            = lazy(() => import('./pages/Home'));
@@ -19,25 +21,10 @@ const NosotrosPage    = lazy(() => import('./pages/NosotrosPage'));
 const HomeMueblesPage = lazy(() => import('./pages/HomeMueblesPage'));
 const LinksPage       = lazy(() => import('./pages/LinksPage'));
 
-// ─── Componente Cargador Premium (Estilo Minimalista) ─────────────────────────
+// ─── Mientras llega el archivo de una página: la D de Dekog que respira ──────
 const PageLoader = () => (
-  <div className="fixed inset-0 bg-[#FDFCFA] z-50 flex flex-col items-center justify-center">
-    <div className="flex flex-col items-center gap-4 animate-fade-in">
-      <span className="font-light text-3xl tracking-[0.4em] uppercase text-black">D E K O G</span>
-      <div className="w-24 h-[1px] bg-gray-100 overflow-hidden relative">
-        <div className="absolute h-full bg-black" style={{
-          width: '30%',
-          left: '-30%',
-          animation: 'page-loader-slide 1.5s infinite ease-in-out'
-        }} />
-      </div>
-    </div>
-    <style>{`
-      @keyframes page-loader-slide {
-        0% { left: -30%; }
-        100% { left: 100%; }
-      }
-    `}</style>
+  <div className="fixed left-0 top-0 z-50 flex h-full w-full items-center justify-center bg-hueso text-tinta">
+    <MarcaD className="h-10 w-10 animate-pulse" />
   </div>
 );
 
@@ -45,9 +32,10 @@ const PageLoader = () => (
 import Cart      from './components/Cart';
 import QuickView from './components/QuickView';
 
-// ─── Animación de transición ──────────────────────────────────────────────────
+// ─── Entrada de cada página: un fundido corto. Sin AnimatePresence: con initial={false} dejaba quietas todas las
+//     animaciones de dentro de las páginas (framer lo hereda a cada componente). ─────────────────────────────────
 const PageWrapper = ({ children }) => (
-  <motion.div {...pageTransition}>
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, ease: EXPO }}>
     {children}
   </motion.div>
 );
@@ -64,25 +52,10 @@ function AppContent() {
   const catalogRef = useRef(null);
   const location   = useLocation();
 
-  // Scroll al tope en cada cambio de ruta
+  // Al tope en cada cambio de página (si la URL trae un ancla, como /#catalogo, baja la página misma).
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
-
-  // Reveal animation observer
-  useEffect(() => {
-    const observe = () => {
-      const observer = new IntersectionObserver(
-        (entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('visible')),
-        { threshold: 0.1 }
-      );
-      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-      return observer;
-    };
-    const obs     = observe();
-    const timeout = setTimeout(observe, 500);
-    return () => { obs.disconnect(); clearTimeout(timeout); };
-  }, [location.pathname]);
+    if (!location.hash) irA(0, { inmediato: true });
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const add = (p) => {
@@ -98,7 +71,7 @@ function AppContent() {
     setSearchQuery(query);
     setCategoria('Todos');
     setVisibleCount(12);
-    catalogRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (catalogRef.current) irA(catalogRef.current, { offset: -24 });
   };
 
   const handleCategoryClick = (cat) => {
@@ -138,16 +111,8 @@ function AppContent() {
   return (
     <>
       {/*
-        ┌─────────────────────────────────────────────────────────────────┐
-        │  PATRÓN CORRECTO React Router v6 — rutas anidadas              │
-        │                                                                 │
-        │  <Route element={<Layout/>}>   ← sin path, actúa de armazón   │
-        │    <Route index .../>          ← /                             │
-        │    <Route path="/x" .../>      ← /nosotros, /home, etc.       │
-        │  </Route>                                                       │
-        │                                                                 │
-        │  React Router inyecta cada página en el <Outlet/> de Layout.  │
-        └─────────────────────────────────────────────────────────────────┘
+        Rutas anidadas: <Route element={<Layout/>}> (sin path) es el armazón y cada página va en su <Outlet/>.
+        Las rutas no cambian de nombre: el chat saluda distinto en cada una (AsistenteChat.jsx).
       */}
       <Suspense fallback={<PageLoader />}>
         {/* Si una página falla al pintarse, un aviso con los WhatsApp en vez de la página en blanco. */}
@@ -155,94 +120,38 @@ function AppContent() {
         <Routes>
           <Route element={<Layout {...layoutProps} />}>
 
-            {/* ── / ─────────────────────────────────────────────────── */}
-            <Route index element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="inicio">
-                  <Home {...homeProps} />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            <Route index element={<PageWrapper key="inicio"><Home {...homeProps} /></PageWrapper>} />
 
-            {/* ── /nosotros ─────────────────────────────────────────── */}
-            <Route path="/nosotros" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="nosotros">
-                  <NosotrosPage />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            <Route path="/nosotros" element={<PageWrapper key="nosotros"><NosotrosPage /></PageWrapper>} />
 
-            {/* ── /home (sección muebles/hogar como página propia) ──── */}
+            {/* /home: la línea de muebles (Dekog Home) como página propia */}
             <Route path="/home" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="home">
-                  <HomeMueblesPage
-                    categoria={categoria}
-                    setCategoria={setCategoria}
-                    handleCategoryClick={handleCategoryClick}
-                    add={add}
-                    setQuickViewProduct={setQuickViewProduct}
-                  />
-                </PageWrapper>
-              </AnimatePresence>
+              <PageWrapper key="home">
+                <HomeMueblesPage
+                  categoria={categoria}
+                  setCategoria={setCategoria}
+                  handleCategoryClick={handleCategoryClick}
+                  add={add}
+                  setQuickViewProduct={setQuickViewProduct}
+                />
+              </PageWrapper>
             } />
 
-            {/* ── /arquitectura ─────────────────────────────────────── */}
-            <Route path="/arquitectura" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="arquitectura">
-                  <Arquitectura />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            <Route path="/arquitectura" element={<PageWrapper key="arquitectura"><Arquitectura /></PageWrapper>} />
 
-            {/* ── /proyectos ────────────────────────────────────────── */}
-            <Route path="/proyectos" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="proyectos">
-                  <Proyectos />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            <Route path="/proyectos" element={<PageWrapper key="proyectos"><Proyectos /></PageWrapper>} />
 
-            {/* ── /servicios ────────────────────────────────────────── */}
-            <Route path="/servicios" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="servicios">
-                  <Servicios />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            <Route path="/servicios" element={<PageWrapper key="servicios"><Servicios /></PageWrapper>} />
 
-            {/* ── /contacto ─────────────────────────────────────────── */}
-            <Route path="/contacto" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="contacto">
-                  <Contacto />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            <Route path="/contacto" element={<PageWrapper key="contacto"><Contacto /></PageWrapper>} />
 
-            {/* ── Cualquier otra ruta (antes, en blanco): utils/rutas.js ── */}
-            <Route path="*" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="no-encontrada">
-                  <NoEncontrada />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            {/* Cualquier otra ruta (antes, en blanco): utils/rutas.js */}
+            <Route path="*" element={<PageWrapper key="no-encontrada"><NoEncontrada /></PageWrapper>} />
 
           </Route>
 
-            {/* ── /links (Link in Bio — sin Layout/Navbar/Footer) ──── */}
-            <Route path="/links" element={
-              <AnimatePresence {...animatePresenceConfig}>
-                <PageWrapper key="links">
-                  <LinksPage />
-                </PageWrapper>
-              </AnimatePresence>
-            } />
+            {/* /links (Link in Bio — sin Layout/Navbar/Footer) */}
+            <Route path="/links" element={<PageWrapper key="links"><LinksPage /></PageWrapper>} />
 
           </Routes>
         </ErrorDePagina>
@@ -270,10 +179,16 @@ function AppContent() {
 }
 
 // ─── Raíz de la aplicación ────────────────────────────────────────────────────
+// MotionConfig reducedMotion="user": con «reducir movimiento» en el sistema, framer cambia los desplazamientos por
+// fundidos. ProveedorScroll: el scroll suave (Lenis) en escritorio.
 export default function App() {
   return (
     <Router>
-      <AppContent />
+      <MotionConfig reducedMotion="user">
+        <ProveedorScroll>
+          <AppContent />
+        </ProveedorScroll>
+      </MotionConfig>
     </Router>
   );
 }

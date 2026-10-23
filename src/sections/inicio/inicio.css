@@ -1,0 +1,149 @@
+/*
+ * Portada renovada (2026): lo que no cabe en utilidades de Tailwind. La retícula de la portada, el brillo detrás de la
+ * pila, las barras tipo historia, el arco de las líneas y el nombre en contorno. Todo anima transform u opacity.
+ */
+
+/* Retícula: en el teléfono titular → pila → bajada; en escritorio titular y bajada a la izquierda y la pila a la
+   derecha, centrada en alto. */
+.portada-reticula {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'titular' 'pila' 'bajada';
+}
+.portada-titular {
+  grid-area: titular;
+}
+.portada-pila {
+  grid-area: pila;
+}
+.portada-bajada {
+  grid-area: bajada;
+}
+
+@media (min-width: 1024px) {
+  .portada-reticula {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-rows: auto auto;
+    grid-template-areas: 'titular pila' 'bajada pila';
+    align-content: center;
+    column-gap: clamp(2rem, 4vw, 5rem);
+  }
+  .portada-pila {
+    align-self: center;
+  }
+}
+
+/* Brillo cálido detrás de la pila: un degradado, no un filtro. */
+.portada-brillo {
+  background: radial-gradient(closest-side, rgb(229 220 208 / 0.95), rgb(229 220 208 / 0.4) 55%, transparent);
+}
+
+/* Barras de progreso tipo historia. La activa se llena en 3,5 s y, al terminar, la pila pasa a la siguiente
+   (animationend): el temporizador ES la barra. */
+.historia-barra {
+  position: relative;
+  flex: 1 1 0%;
+  height: 2px;
+  margin: 0 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.4);
+}
+.historia-barra > i {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: #fff;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.historia-barra > i.is-llena {
+  transform: scaleX(1);
+}
+.historia-barra > i.is-activa {
+  animation: historia-llenar 3.5s linear forwards;
+}
+@keyframes historia-llenar {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Texto vertical del indicador de scroll en el teléfono. */
+.texto-vertical {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* ── Las líneas de Dekog (escenario fijo) ───────────────────────────────────────── */
+
+/* Nombre gigante en contorno: delante de la foto solo se ve el trazo; fuera de ella coincide con la copia sólida que
+   va detrás, así que el nombre parece entrar y salir del arco. */
+.lineas-contorno {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--hueso);
+}
+@media (min-width: 1024px) {
+  .lineas-contorno {
+    -webkit-text-stroke-width: 2px;
+  }
+}
+
+/* El arco: semicírculo arriba, recto abajo. Alto con vh (y svh donde exista) y ancho por proporción 5:7, sin
+   aspect-ratio (iOS < 15). */
+.lineas-arco {
+  position: relative;
+  width: min(78vw, 24rem, calc((100vh - 300px) * 0.714));
+  height: calc(min(78vw, 24rem, calc((100vh - 300px) * 0.714)) * 1.4);
+}
+@supports (height: 100svh) {
+  .lineas-arco {
+    width: min(78vw, 24rem, calc((100svh - 300px) * 0.714));
+    height: calc(min(78vw, 24rem, calc((100svh - 300px) * 0.714)) * 1.4);
+  }
+}
+@media (min-width: 1024px) {
+  .lineas-arco,
+  .lineas-arco {
+    height: min(70vh, 44rem);
+    width: calc(min(70vh, 44rem) * 0.714);
+  }
+}
+.lineas-arco__marco {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 9999px 9999px 0 0;
+  /* Safari: que el redondeo recorte también las capas que se transforman dentro. */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+.lineas-arco__filete {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  bottom: -10px;
+  left: -10px;
+  border: 1px solid rgb(243 238 231 / 0.3);
+  border-radius: 9999px 9999px 0 0;
+  pointer-events: none;
+}
+@media (min-width: 1024px) {
+  .lineas-arco__filete {
+    top: -16px;
+    right: -16px;
+    bottom: -16px;
+    left: -16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .historia-barra > i.is-activa {
+    animation: none;
+  }
+}
