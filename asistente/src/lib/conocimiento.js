@@ -135,7 +135,7 @@ export const especificaciones = [
 
 /** Cómo se compra, según las respuestas de la dueña del 2026-10-08 (sin añadir nada que no dijo). */
 export const politicas = [
-  'Formas de pago: Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo en dólares o divisas, tarjetas Visa y Mastercard, y Cashea. Los datos para pagar los da una asesora.',
+  'Formas de pago: Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo en dólares o divisas, Visa, Mastercard y Cashea. Las tarjetas se nombran siempre por su marca (Visa y Mastercard), nunca como «tarjetas de crédito». Los datos para pagar los da una asesora.',
   'El precio en REF es el mismo con cualquier forma de pago, salvo Cashea: la app de Cashea solo trabaja con la tasa BCV del dólar, así que el monto se ajusta de la tasa BCV del euro a la del dólar. Con Cashea, la inicial y las cuotas dependen del nivel de cada usuario y las indica la propia app.',
   'Anticipo: con el 50 % se empieza a fabricar el pedido; si el modelo está en stock, con el 50 % se aparta.',
   PROMO

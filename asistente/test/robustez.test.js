@@ -192,6 +192,22 @@ test('Responder al saludo con el número de una opción: «3» → hablar con un
   assert.equal(sinSaludo.at(-1).content, '2');
 });
 
+test('Formas de pago: «Visa, Mastercard» en vez de «tarjetas de crédito» (pedido de la dueña, 23-oct)', async () => {
+  const { tarjetasConMarca } = await import('../src/chat.js');
+  // La respuesta de Instagram que mandó la dueña.
+  assert.equal(
+    tarjetasConMarca('Aceptamos Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo, tarjetas de crédito y Cashea. 💳'),
+    'Aceptamos Pago Móvil, transferencia, Zelle, Zinli, Banesco Panamá, Binance, efectivo, Visa, Mastercard y Cashea. 💳',
+  );
+  assert.equal(tarjetasConMarca('Sí, aceptamos tarjeta de crédito o débito.'), 'Sí, aceptamos Visa y Mastercard.');
+  assert.equal(tarjetasConMarca('Tarjetas de crédito: sí.'), 'Visa y Mastercard: sí.');
+  // Si ya trae las marcas, solo sobra «de crédito».
+  assert.equal(tarjetasConMarca('Aceptamos tarjetas de crédito Visa y Mastercard, y Cashea.'), 'Aceptamos tarjetas Visa y Mastercard, y Cashea.');
+  // Lo demás no se toca (Cashea es a crédito, pero no es una tarjeta).
+  const otro = 'Con Cashea pagas a crédito en cuotas. Aceptamos Visa y Mastercard.';
+  assert.equal(tarjetasConMarca(otro), otro);
+});
+
 test('Sin tarjeta no se promete «te lo muestro abajo en bolívares»; el resto del mensaje queda igual', async () => {
   const { sinBolivaresAbajo } = await import('../src/chat.js');
   assert.equal(
