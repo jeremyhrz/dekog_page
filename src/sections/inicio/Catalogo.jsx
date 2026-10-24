@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Revelar from '../../components/efectos/Revelar';
-import TextoDividido from '../../components/efectos/TextoDividido';
 import ProductCard from '../../components/ProductCard';
 import { productos } from '../../data/productos';
 import { EXPO, cx } from '../../lib/movimiento';
@@ -12,7 +10,7 @@ const SUBCATEGORIAS = ['Camas', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kid
 /**
  * El catálogo de la portada (#catalogo): mismo filtrado, búsqueda y «Cargar más» de siempre (el estado vive en
  * App.jsx; /?categoria=… lo filtra desde los enlaces del asistente). Barra de filtros fija con la píldora activa que
- * se desliza, y las piezas entran en ola por columnas.
+ * se desliza, y las piezas entran en ola por columnas. Los textos, con la letra de la web de antes (24-oct).
  */
 export default function Catalogo({
   categoria, searchQuery, visibleCount, setVisibleCount, catalogRef, add, setQuickViewProduct,
@@ -40,26 +38,11 @@ export default function Catalogo({
   return (
     <section id="catalogo" ref={catalogRef} aria-labelledby="catalogo-titulo" className="relative bg-hueso pb-[var(--aire)] pt-[var(--aire)]" style={{ scrollMarginTop: 0 }}>
       <div className="contenedor">
-        <div className="lg:grid lg:grid-cols-12 lg:items-end lg:gap-x-8">
-          <div className="lg:col-span-8">
-            <Revelar como="p" className="etiqueta flex items-center text-madera-oscuro" y={12}>
-              <span aria-hidden="true" className="mr-3 h-px w-8 bg-current" />
-              Catálogo
-            </Revelar>
-            {searchQuery ? (
-              <h2 id="catalogo-titulo" className="titulo-display mt-5">
-                Resultados: <em>«{searchQuery}»</em>
-              </h2>
-            ) : (
-              <TextoDividido como="h2" id="catalogo-titulo" texto="Encuentra tu *pieza*" className="titulo-display mt-5" />
-            )}
-          </div>
-          <Revelar retraso={0.15} className="mt-6 lg:col-span-4 lg:mt-0 lg:pb-3">
-            <p className="font-display text-[1.6rem] italic leading-tight">Hecho a la medida.</p>
-            <p className="mt-2 max-w-sm text-[15px] text-grafito/80">
-              {productos.length} piezas entre camas, sofás, puffs y mesas. Elige una para ver sus medidas y precios.
-            </p>
-          </Revelar>
+        <div className="text-center">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.4em] text-gray-400">Catálogo Completo</p>
+          <h2 id="catalogo-titulo" className="font-display text-3xl font-black uppercase tracking-tight text-[#1a1a1a] md:text-4xl">
+            {searchQuery ? `Resultados: "${searchQuery}"` : 'Nuestras Piezas'}
+          </h2>
         </div>
       </div>
 
@@ -77,22 +60,22 @@ export default function Catalogo({
                 type="button"
                 onClick={() => handleCategoryClick(c)}
                 aria-pressed={activa}
-                className={cx('etiqueta relative mr-2 shrink-0 rounded-full px-5 py-2.5 transition-colors duration-300', activa ? 'text-papel' : 'text-grafito hover:text-tinta')}
+                className={cx('relative mr-2 shrink-0 rounded-full px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-colors duration-300', activa ? 'text-white' : 'text-gray-400 hover:text-black')}
               >
                 {activa && (
-                  <motion.span layoutId="catalogo-pildora" className="absolute left-0 top-0 -z-10 h-full w-full rounded-full bg-tinta" transition={{ type: 'spring', stiffness: 420, damping: 36 }} />
+                  <motion.span layoutId="catalogo-pildora" className="absolute left-0 top-0 -z-10 h-full w-full rounded-full bg-black shadow-lg shadow-black/20" transition={{ type: 'spring', stiffness: 420, damping: 36 }} />
                 )}
                 <span className="relative">{c}</span>
               </button>
             );
           })}
           {searchQuery && (
-            <button type="button" onClick={handleClearSearch} className="etiqueta ml-1 shrink-0 rounded-full px-4 py-2.5 text-madera-oscuro ring-1 ring-madera/40 hover:bg-madera/10">
+            <button type="button" onClick={handleClearSearch} className="ml-1 shrink-0 rounded-full border border-red-200 bg-red-50 px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest text-red-500 transition-colors hover:bg-red-100">
               ✕ Limpiar búsqueda
             </button>
           )}
-          <span className="etiqueta ml-auto hidden shrink-0 pl-4 text-grafito/60 sm:block">
-            {Math.min(visibleCount, filtrados.length)} de {filtrados.length}
+          <span className="ml-auto hidden shrink-0 pl-4 text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400 sm:block">
+            Mostrando {Math.min(visibleCount, filtrados.length)} de {filtrados.length} piezas
           </span>
         </div>
         {esCamas && !searchQuery && (
@@ -104,11 +87,11 @@ export default function Catalogo({
                 onClick={() => handleCategoryClick(s)}
                 aria-pressed={categoria === s}
                 className={cx(
-                  'mr-2 shrink-0 rounded-full px-4 py-1.5 text-[13px] transition-colors duration-300',
-                  categoria === s ? 'bg-madera text-papel' : 'text-grafito ring-1 ring-tinta/10 hover:ring-tinta/30',
+                  'mr-2 shrink-0 rounded-full px-4 py-2 text-[9px] font-bold uppercase tracking-widest transition-colors duration-300',
+                  categoria === s ? 'bg-gray-800 text-white' : 'border border-gray-200 bg-white text-gray-500 hover:bg-gray-100',
                 )}
               >
-                {s === 'Camas' ? 'Todas las camas' : s.replace('Camas ', '')}
+                {s === 'Camas' ? 'Todas las Camas' : s}
               </button>
             ))}
           </div>
@@ -135,13 +118,13 @@ export default function Catalogo({
         </motion.div>
 
         {filtrados.length === 0 && (
-          <p className="py-16 text-center font-display text-2xl italic text-grafito/70">No encontramos piezas con esa búsqueda.</p>
+          <p className="py-16 text-center text-[10px] font-bold uppercase tracking-widest text-gray-400">No encontramos piezas con esa búsqueda</p>
         )}
 
         {visibleCount < filtrados.length && (
           <div className="mt-16 text-center">
-            <button type="button" onClick={() => setVisibleCount((prev) => prev + 12)} className="boton boton-oscuro">
-              Ver más piezas
+            <button type="button" onClick={() => setVisibleCount((prev) => prev + 12)} className="btn-primary rounded-xl bg-black px-12 py-4 text-xs font-bold uppercase tracking-widest text-white">
+              Cargar Más Productos
             </button>
           </div>
         )}

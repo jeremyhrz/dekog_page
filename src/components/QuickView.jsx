@@ -67,13 +67,13 @@ export default function QuickView({ product, onClose, onAdd }) {
             <button type="button" onClick={onClose} aria-label="Cerrar" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-hueso/80 backdrop-blur-sm transition-colors hover:bg-hueso">
               <X className="h-5 w-5" strokeWidth={1.4} />
             </button>
-            <p className="etiqueta text-madera-oscuro">{product.subcategoria || product.categoria}</p>
-            <h2 className="mt-3 font-display text-[clamp(2.3rem,5vw,3.2rem)] leading-[1.02]">{product.nombre}</h2>
-            <p className="mt-2 text-[15px] text-grafito/80">{product.desc}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-gray-400">{product.subcategoria || product.categoria}</p>
+            <h2 className="mt-2 font-display text-3xl font-black uppercase tracking-tight">{product.nombre}</h2>
+            <p className="mt-2 text-sm text-gray-500">{product.desc}</p>
 
             {product.tallas && product.tallas.length > 0 && (
               <div className="mt-7">
-                <p className="etiqueta text-grafito/60">Elige la medida</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Elige la medida</p>
                 <div className="mt-3 flex flex-wrap">
                   {product.tallas.map((talla) => {
                     const elegida = selectedTalla && selectedTalla.nombre === talla.nombre;
@@ -84,7 +84,7 @@ export default function QuickView({ product, onClose, onAdd }) {
                         onClick={() => setSelectedTalla(talla)}
                         aria-pressed={elegida}
                         className={cx(
-                          'mb-2 mr-2 rounded-full px-4 py-2 text-[13px] transition-colors duration-300',
+                          'mb-2 mr-2 rounded-full px-4 py-2 text-xs font-bold transition-colors duration-300',
                           elegida ? 'bg-tinta text-papel' : 'text-grafito ring-1 ring-tinta/15 hover:ring-tinta/40',
                         )}
                       >
@@ -96,7 +96,7 @@ export default function QuickView({ product, onClose, onAdd }) {
               </div>
             )}
 
-            <p className="mt-6 font-display text-[2.6rem] leading-none">REF {miles(displayPrice)}</p>
+            <p className="mt-6 text-4xl font-black"><span className="mr-1 text-[0.7em] font-light">REF</span>{miles(displayPrice)}</p>
             <ul className="mt-6 space-y-2 text-[14px] text-grafito/75">
               <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Hecho a la medida</li>
               <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Garantía de calidad Dekog Home</li>
@@ -105,13 +105,13 @@ export default function QuickView({ product, onClose, onAdd }) {
           </div>
 
           <div className="mt-8">
-            <button type="button" onClick={handleAdd} className="boton boton-oscuro w-full">
+            <button type="button" onClick={handleAdd} className="boton boton-oscuro w-full !font-bold !text-xs !tracking-widest">
               <Plus className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
               <span>Añadir al carrito</span>
             </button>
             <a
               {...propsWhatsapp(`Hola, me interesa el producto: ${product.nombre}${selectedTalla ? ` (${selectedTalla.nombre})` : ''} (REF ${displayPrice})`)}
-              className="boton boton-linea mt-3 w-full"
+              className="boton boton-linea mt-3 w-full !font-bold !text-xs !tracking-widest"
             >
               <IconoWhatsapp size={16} />
               <span>Consultar por WhatsApp</span>
