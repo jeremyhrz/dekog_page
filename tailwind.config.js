@@ -1,57 +1,41 @@
 /**
  * Tailwind se compila al construir el sitio (antes se cargaba el «Play CDN» en index.html, que
  * generaba el CSS en el navegador de cada visitante: lento y no apto para producción).
- * Las clases se toman de los archivos de `content`: si se arma un nombre de clase por partes (p. ej.
- * `bg-${color}-500`), Tailwind no lo ve; usar siempre clases completas, aunque sea dentro de una condición.
- *
- * Renovación de 2026 (estilo editorial): la paleta vive AQUÍ y src/tailwind.css la expone también como
- * variables CSS (--hueso, --tinta…). Bodoni Moda para los títulos y Jost para el resto (src/main.jsx).
+ * Mismo tema que tenía el CDN. Las clases se toman de los archivos de `content`: si se arma un
+ * nombre de clase por partes (p. ej. `bg-${color}-500`), Tailwind no lo ve; usar siempre clases
+ * completas, aunque sea dentro de una condición.
  */
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
-      colors: {
-        hueso: '#F3EEE7', // fondo
-        papel: '#FAF7F2', // paneles claros
-        arena: '#E5DCD0',
-        piedra: '#CFC4B6',
-        tinta: '#151311', // texto y logo
-        grafito: '#2A2724',
-        noche: '#161412', // secciones oscuras
-        madera: {
-          DEFAULT: '#A47A52', // acento (decorativo, fondos, sobre oscuro)
-          titulo: '#95704B', // texto grande sobre claro (contraste ≥ 3:1)
-          oscuro: '#7A5B3D', // texto pequeño sobre claro (contraste ≥ 4,5:1)
-          claro: '#C9A27C', // texto sobre oscuro
-        },
-      },
       fontFamily: {
-        sans: ['"Jost Variable"', 'Jost', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        display: ['"Bodoni Moda Variable"', '"Bodoni 72"', 'Didot', 'Georgia', 'serif'],
+        // Fuentes servidas desde el propio sitio (@fontsource-variable, importadas en src/main.jsx).
+        sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['Playfair Display Variable', 'Playfair Display', 'serif'],
+        // Las de la renovación de 2026, solo para lo que se quedó de ella (catálogo, vista rápida, tipos de proyecto).
+        bodoni: ['"Bodoni Moda Variable"', '"Bodoni 72"', 'Didot', 'Georgia', 'serif'],
+        jost: ['"Jost Variable"', 'Jost', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
       },
-      fontSize: {
-        portada: ['clamp(3rem, 11.5vw, 9rem)', { lineHeight: '0.95', letterSpacing: '-0.02em' }],
-        seccion: ['clamp(2.5rem, 8.5vw, 6rem)', { lineHeight: '0.95', letterSpacing: '-0.015em' }],
-      },
-      letterSpacing: {
-        etiqueta: '0.22em',
+      // Los colores de esas piezas, con los de la web de antes (el fondo #f4f0ec, el negro #1a1a1a): sin marrón.
+      colors: {
+        hueso: '#f4f0ec',
+        papel: '#FDFCFA',
+        arena: '#eae6e1',
+        piedra: '#e2ded9',
+        tinta: '#1a1a1a',
+        grafito: '#4a4a4a',
+        noche: '#111111',
+        madera: { DEFAULT: '#4a4a4a', titulo: '#6b6b6b', oscuro: '#6b6b6b', claro: '#bdbdbd' },
       },
       transitionTimingFunction: {
         expo: 'cubic-bezier(0.16, 1, 0.3, 1)',
         suave: 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
       zIndex: {
-        nav: '50',
-        progreso: '51',
-        menu: '58',
-        intro: '100',
-        // Por encima de todo, también del modal de proyectos (10000) y del selector de WhatsApp (1000).
+        // El cursor circular, por encima de todo (también del modal de proyectos y del selector de WhatsApp).
         cursor: '20000',
-      },
-      maxWidth: {
-        contenedor: '1320px',
       },
     },
   },

@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import AsistenteChat from './AsistenteChat';
-import BarraProgreso from './efectos/BarraProgreso';
 import Cursor from './efectos/Cursor';
 import { propsWhatsapp } from '../utils/whatsapp';
 
@@ -13,8 +12,16 @@ import { propsWhatsapp } from '../utils/whatsapp';
 const mostrarAsistente = import.meta.env.VITE_ASISTENTE !== '0';
 
 /**
- * Layout — Armazón global de la app: barra de progreso, navegación fija, la página (<Outlet/>), el pie, el asistente
- * y el cursor propio (solo escritorio).
+ * Layout — Armazón global de la app.
+ *
+ * Estructura:
+ *   ┌─────────────────────┐
+ *   │  <Navbar/>  (fija)  │
+ *   ├─────────────────────┤
+ *   │  <Outlet/>          │  ← Aquí React Router inyecta la página activa
+ *   ├─────────────────────┤
+ *   │  <Footer/>          │
+ *   └─────────────────────┘
  *
  * Props que recibe del padre (App.jsx):
  *   cartCount      — número de ítems en el carrito (para el badge)
@@ -22,14 +29,15 @@ const mostrarAsistente = import.meta.env.VITE_ASISTENTE !== '0';
  *   onSearch       — callback de búsqueda
  *   onCategoryClick — callback de filtro por categoría
  *
- * NOTA: El <Outlet/> es OBLIGATORIO. Sin él, el contenido de las rutas hijas no se renderiza.
- * Sin overflow-x: hidden aquí: rompería las secciones fijas (position: sticky) de la portada. El desborde lateral lo
- * cortan el <body> (index.css) y cada sección que lo necesita.
+ * NOTA: El <Outlet/> es OBLIGATORIO. Sin él, el contenido de las
+ * rutas hijas no se renderiza y la pantalla queda en blanco.
  */
 export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategoryClick }) {
   return (
-    <div className="flex min-h-screen flex-col bg-hueso text-tinta">
-      <BarraProgreso />
+    <div className="bg-[#f4f0ec] min-h-screen text-gray-900 flex flex-col">
+      {/* El cursor circular de la renovación (24-oct: se quedó). Solo con ratón; en el teléfono no existe.
+          Sin overflow-x-hidden aquí: apagaba el position: sticky de los filtros del catálogo (el body ya lo tiene). */}
+      <Cursor />
 
       {/* ── Asistente con IA (si está activo) o botón flotante WhatsApp ── */}
       {mostrarAsistente ? <AsistenteChat /> : (
@@ -50,6 +58,7 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
       </a>
       )}
 
+      {/* ── Navbar ────────────────────────────────────────────────── */}
       <Navbar
         cartCount={cartCount}
         onCartOpen={onCartOpen}
@@ -57,12 +66,18 @@ export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategory
         onCategoryClick={onCategoryClick}
       />
 
+      {/* ── Contenido de la ruta activa ───────────────────────────── */}
+      {/*
+          <Outlet/> es el "hueco" donde React Router monta la página.
+          Ejemplo: si la URL es /proyectos → aquí aparece <PageProyectos/>.
+          Sin este componente el centro de la pantalla queda VACÍO.
+      */}
       <main className="flex-grow">
         <Outlet />
       </main>
 
+      {/* ── Footer ────────────────────────────────────────────────── */}
       <Footer />
-      <Cursor />
     </div>
   );
 }

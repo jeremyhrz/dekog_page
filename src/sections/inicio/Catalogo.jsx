@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion';
+import React, { useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import Revelar from '../../components/efectos/Revelar';
 import TextoDividido from '../../components/efectos/TextoDividido';
 import ProductCard from '../../components/ProductCard';
@@ -36,7 +36,6 @@ export default function Catalogo({
   }, [categoria, searchQuery]);
 
   const esCamas = categoria === 'Camas' || SUBCATEGORIAS.indexOf(categoria) > 0;
-  const navVisible = useNavegacionVisible();
 
   return (
     <section id="catalogo" ref={catalogRef} aria-labelledby="catalogo-titulo" className="relative bg-hueso pb-[var(--aire)] pt-[var(--aire)]" style={{ scrollMarginTop: 0 }}>
@@ -56,7 +55,7 @@ export default function Catalogo({
             )}
           </div>
           <Revelar retraso={0.15} className="mt-6 lg:col-span-4 lg:mt-0 lg:pb-3">
-            <p className="font-display text-[1.6rem] italic leading-tight">Hecho a la medida.</p>
+            <p className="font-bodoni text-[1.6rem] italic leading-tight">Hecho a la medida.</p>
             <p className="mt-2 max-w-sm text-[15px] text-grafito/80">
               {productos.length} piezas entre camas, sofás, puffs y mesas. Elige una para ver sus medidas y precios.
             </p>
@@ -67,7 +66,7 @@ export default function Catalogo({
       {/* Barra de filtros fija: baja con la navegación cuando esta se deja ver. */}
       <div
         className="sticky z-30 mt-12 border-b border-tinta/[0.06] bg-hueso/90 backdrop-blur-md transition-[top] duration-500 ease-expo"
-        style={{ top: navVisible ? 'var(--alto-nav, 64px)' : '0px' }}
+        style={{ top: 'var(--alto-nav, 72px)' }}
       >
         <div className="contenedor flex items-center overflow-x-auto py-3 [scrollbar-width:none]">
           {CATEGORIAS.map((c) => {
@@ -136,7 +135,7 @@ export default function Catalogo({
         </motion.div>
 
         {filtrados.length === 0 && (
-          <p className="py-16 text-center font-display text-2xl italic text-grafito/70">No encontramos piezas con esa búsqueda.</p>
+          <p className="py-16 text-center font-bodoni text-2xl italic text-grafito/70">No encontramos piezas con esa búsqueda.</p>
         )}
 
         {visibleCount < filtrados.length && (
@@ -149,18 +148,4 @@ export default function Catalogo({
       </div>
     </section>
   );
-}
-
-/** true si la navegación está a la vista (la misma lógica de Navbar.jsx: se esconde al bajar, vuelve al subir). */
-function useNavegacionVisible() {
-  const { scrollY } = useScroll();
-  const [visible, setVisible] = useState(true);
-  useMotionValueEvent(scrollY, 'change', (y) => {
-    const previo = scrollY.getPrevious();
-    const delta = y - (previo === undefined ? y : previo);
-    if (y < 140) setVisible(true);
-    else if (delta > 4) setVisible(false);
-    else if (delta < -4) setVisible(true);
-  });
-  return visible;
 }
