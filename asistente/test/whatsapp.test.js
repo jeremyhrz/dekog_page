@@ -537,3 +537,18 @@ test('Sin número y después con él (el mismo cliente): su teléfono llega a la
   assert.deepEqual([...env.CONVERSACIONES.datos.keys()].filter((k) => k.startsWith('wa:PHONE123:')), [`wa:PHONE123:${bsuid}`]);
   assert.ok(!env.CONVERSACIONES.datos.get(`wa:PHONE123:${bsuid}`).includes('584141112233'));
 });
+
+// ── Avisos de Meta sobre la cuenta ───────────────────────────────────────────────────────────────────────────────
+
+const avisoDeCuenta = (field, value) => ({ object: 'whatsapp_business_account', entry: [{ id: 'WABA1', changes: [{ field, value }] }] });
+
+test('Aviso de Meta: la reconexión de cada hora (account_update «WEBHOOK…») no deja fila ni correo; uno de verdad sí (23-oct)', async () => {
+  Object.assign(config, HOJA);
+  for (const event of ['WEBHOOK_OVERRIDE_UPDATE', 'WEBHOOKS_SUBSCRIBED']) {
+    assert.equal(await entregar(whatsappPost, avisoDeCuenta('account_update', { event }), SECRETO_WA, env), 200);
+  }
+  assert.deepEqual(filasHoja, []);
+  await entregar(whatsappPost, avisoDeCuenta('account_update', { event: 'ACCOUNT_RESTRICTION' }), SECRETO_WA, env);
+  assert.equal(filasHoja.length, 1);
+  assert.match(filasHoja[0].nombre, /AVISO DE META/);
+});
