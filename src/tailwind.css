@@ -1,96 +1,36 @@
 /*
  * Tailwind compilado. Se importa DESPUÉS de index.css (ver main.jsx) para conservar el orden que
  * tenía el CDN: sus estilos se cargaban detrás de los del sitio y ganaban en los empates.
- *
- * Renovación de 2026: aquí viven los tokens (colores de tailwind.config.js como variables CSS, curvas,
- * retícula) y las pocas clases compartidas del estilo editorial (.contenedor, .seccion, .etiqueta,
- * .titulo-display, .boton…). El resto, con utilidades de Tailwind.
  */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
+/* ── Lo que se quedó de la renovación de 2026 (24-oct): catálogo, vista rápida, tipos de proyecto y cursor ──
+   Solo sus clases; el resto de la web es el de antes. */
+:root {
+  --hueso: #f4f0ec;
+  --papel: #FDFCFA;
+  --tinta: #1a1a1a;
+  --madera: #4a4a4a;
+  --madera-titulo: #6b6b6b;
+  --madera-oscuro: #6b6b6b;
+  --madera-claro: #bdbdbd;
+  --expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --suave: cubic-bezier(0.22, 1, 0.36, 1);
+  --margen: 20px;
+  --aire: 96px;
+  --alto-nav: 80px; /* la barra de arriba de antes: el catálogo pega sus filtros justo debajo */
+}
+@media (min-width: 768px) {
   :root {
-    --hueso: theme('colors.hueso');
-    --papel: theme('colors.papel');
-    --arena: theme('colors.arena');
-    --tinta: theme('colors.tinta');
-    --noche: theme('colors.noche');
-    --madera: theme('colors.madera.DEFAULT');
-    --madera-titulo: theme('colors.madera.titulo');
-    --madera-oscuro: theme('colors.madera.oscuro');
-    --madera-claro: theme('colors.madera.claro');
-
-    /* Movimiento (los mismos valores que src/lib/movimiento.js) */
-    --expo: cubic-bezier(0.16, 1, 0.3, 1);
-    --suave: cubic-bezier(0.22, 1, 0.36, 1);
-
-    /* Retícula: margen lateral, aire entre secciones y alto de la navegación fija */
-    --margen: 20px;
-    --aire: 96px;
-    --alto-nav: 64px;
-  }
-
-  @media (min-width: 1024px) {
-    :root {
-      --margen: 48px;
-      --aire: 150px;
-      --alto-nav: 80px;
-    }
-  }
-
-  html {
-    background-color: var(--hueso);
-    color: var(--tinta);
-    -webkit-text-size-adjust: 100%;
-    -webkit-tap-highlight-color: transparent;
-    scrollbar-width: thin;
-    scrollbar-color: rgb(164 122 82 / 0.7) transparent;
-  }
-
-  body {
-    font-family: theme('fontFamily.sans');
-    font-size: 1rem;
-    line-height: 1.6;
-    background-color: var(--hueso);
-    color: var(--tinta);
-    text-rendering: optimizeLegibility;
-  }
-
-  @media (min-width: 768px) {
-    body {
-      font-size: 1.0625rem;
-    }
-  }
-
-  ::selection {
-    background-color: var(--madera);
-    color: var(--papel);
-  }
-
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: rgb(164 122 82 / 0.6);
-    border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--madera-oscuro);
-    outline-offset: 3px;
+    --margen: 48px;
+    --aire: 150px;
+    --alto-nav: 86px;
   }
 }
 
 @layer components {
-  /* Ancho máximo de 1320 px con el margen lateral de la retícula (sin margin-inline: iOS < 14.5). */
   .contenedor {
     width: 100%;
     max-width: calc(1320px + 2 * var(--margen));
@@ -99,63 +39,46 @@
     padding-left: var(--margen);
     padding-right: var(--margen);
   }
-
-  /* Aire vertical estándar de una sección. */
   .seccion {
     padding-top: var(--aire);
     padding-bottom: var(--aire);
   }
-
-  /* Rótulo pequeño en mayúsculas espaciadas (sobre títulos, chips, números). */
   .etiqueta {
-    font-family: theme('fontFamily.sans');
+    font-family: theme('fontFamily.jost');
     font-size: 0.6875rem;
     font-weight: 500;
     line-height: 1.3;
     letter-spacing: 0.22em;
     text-transform: uppercase;
   }
-
   @media (min-width: 768px) {
     .etiqueta {
       font-size: 0.75rem;
     }
   }
-
-  /* Título de sección en Bodoni: enorme y apretado. Las <em> van en cursiva madera. */
   .titulo-display {
-    font-family: theme('fontFamily.display');
+    font-family: theme('fontFamily.bodoni');
     font-weight: 400;
     font-size: clamp(2.5rem, 8.5vw, 6rem);
     line-height: 0.95;
     letter-spacing: -0.015em;
     text-wrap: balance;
   }
-
-  /* Énfasis (*así* en los textos): cursiva de Bodoni. En texto pequeño, madera oscura (4,5:1); en títulos,
-     la madera de títulos (≥ 3:1); sobre fondo oscuro (.sobre-oscuro), la madera clara. */
   .enfasis,
   .titulo-display em {
-    font-family: theme('fontFamily.display');
+    font-family: theme('fontFamily.bodoni');
     font-style: italic;
     color: var(--madera-oscuro);
   }
-
   .titulo-display em,
   .titulo-display .enfasis {
     color: var(--madera-titulo);
   }
-
   .sobre-oscuro .enfasis,
   .sobre-oscuro .titulo-display em,
   .sobre-oscuro .titulo-display .enfasis {
     color: var(--madera-claro);
   }
-
-  /*
-   * Botones: píldora de 48 px de alto con un relleno madera que sube al pasar el cursor.
-   * .boton-oscuro (sobre claro) · .boton-claro (sobre oscuro) · .boton-linea (borde, toma el color del texto)
-   */
   .boton {
     position: relative;
     isolation: isolate;
@@ -166,7 +89,7 @@
     min-height: 48px;
     padding: 0.85em 1.75em;
     border-radius: 999px;
-    font-family: theme('fontFamily.sans');
+    font-family: theme('fontFamily.jost');
     font-size: 0.8125rem;
     font-weight: 500;
     line-height: 1.1;
@@ -175,17 +98,12 @@
     white-space: nowrap;
     user-select: none;
     cursor: pointer;
-    transition:
-      color 0.35s var(--suave),
-      box-shadow 0.35s var(--suave),
-      transform 0.35s var(--suave);
+    transition: color 0.35s var(--suave), box-shadow 0.35s var(--suave), transform 0.35s var(--suave);
   }
-
   /* Separación entre el ícono y el texto sin `gap` (iOS < 14.5 no lo entiende en flex). */
   .boton > * + * {
     margin-left: 0.65em;
   }
-
   .boton::before {
     content: '';
     position: absolute;
@@ -199,33 +117,27 @@
     transform: translateY(101%);
     transition: transform 0.55s var(--expo);
   }
-
   .boton:active {
     transform: scale(0.97);
   }
-
   .boton:disabled,
   .boton[aria-disabled='true'] {
     opacity: 0.45;
     pointer-events: none;
   }
-
   .boton-oscuro {
     background-color: var(--tinta);
     color: var(--papel);
   }
-
   .boton-claro {
     background-color: var(--papel);
     color: var(--tinta);
   }
-
   .boton-linea {
     background-color: transparent;
     color: inherit;
     box-shadow: inset 0 0 0 1px currentColor;
   }
-
   @media (hover: hover) {
     .boton:hover::before {
       transform: translateY(0);
@@ -236,7 +148,6 @@
       box-shadow: inset 0 0 0 1px transparent;
     }
   }
-
   /* Máscara para revelar texto desde abajo (TextoDividido). Deja aire a acentos, descendentes y cursivas. */
   .mascara {
     display: inline-block;
@@ -245,107 +156,14 @@
     padding: 0.1em 0.06em 0.16em;
     margin: -0.1em -0.06em -0.16em;
   }
-
-  /* Enlace con subrayado que crece desde la izquierda. */
-  .enlace-linea {
-    background-image: linear-gradient(currentColor, currentColor);
-    background-position: 0 100%;
-    background-repeat: no-repeat;
-    background-size: 0% 1px;
-    transition: background-size 0.6s var(--expo), color 0.3s var(--suave);
-  }
-
-  .enlace-linea:hover,
-  .enlace-linea:focus-visible {
-    background-size: 100% 1px;
-  }
-
-  /* Cursor propio: solo cuando <Cursor> está activo (puntero fino). */
+  /* Cursor circular: solo cuando <Cursor> está activo (ratón). */
   .con-cursor,
   .con-cursor * {
     cursor: none !important;
   }
-
   .con-cursor input:not([type='checkbox']):not([type='radio']):not([type='range']),
   .con-cursor textarea,
   .con-cursor [contenteditable] {
     cursor: text !important;
-  }
-
-  /* Indicador de scroll: una gota madera que baja por un hilo. */
-  .hilo-scroll {
-    position: relative;
-    display: block;
-    width: 1px;
-    height: 48px;
-    overflow: hidden;
-    background: rgb(21 19 17 / 0.16);
-  }
-
-  .hilo-scroll::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    background: var(--madera-oscuro);
-    transform: translateY(-100%);
-    animation: hilo-gota 2.4s var(--expo) infinite;
-  }
-
-  /* Sello circular con texto que gira despacio. */
-  .girar-lento {
-    animation: girar 24s linear infinite;
-  }
-
-  /* Chips que flotan (cada uno a su ritmo). */
-  .flotar {
-    animation: flotar 5.6s ease-in-out infinite;
-  }
-  .flotar-b {
-    animation-duration: 6.4s;
-    animation-delay: -2.4s;
-  }
-  .flotar-c {
-    animation-duration: 7.2s;
-    animation-delay: -4.1s;
-  }
-}
-
-@keyframes hilo-gota {
-  0% {
-    transform: translateY(-100%);
-  }
-  60%,
-  100% {
-    transform: translateY(100%);
-  }
-}
-
-@keyframes girar {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes flotar {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -7px, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hilo-scroll::after,
-  .girar-lento,
-  .flotar {
-    animation: none;
-  }
-  .hilo-scroll::after {
-    transform: none;
   }
 }

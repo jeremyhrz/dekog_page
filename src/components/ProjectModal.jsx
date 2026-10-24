@@ -3,8 +3,6 @@ import ReactDOM from 'react-dom';
 import { X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import Imagen from './Imagen';
 import { elegirWhatsapp } from '../utils/whatsapp';
-// Sus estilos (.project-modal-*) viven ahí: así el modal se ve igual desde /proyectos y desde la portada.
-import './ProjectsSection.css';
 
 export default function ProjectModal({ project, onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -54,8 +52,6 @@ export default function ProjectModal({ project, onClose }) {
   useEffect(() => {
     if (!project) return;
     const handleKeyDown = (e) => {
-      // Con el selector de WhatsApp abierto encima («Consultar proyecto similar»), Escape es para él, no para la galería.
-      if (document.querySelector('[aria-labelledby="selector-whatsapp-titulo"]')) return;
       if (e.key === 'Escape') handleClose();
       if (e.key === 'ArrowLeft') setCurrentIndex(prev => (prev - 1 + totalImages) % totalImages);
       if (e.key === 'ArrowRight') setCurrentIndex(prev => (prev + 1) % totalImages);
@@ -86,9 +82,6 @@ export default function ProjectModal({ project, onClose }) {
   return ReactDOM.createPortal(
     <div
       className={`project-modal-overlay ${isClosing ? 'closing' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      data-lenis-prevent
       onClick={handleClose}
     >
       {/* Modal Card */}
@@ -104,11 +97,10 @@ export default function ProjectModal({ project, onClose }) {
         {/* Left Side — Image Carousel */}
         <div className="project-modal-gallery">
           <div className="project-modal-image-wrapper">
-            {/* La foto recorta renders 16:9 para llenar el marco: pide la variante grande (si no, se ve borrosa). */}
             <Imagen
               key={currentIndex}
               src={images[currentIndex]}
-              sizes="(min-width: 768px) 1000px, 170vw"
+              sizes="(min-width: 768px) 550px, 100vw"
               alt={`${project.titulo} — ${currentIndex + 1}`}
               className={`project-modal-image ${imageLoaded ? 'loaded' : ''}`}
               onLoad={() => setImageLoaded(true)}

@@ -1,9 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
-// Fuentes servidas desde el propio sitio (sin Google Fonts). Renovación de 2026: Bodoni Moda (con tamaño óptico: en
-// los títulos enormes toma el corte fino de exhibición) para los títulos y Jost para el resto. Cada archivo trae su
-// unicode-range: el navegador solo baja el juego latino que usa el español.
+// Fuentes servidas desde el propio sitio (antes, de Google Fonts: una conexión aparte que frenaba el primer
+// pintado). Son variables (un archivo para todos los grosores) y solo se baja el juego de caracteres que se usa.
+import '@fontsource-variable/inter'
+import '@fontsource-variable/playfair-display'
+// Las de lo que se quedó de la renovación (catálogo, vista rápida, tipos de proyecto): el navegador solo las baja
+// cuando algo en pantalla las usa.
 import '@fontsource-variable/bodoni-moda/opsz.css'
 import '@fontsource-variable/bodoni-moda/opsz-italic.css'
 import '@fontsource-variable/jost'

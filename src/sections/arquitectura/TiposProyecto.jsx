@@ -98,7 +98,7 @@ function Paneles() {
                 abierto ? 'opacity-0 duration-200' : 'opacity-100 delay-300 duration-700',
               )}
             >
-              <span className="block rotate-180 whitespace-nowrap font-display text-[1.7rem] leading-none text-hueso [writing-mode:vertical-rl]">
+              <span className="block rotate-180 whitespace-nowrap font-bodoni text-[1.7rem] leading-none text-hueso [writing-mode:vertical-rl]">
                 {tipo.nombre}
               </span>
             </span>
@@ -111,7 +111,7 @@ function Paneles() {
                 abierto ? 'translate-y-0 opacity-100 delay-300' : 'translate-y-4 opacity-0',
               )}
             >
-              <span className="block whitespace-nowrap font-display text-[clamp(2rem,3.1vw,3rem)] leading-none tracking-[-0.01em]">{tipo.nombre}</span>
+              <span className="block whitespace-nowrap font-bodoni text-[clamp(2rem,3.1vw,3rem)] leading-none tracking-[-0.01em]">{tipo.nombre}</span>
               <span className="etiqueta mt-5 inline-flex items-center rounded-full bg-papel px-4 py-2.5 !text-[10.5px] text-tinta">
                 <IconoWhatsapp size={14} />
                 <span className="ml-2">Cotizar este proyecto</span>
@@ -157,7 +157,7 @@ function Carril() {
                 {numero(i)}
               </span>
               <span aria-hidden="true" className="absolute bottom-0 left-0 right-0 p-5 text-hueso">
-                <span className="block font-display text-[1.85rem] leading-[1.02]">{tipo.nombre}</span>
+                <span className="block font-bodoni text-[1.85rem] leading-[1.02]">{tipo.nombre}</span>
                 <span className="etiqueta mt-3 flex items-center !text-[10px] text-hueso/85">
                   <IconoWhatsapp size={13} />
                   <span className="ml-2">Cotizar</span>
