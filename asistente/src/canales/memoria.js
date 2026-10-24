@@ -78,7 +78,7 @@ export async function cargarEstado(kv, clave) {
     mensajes: [], procesados: [], guardado: false, interes: '', resumen: '',
     resumenEnHoja: null, interesEnHoja: null, telefonoEnHoja: '', filaHoja: '', filaHojaDesde: 0,
     avisoCupo: '', ultimaTarjeta: '', hoy: { fecha: '', n: 0, avisado: false },
-    promoVista: '', avisoSinLeer: '', humano: 0, esperaDesde: 0, seguimiento: 0, numeroTomado: 0,
+    promoVista: '', avisoSinLeer: '', humano: 0, esperaDesde: 0, seguimiento: 0, numeroTomado: 0, pase: 0,
     ...(guardado ?? {}),
   };
   return comoBase(estado);
@@ -180,6 +180,7 @@ function turnosDeLaAsesora(actual, estado) {
     esperaDesde: esperas.length ? Math.min(...esperas) : 0,
     seguimiento: mayor(actual.seguimiento, estado.seguimiento),
     numeroTomado: mayor(actual.numeroTomado, estado.numeroTomado),
+    pase: mayor(actual.pase, estado.pase), // cuándo se le pasaron las líneas de las asesoras (Instagram)
   };
 }
 

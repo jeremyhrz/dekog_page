@@ -9,7 +9,7 @@ import { propsWhatsapp } from '../utils/whatsapp';
 const miles = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 /**
- * Vista rápida de un producto (renovación de 2026): la foto, el nombre en Bodoni, las medidas para elegir y el precio
+ * Vista rápida de un producto (renovación de 2026): la foto, el nombre en Playfair, las medidas para elegir y el precio
  * de la elegida; «Añadir al carrito» o «Consultar por WhatsApp» con el producto, la medida y el precio ya escritos.
  */
 export default function QuickView({ product, onClose, onAdd }) {
@@ -68,7 +68,7 @@ export default function QuickView({ product, onClose, onAdd }) {
               <X className="h-5 w-5" strokeWidth={1.4} />
             </button>
             <p className="etiqueta text-madera-oscuro">{product.subcategoria || product.categoria}</p>
-            <h2 className="mt-3 font-bodoni text-[clamp(2.3rem,5vw,3.2rem)] leading-[1.02]">{product.nombre}</h2>
+            <h2 className="mt-3 font-display text-[clamp(2.3rem,5vw,3.2rem)] leading-[1.02]">{product.nombre}</h2>
             <p className="mt-2 text-[15px] text-grafito/80">{product.desc}</p>
 
             {product.tallas && product.tallas.length > 0 && (
@@ -96,7 +96,7 @@ export default function QuickView({ product, onClose, onAdd }) {
               </div>
             )}
 
-            <p className="mt-6 font-bodoni text-[2.6rem] leading-none">REF {miles(displayPrice)}</p>
+            <p className="mt-6 font-display text-[2.6rem] leading-none">REF {miles(displayPrice)}</p>
             <ul className="mt-6 space-y-2 text-[14px] text-grafito/75">
               <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Hecho a la medida</li>
               <li className="flex items-center"><span className="mr-3 h-1.5 w-1.5 rounded-full bg-madera" />Garantía de calidad Dekog Home</li>

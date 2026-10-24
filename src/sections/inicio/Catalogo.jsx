@@ -55,7 +55,7 @@ export default function Catalogo({
             )}
           </div>
           <Revelar retraso={0.15} className="mt-6 lg:col-span-4 lg:mt-0 lg:pb-3">
-            <p className="font-bodoni text-[1.6rem] italic leading-tight">Hecho a la medida.</p>
+            <p className="font-display text-[1.6rem] italic leading-tight">Hecho a la medida.</p>
             <p className="mt-2 max-w-sm text-[15px] text-grafito/80">
               {productos.length} piezas entre camas, sofás, puffs y mesas. Elige una para ver sus medidas y precios.
             </p>
@@ -135,7 +135,7 @@ export default function Catalogo({
         </motion.div>
 
         {filtrados.length === 0 && (
-          <p className="py-16 text-center font-bodoni text-2xl italic text-grafito/70">No encontramos piezas con esa búsqueda.</p>
+          <p className="py-16 text-center font-display text-2xl italic text-grafito/70">No encontramos piezas con esa búsqueda.</p>
         )}
 
         {visibleCount < filtrados.length && (

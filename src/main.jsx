@@ -5,11 +5,6 @@ import App from './App.jsx'
 // pintado). Son variables (un archivo para todos los grosores) y solo se baja el juego de caracteres que se usa.
 import '@fontsource-variable/inter'
 import '@fontsource-variable/playfair-display'
-// Las de lo que se quedó de la renovación (catálogo, vista rápida, tipos de proyecto): el navegador solo las baja
-// cuando algo en pantalla las usa.
-import '@fontsource-variable/bodoni-moda/opsz.css'
-import '@fontsource-variable/bodoni-moda/opsz-italic.css'
-import '@fontsource-variable/jost'
 import './index.css'
 import './tailwind.css' // después de index.css, como cargaba el CDN
 import { Analytics } from '@vercel/analytics/react'
