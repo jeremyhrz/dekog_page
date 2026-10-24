@@ -581,6 +581,39 @@ test('Un datosTomados de antes del 22-oct (también lo ponía un nombre suelto) 
   assert.match(textosA('IGSID2').at(-1), /tu nombre y tu número de WhatsApp/);
 });
 
+test('Recién pasó a las asesoras: «Buenos días» o «Gracias» no se contestan; una pregunta sí (24-oct, Leonard)', async () => {
+  config.IG_ESPERA_PASE_MS = '30';
+  try {
+    await ig({ text: 'Quiero comprar la Toronto' }, 'IGSID8');
+    assert.ok(estado('IGSID8').pase > 0);
+    const antes = textosA('IGSID8').length;
+    await ig({ text: 'Buenos días' }, 'IGSID8');
+    await ig({ text: 'Gracias' }, 'IGSID8');
+    assert.equal(textosA('IGSID8').length, antes); // ya tiene las líneas y la asesora suele escribirle enseguida
+    assert.ok(estado('IGSID8').mensajes.some((m) => m.role === 'user' && m.content === 'Buenos días')); // queda en la memoria
+    await ig({ text: '¿Tienen la Manila en queen?' }, 'IGSID8');
+    assert.ok(textosA('IGSID8').length > antes); // una pregunta de verdad sí se responde
+  } finally {
+    delete config.IG_ESPERA_PASE_MS;
+  }
+});
+
+test('Recién pasó a las asesoras y ella escribe mientras el asistente espera su eco: el asistente no responde (24-oct)', async () => {
+  config.IG_ESPERA_PASE_MS = '300';
+  try {
+    await ig({ text: 'Quiero comprar la Toronto' }, 'IGSID10');
+    const antes = textosA('IGSID10').length;
+    const pregunta = ig({ text: '¿Tienen la Manila en queen?' }, 'IGSID10');
+    await new Promise((listo) => setTimeout(listo, 80));
+    await eco('Hola, te atiende Carla', 'IGSID10');
+    await pregunta;
+    assert.equal(textosA('IGSID10').length, antes);
+    assert.ok(estado('IGSID10').humano > 0);
+  } finally {
+    delete config.IG_ESPERA_PASE_MS;
+  }
+});
+
 test('Si Instagram devuelve un texto del asistente SIN la marca, la pausa se apaga sola (nunca se calla por error)', async () => {
   await env.CONVERSACIONES.put('ig:marca', 'si');
   await ig({ text: 'Hola' });

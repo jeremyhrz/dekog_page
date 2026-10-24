@@ -14,9 +14,6 @@ export default {
         // Fuentes servidas desde el propio sitio (@fontsource-variable, importadas en src/main.jsx).
         sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
         display: ['Playfair Display Variable', 'Playfair Display', 'serif'],
-        // Las de la renovación de 2026, solo para lo que se quedó de ella (catálogo, vista rápida, tipos de proyecto).
-        bodoni: ['"Bodoni Moda Variable"', '"Bodoni 72"', 'Didot', 'Georgia', 'serif'],
-        jost: ['"Jost Variable"', 'Jost', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', 'sans-serif'],
       },
       // Los colores de esas piezas, con los de la web de antes (el fondo #f4f0ec, el negro #1a1a1a): sin marrón.
       colors: {

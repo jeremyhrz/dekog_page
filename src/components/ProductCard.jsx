@@ -6,7 +6,7 @@ const miles = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 /**
  * Tarjeta de producto del catálogo (renovación de 2026): la foto 4:5 con zoom suave y «Vista rápida» al pasar el
- * cursor (en el teléfono, el botón siempre a la vista), el nombre en Bodoni y el precio «desde». Con medidas abre la
+ * cursor (en el teléfono, el botón siempre a la vista), el nombre en Playfair y el precio «desde». Con medidas abre la
  * vista rápida para elegirla; sin medidas (mesas), «Añadir» va directo al carrito.
  */
 export default function ProductCard({ product, onAdd, onQuickView }) {
@@ -43,12 +43,12 @@ export default function ProductCard({ product, onAdd, onQuickView }) {
         <p className="etiqueta !text-[10px] text-madera-oscuro">{linea}</p>
         <div className="mt-1.5 flex items-start justify-between">
           <div className="min-w-0 pr-3">
-            <h3 className="font-bodoni text-[1.55rem] leading-[1.1]">{product.nombre}</h3>
+            <h3 className="font-display text-[1.55rem] leading-[1.1]">{product.nombre}</h3>
             <p className="mt-1 text-[13px] text-grafito/70">{product.desc}</p>
           </div>
           <p className="shrink-0 text-right">
             {conMedidas && <span className="etiqueta block !text-[9px] text-grafito/60">Desde</span>}
-            <span className="font-bodoni text-[1.35rem] leading-none">REF {miles(product.precio)}</span>
+            <span className="font-display text-[1.35rem] leading-none">REF {miles(product.precio)}</span>
           </p>
         </div>
         <div className="mt-auto pt-4">

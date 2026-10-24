@@ -29,7 +29,7 @@
  * escriban.
  */
 import { config } from '../lib/config.js';
-import { pensar, ocultarDatosPersonales } from '../chat.js';
+import { pensar, ocultarDatosPersonales, esSoloSaludo } from '../chat.js';
 import { guardarCliente } from '../lib/hoja.js';
 import { tasaBcv } from '../lib/bcv.js';
 import { fotoParaCanales } from '../lib/catalogo.js';
@@ -312,6 +312,10 @@ export async function instagramPost(request, env, ctx) {
 // ── La asesora en el chat ────────────────────────────────────────────────────────────────────────────────────────
 const HORA_MS = 60 * 60 * 1000;
 const PAUSA_ASESORA_MS = 24 * HORA_MS; // el asistente se calla en el chat desde el último mensaje de la asesora
+// Recién pasadas las líneas de las asesoras, una suele escribir enseguida: en ese rato el asistente no contesta saludos
+// ni «gracias», y para lo demás espera el eco de ella (ver procesar). La espera se acorta en las pruebas.
+const PASE_RECIENTE_MS = 10 * 60 * 1000;
+const esperaTrasPase = () => Number(config.IG_ESPERA_PASE_MS ?? 10000);
 const ESPERA_MS = HORA_MS; // sin respuesta de la asesora en 1 hora, se le piden sus datos al cliente
 // Una clave por cliente que espera (ig:seg:<igsid>, con la hora en la metadata): en una sola lista (ig:seguimientos,
 // hasta el 22-oct) dos esperas que se programaban a la vez se pisaban y un cliente se quedaba sin su pedido.
@@ -740,6 +744,16 @@ async function procesar(evento, env) {
     return;
   }
 
+  // Recién se le pasaron las líneas de las asesoras: una suele escribirle enseguida, y su eco puede llegar tarde o leerse
+  // desactualizado (KV tarda hasta 60 s en verse igual en todas partes). En ese rato un saludo o un «gracias» no se
+  // contesta (24-oct: Leonard le dijo «Buenos días» a la asesora y el asistente le volvió a mandar las líneas).
+  const recienPase = Number(estado.pase) > 0 && ahora - Number(estado.pase) < PASE_RECIENTE_MS;
+  if (recienPase && texto && !imagen && !nota && (esSoloSaludo(texto) || esCierre(texto))) {
+    estado.mensajes.push({ role: 'user', content: ocultarDatosPersonales(texto) });
+    await guardarEstado(env.CONVERSACIONES, clave, estado);
+    return;
+  }
+
   if (!texto && !imagen && !nota) {
     // Nota de voz, video o archivo: UN aviso al día y después silencio. Un sticker o un GIF que no se pudo abrir: nada.
     // (Hasta el 21-oct salía «Por ahora solo puedo leer mensajes de texto y fotos» con cada publicación compartida, cada
@@ -785,6 +799,8 @@ async function procesar(evento, env) {
   // La asesora pudo contestar mientras la IA pensaba: entonces no sale nada (ni foto, ni texto, ni pase, ni promo) y
   // solo queda en la memoria el mensaje del cliente. Se compara con lo leído al principio, no con ahora: un eco que
   // llegó mientras se bajaba la foto también cuenta.
+  // Tras el pase, el eco de la asesora puede tardar: se le da tiempo (10 s desde que llegó el mensaje) antes de mirar.
+  if (recienPase) await new Promise((listo) => setTimeout(listo, Math.max(0, t0 + esperaTrasPase() - Date.now())));
   const fresco = await cargarEstado(env.CONVERSACIONES, clave);
   if (fresco.humano > (Number(estado.humano) || 0) && Date.now() - fresco.humano < PAUSA_ASESORA_MS) {
     console.log('Instagram: la asesora contestó mientras la IA pensaba; el asistente no manda su respuesta');
@@ -805,7 +821,10 @@ async function procesar(evento, env) {
   for (const trozo of partirPorBytes(cuerpo).slice(0, 3)) await enviar(env, igsid, { text: trozo });
   // Pasa a una asesora: las DOS líneas (pedido de la dueña, 21-oct), en un mensaje aparte y con enlaces cortos
   // (lib/enlaces.js): el wa.me largo, con el resumen, Instagram lo mostraba a medias en gris.
-  if (r.whatsapp) await enviar(env, igsid, { text: bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) });
+  if (r.whatsapp) {
+    await enviar(env, igsid, { text: bloqueAsesoras(await enlacesCortos(env.CONVERSACIONES, r.whatsapp.lineas)) });
+    estado.pase = Date.now(); // desde aquí, «recién pasó a las asesoras»
+  }
   if (vitrina) await enviarVitrina(env, igsid, vitrina, r.tasa);
   // Después de la bienvenida (o de la primera respuesta desde que hay promo), la promo con su imagen y su enlace.
   await enviarPromoSiToca(env, igsid, clave, estado, evento.message.mid);
