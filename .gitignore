@@ -26,3 +26,7 @@ dist-ssr
 # Secretos del Worker del asistente (desarrollo local)
 .dev.vars
 .wrangler
+
+# Python de scripts/ (lo deja al importar optimizar_imagenes.py)
+__pycache__/
+*.pyc

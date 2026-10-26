@@ -3,13 +3,10 @@
   /links (el enlace de la bio de Instagram) como página propia, sin el JavaScript del resto de la web: abre al instante
   aunque la señal sea mala. vercel.json reescribe /links a este archivo, y también /a y /a/: el enlace a la asesora que
   Instagram cortó en la última «/» (21-oct). Por eso cada línea lleva su número, el mismo que dice el pase del asistente.
-
-  Blanco y negro, con la D de rayas que se arma al abrir y la tipografía de la web (Playfair Display e Inter, 26-oct).
-  Las fuentes son recortes livianos de las de la web (scripts/fuentes_links.py) y las fotos, las
-  variantes de public/opt/links (la de la web la arma dekog_trabajo/scripts_cambios/tarjeta_web_links.py; al
-  rehacerla, con OTRO nombre: los teléfonos guardan la vieja hasta 8 días, como pasó el 24-oct).
-  Escrita a mano para iPhone desde iOS 13: sin `inset`, sin `gap` en flex, sin aspect-ratio y sin `?.` en el script.
-  En `npm run dev`, /links (src/pages/LinksPage.jsx) trae este mismo archivo: hay una sola versión.
+  En `npm run dev` se ve la versión de React (src/pages/LinksPage.jsx): si cambias una tarjeta aquí, cámbiala también allá.
+  Las fotos de abajo cargan a medida que se baja (loading="lazy"), y las tres tarjetas de WhatsApp comparten una sola.
+  La foto de «Sitio Web» se rehace con dekog_trabajo/scripts_cambios/tarjeta_web_links.py contra el servidor local,
+  SIEMPRE con un nombre nuevo (hoy sitio-web-3): con el mismo, los teléfonos siguen mostrando la vieja hasta 8 días.
 -->
 <html lang="es">
 <head>
@@ -17,376 +14,168 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>DEKOG · Enlaces</title>
   <meta name="description" content="Asistente por WhatsApp, líneas de asesoría, web, catálogos y ubicación de Dekog.">
-  <meta name="theme-color" content="#FDFCFA">
+  <meta name="theme-color" content="#E8E3DD">
   <link rel="icon" type="image/png" href="/258894739_605232457186188_7067910400417702663_n.png">
-  <link rel="preload" href="/fonts/links/playfair.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/links/playfair-italica.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" as="image" href="/opt/links/vinedo.webp-800.webp" imagesrcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" imagesizes="(min-width: 900px) 520px, calc(100vw - 40px)" fetchpriority="high">
-  <script>document.documentElement.className += ' js';</script>
+  <link rel="preload" href="/fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" as="image" href="/opt/links/vinedo.webp-800.webp" imagesrcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" imagesizes="(min-width: 1152px) 1104px, 100vw" fetchpriority="high">
   <style>
-    @font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/links/playfair.woff2') format('woff2'); }
-    @font-face { font-family: 'Playfair Display'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/links/playfair-italica.woff2') format('woff2'); }
-    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 500; font-display: swap; src: url('/fonts/links/inter.woff2') format('woff2'); }
-
-    :root {
-      /* Blanco y negro, como la web (pedido de la dueña, 23-oct); «madera» quedó como los grises de acento. */
-      --hueso: #FDFCFA; --papel: #FFFFFF; --arena: #F2F2F0; --piedra: #E2E2DF;
-      --tinta: #111111; --grafito: #3A3A3A; --noche: #0E0E0E;
-      --madera: #3A3A3A; --madera-titulo: #6A6A6A; --madera-oscuro: #666666; --madera-claro: #B8B8B8;
-      --display: 'Playfair Display', Georgia, serif;
-      --expo: cubic-bezier(0.16, 1, 0.3, 1);
-      --cortina: cubic-bezier(0.76, 0, 0.24, 1);
+    @font-face {
+      font-family: 'Playfair Display';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 400 900;
+      src: url('/fonts/playfair-display-latin-wght-normal.woff2') format('woff2');
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    html, body { margin: 0; }
     body {
-      margin: 0; background: var(--hueso); color: var(--tinta); overflow-x: hidden;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #E8E3DD;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
-    a { color: inherit; }
-    a:focus { outline: 2px solid var(--madera); outline-offset: 3px; }
-    a:focus:not(:focus-visible) { outline: none; }
-    img { display: block; max-width: 100%; }
-
-    .pagina {
-      max-width: 600px; margin: 0 auto;
-      padding: 28px 20px 0; padding-top: calc(28px + env(safe-area-inset-top));
+    /* Fondo travertino: degradado suave con un grano casi imperceptible. */
+    .g-bg { position: fixed; inset: 0; background: radial-gradient(circle at 50% 30%, #F5F5F0 0%, #E8E3DD 100%); z-index: -1; }
+    .g-bg::after {
+      content: ''; position: absolute; inset: 0; opacity: 0.025; mix-blend-mode: multiply; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
-
-    /* ── Cabecera: la D de rayas se arma, «Dekog» sube, y el titular entra palabra por palabra ── */
-    .cabecera { text-align: center; }
-    .cabecera h1 { margin: 0; font-size: 0; line-height: 0; }
-    .logo { --h: 50px; position: relative; display: inline-block; height: var(--h); width: calc(var(--h) * 2.86); color: var(--tinta); }
-    .logo-d { position: absolute; left: 0; top: 0; width: var(--h); height: var(--h); fill: currentColor; overflow: visible; }
-    .logo-d path, .pie-d path { transform-box: fill-box; transform-origin: 0 50%; }
-    .logo-d path { animation: raya 0.75s var(--cortina) both; }
-    .logo-d path:nth-child(2) { animation-delay: 0.07s; }
-    .logo-d path:nth-child(3) { animation-delay: 0.14s; }
-    .logo-d path:nth-child(4) { animation-delay: 0.21s; }
-    .logo-d path:nth-child(5) { animation-delay: 0.28s; }
-    .logo-d path:nth-child(6) { animation-delay: 0.35s; }
-    .logo-d path:nth-child(7) { animation-delay: 0.42s; }
-    .logo-palabra { position: absolute; overflow: hidden; left: calc(var(--h) * 1.258); top: calc(var(--h) * 0.316); height: calc(var(--h) * 0.459); width: calc(var(--h) * 1.601); }
-    .logo-palabra span { display: block; height: 100%; animation: subir 0.9s var(--expo) 0.45s both; }
-    .logo-palabra img { width: 100%; height: 100%; }
-    .lema {
-      margin: 16px 0 0; font-size: 10.5px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase;
-      color: var(--madera-oscuro); animation: aparecer 1s var(--expo) 0.65s both;
+    main { display: flex; flex-direction: column; align-items: center; padding: 60px 0; width: 100%; }
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif; font-size: clamp(2.8rem, 6vw, 4.5rem); font-weight: 400;
+      color: #1F1F24; margin: 0; letter-spacing: 0.25em; text-transform: uppercase; text-align: center;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); padding-left: 0.25em;
     }
-    .titular {
-      margin: 12px auto 0; max-width: 12em; font-family: var(--display); font-weight: 400; color: var(--tinta);
-      font-size: 32px; font-size: clamp(2rem, 8.2vw, 3.3rem); line-height: 1.04; letter-spacing: -0.01em;
+    .g-subtitle {
+      font-size: clamp(0.6rem, 1.5vw, 0.7rem); color: #6C6B6E; letter-spacing: 0.2em; text-align: center;
+      margin: 14px 0 0; text-transform: uppercase;
     }
-    .titular em { font-style: italic; color: var(--madera-titulo); }
-    .palabra { display: inline-block; overflow: hidden; vertical-align: top; padding: 0 0.08em 0.16em; margin: 0 -0.08em -0.16em; }
-    .palabra > span { display: inline-block; animation: subir 1.05s var(--expo) both; }
-
-    /* ── Tarjetas ── */
-    .lista { margin-top: 24px; }
-    .tarjeta {
-      position: relative; display: block; margin-top: 12px; border-radius: 22px; overflow: hidden; text-decoration: none;
-      -webkit-tap-highlight-color: transparent; -webkit-mask-image: -webkit-radial-gradient(white, black);
-      transition: transform 0.6s var(--expo), background-color 0.5s var(--expo);
+    .g-grid {
+      display: grid; grid-template-columns: 1fr; gap: 24px; width: 100%; max-width: 72rem; margin: 48px auto 0; padding: 0 24px;
     }
-    .tarjeta:active, .js .tarjeta.aparece.visto:active { -webkit-transform: scale(0.985); transform: scale(0.985); }
-    .oscura { background: var(--noche); color: var(--papel); }
-    .clara { background: var(--papel); color: var(--tinta); }
-    .arena { background: var(--arena); color: var(--tinta); }
-    .imagen { position: relative; display: block; overflow: hidden; background: var(--grafito); }
-    .clara .imagen, .arena .imagen { background: var(--piedra); }
-    .relleno { display: block; }
-    .r-asistente { padding-bottom: 44%; }
-    .r-web { padding-bottom: 62.5%; }
-    .r-catalogo { padding-bottom: 71.2%; }
-    .r-showroom { padding-bottom: 62%; }
-    .zoom, .foto { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .zoom { display: block; transition: transform 1.2s var(--expo); }
-    .foto { object-fit: cover; }
-    .cuerpo { display: flex; align-items: center; padding: 16px 16px 18px 20px; }
-    .texto { display: block; flex: 1 1 auto; min-width: 0; }
-    .rotulo { display: block; font-size: 10.5px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--madera-claro); }
-    .clara .rotulo, .arena .rotulo { color: var(--madera-oscuro); }
-    .titulo { display: block; margin-top: 8px; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.04; }
-    .titulo em { font-style: italic; color: var(--madera-claro); }
-    .clara .titulo em, .arena .titulo em { color: var(--madera-titulo); }
-    .bajada { display: block; margin-top: 8px; font-size: 14px; line-height: 1.5; color: rgba(255, 255, 255, 0.72); }
-    .clara .bajada, .arena .bajada { color: rgba(58, 58, 58, 0.85); }
-    .detalle { display: block; margin-top: 12px; font-size: 10.5px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); }
-    .clara .detalle, .arena .detalle { color: rgba(58, 58, 58, 0.65); }
-    .flecha {
-      flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-left: 14px;
-      border-radius: 50%; background: var(--papel); color: var(--tinta); transition: transform 0.6s var(--expo), background-color 0.5s;
+    @media (min-width: 768px) { .g-grid { grid-template-columns: repeat(2, 1fr); } .g-ancho { grid-column: span 2; } }
+    @media (min-width: 1024px) { .g-grid { grid-template-columns: repeat(3, 1fr); } .g-ancho { grid-column: span 3; } }
+    .g-card {
+      position: relative; display: block; height: 330px; border-radius: 20px; text-decoration: none;
+      transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); -webkit-tap-highlight-color: transparent;
     }
-    .clara .flecha, .arena .flecha { background: var(--tinta); color: var(--papel); }
-    .flecha svg { width: 18px; height: 18px; }
-
-    /* El asistente: «En línea» con el punto que late */
-    .pildora {
-      position: absolute; top: 14px; left: 14px; display: inline-flex; align-items: center; padding: 7px 13px 7px 11px;
-      border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(14, 14, 14, 0.55);
-      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-      color: var(--papel); font-size: 10.5px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+    .g-screen {
+      position: relative; width: 100%; height: 100%; border-radius: 20px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.03); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      background: #141416; transition: border-color 0.4s ease, box-shadow 0.4s ease;
     }
-    .punto { position: relative; display: block; width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: #25D366; }
-    .punto::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: #25D366; animation: latido 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
-
-    /* Grupos con su rótulo entre filetes */
-    .grupo { margin-top: 28px; }
-    .cabeza { display: flex; align-items: center; margin: 0; font-size: 10.5px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--madera-oscuro); }
-    .cabeza::before, .cabeza::after { content: ''; flex: 1 1 auto; height: 1px; background: rgba(17, 17, 17, 0.12); }
-    .cabeza span { padding: 0 14px; text-align: center; }
-    .nota { margin: 8px 0 0; text-align: center; font-size: 13px; color: rgba(58, 58, 58, 0.7); }
-    .pareja { display: grid; grid-template-columns: 1fr; grid-gap: 10px; gap: 10px; margin-top: 14px; }
-    .pareja .tarjeta { margin-top: 0; }
-
-    /* Las dos líneas: las mismas tarjetas oscuras de la web (/a… y el selector de WhatsApp) */
-    .linea { display: flex; align-items: center; padding: 15px 15px 15px 16px; background: var(--tinta); color: var(--papel); }
-    .icono-wa { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, 0.09); }
-    .icono-wa svg { width: 19px; height: 19px; }
-    .linea-texto { display: block; flex: 1 1 auto; min-width: 0; margin-left: 14px; }
-    .linea .titulo { margin-top: 0; font-size: 27px; line-height: 1; }
-    .numero { display: block; margin-top: 7px; font-size: 11.5px; font-weight: 500; letter-spacing: 0.16em; color: rgba(255, 255, 255, 0.72); font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .linea .flecha { width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); color: var(--papel); }
-
-    /* ── Pie ── */
-    .pie { margin-top: 56px; padding: 0 0 calc(36px + env(safe-area-inset-bottom)); text-align: center; }
-    .pie-d { display: block; width: 64px; height: 64px; margin: 0 auto; fill: var(--piedra); }
-    .pie .lema { margin-top: 18px; animation: none; }
-    .redes { margin-top: 12px; }
-    .redes a {
-      display: inline-flex; align-items: center; margin: 6px 3px 0; padding: 10px 15px; border-radius: 999px;
-      border: 1px solid rgba(17, 17, 17, 0.13); font-size: 13px; text-decoration: none; color: var(--grafito);
-      transition: background-color 0.4s, border-color 0.4s, color 0.4s;
+    .g-foto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+    .g-izq { object-position: left center; }
+    .g-velo { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(11, 11, 13, 0.55) 0%, rgba(11, 11, 13, 0.9) 100%); }
+    .g-tag {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10; white-space: nowrap;
+      background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      color: #fff; font-size: 10px; padding: 5px 14px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px;
+      letter-spacing: 0.18em; text-transform: uppercase;
     }
-    .redes svg { width: 15px; height: 15px; margin-right: 8px; }
-    .copy { margin: 26px 0 0; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(58, 58, 58, 0.5); }
-
-    /* ── Entrada al bajar (con JavaScript; sin él, todo se ve igual, quieto) ── */
-    .js .aparece { opacity: 0; -webkit-transform: translateY(26px); transform: translateY(26px); transition: opacity 0.9s var(--expo), transform 1.1s var(--expo), background-color 0.5s var(--expo); }
-    .js .aparece.visto { opacity: 1; -webkit-transform: none; transform: none; }
-    .js .aparece .foto { -webkit-transform: scale(1.12); transform: scale(1.12); transition: transform 1.8s var(--expo); }
-    .js .aparece.visto .foto { -webkit-transform: none; transform: none; }
-
-    @keyframes raya { from { transform: scaleX(0); } }
-    @keyframes subir { from { transform: translateY(110%); } }
-    @keyframes aparecer { from { opacity: 0; transform: translateY(8px); } }
-    @keyframes latido { 0% { transform: scale(1); opacity: 0.7; } 70%, 100% { transform: scale(2.8); opacity: 0; } }
-
-    @media (max-width: 359px) { .lema { letter-spacing: 0.15em; } }
-    /* Tablet: las parejas lado a lado, la cabecera más grande y el asistente más alto */
-    @media (min-width: 560px) {
-      .pareja { grid-template-columns: 1fr 1fr; }
-      .pagina { padding-top: 40px; padding-top: calc(40px + env(safe-area-inset-top)); }
-      .logo { --h: 60px; }
-      .r-asistente { padding-bottom: 52%; }
-      .grupo { margin-top: 36px; }
-      .lema, .rotulo, .cabeza { font-size: 11px; }
+    .g-texto {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 5; width: 88%; max-width: 260px;
+      background: rgba(11, 11, 13, 0.82); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      padding: 13px 20px; border-radius: 16px; text-align: center; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.07);
     }
-    /* Escritorio: las tarjetas anchas con la foto a un lado y el texto al otro */
-    @media (min-width: 900px) {
-      .pagina { max-width: 1000px; padding-top: 72px; }
-      .lista { margin-top: 48px; }
-      .horizontal { display: flex; align-items: stretch; }
-      .horizontal .imagen { flex: 0 0 56%; }
-      .horizontal .r-asistente { padding-bottom: 58%; }
-      .horizontal .cuerpo { flex: 1 1 auto; align-items: flex-end; padding: 36px 34px 36px 40px; }
-      .horizontal.invertida { flex-direction: row-reverse; }
-      .horizontal .titulo { font-size: 42px; }
-      .grupo { margin-top: 52px; }
-      .catalogos .titulo { font-size: 34px; }
-    }
+    .g-t { font-family: 'Playfair Display', Georgia, serif; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; color: #fff; line-height: 1.2; }
+    .g-n { font-size: 0.85rem; color: #fff; margin-top: 4px; letter-spacing: 0.06em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .g-s { font-size: 0.6rem; color: #fff; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.75; }
+    footer { margin-top: 60px; padding: 0 25px 25px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .g-redes { display: flex; gap: 20px; color: rgba(31, 31, 36, 0.45); }
+    .g-redes a { color: inherit; display: flex; align-items: center; transition: color 0.3s ease; }
+    .g-copy { font-size: 0.6rem; color: #1F1F24; opacity: 0.45; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; }
     @media (hover: hover) and (pointer: fine) {
-      .tarjeta:hover, .js .tarjeta.aparece.visto:hover { -webkit-transform: translateY(-4px); transform: translateY(-4px); }
-      .tarjeta:hover .zoom { transform: scale(1.045); }
-      .tarjeta:hover .flecha { transform: translate(2px, -2px); }
-      .linea:hover { background: var(--madera-oscuro); }
-      .redes a:hover { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
+      .g-card:hover { transform: translateY(-4px) scale(1.01); }
+      .g-card:hover .g-screen { border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 28px 56px rgba(0, 0, 0, 0.35); }
+      .g-redes a:hover { color: #1F1F24; }
     }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; }
-      .js .aparece, .js .aparece .foto { opacity: 1; transform: none; }
-    }
+    @media (max-width: 768px) { h1 { font-size: 2.8rem; } .g-card { height: 280px; } }
+    @media (max-width: 420px) { .g-card { height: 260px; } }
+    @media (prefers-reduced-motion: reduce) { .g-card, .g-screen, .g-redes a { transition: none !important; } }
   </style>
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-  <main class="pagina">
-    <header class="cabecera">
-      <h1>
-        <a class="logo" href="/" aria-label="Dekog">
-          <svg class="logo-d" viewBox="0 0 100 100" aria-hidden="true">
-            <path d="M0 2.3H45.8L44.5 0.2H74.3A61.1 61.1 0 0 1 83 7.8H0Z"/>
-            <path d="M0 17.2H53.7L53.2 15.2H89.1A61.1 61.1 0 0 1 93.6 22.8H0Z"/>
-            <path d="M0 32.7H57.2L56.9 30.7H96.9A61.1 61.1 0 0 1 98.8 38.2H0Z"/>
-            <path d="M0 48.1H56.5L56.9 46.1H99.8A61.1 61.1 0 0 1 99.9 53.7H0Z"/>
-            <path d="M0 63.6H51.8L52.8 61.5H98.9A61.1 61.1 0 0 1 96.9 69.1H0Z"/>
-            <path d="M0 79H41.9L43.5 77H93.7A61.1 61.1 0 0 1 89.2 84.6H0Z"/>
-            <path d="M0 94.5H20.7L24.9 92.4H82.9A61.1 61.1 0 0 1 74 100H0Z"/>
-          </svg>
-          <span class="logo-palabra" aria-hidden="true"><span><picture><source type="image/webp" srcset="/marca/dekog-palabra-negro.webp"><img src="/marca/dekog-palabra-negro.png" alt="" width="558" height="160"></picture></span></span>
-        </a>
-      </h1>
-      <p class="lema">Diseñamos · Construimos · Amoblamos</p>
-      <p class="titular"><span class="palabra"><span style="animation-delay:0.5s">Espacios</span></span> <span class="palabra"><span style="animation-delay:0.56s">que</span></span> <span class="palabra"><span style="animation-delay:0.62s"><em>inspiran,</em></span></span> <span class="palabra"><span style="animation-delay:0.68s">muebles</span></span> <span class="palabra"><span style="animation-delay:0.74s">que</span></span> <span class="palabra"><span style="animation-delay:0.8s"><em>perduran</em></span></span></p>
-    </header>
+  <div class="g-bg" aria-hidden="true"></div>
+  <main>
+    <h1>Dekog</h1>
+    <p class="g-subtitle">Diseñamos · Construimos · Amoblamos</p>
 
-    <div class="lista">
-      <a class="tarjeta oscura horizontal aparece" href="https://wa.me/584124423350?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Asistente Dekog por WhatsApp, 24/7: modelos y precios al instante">
-        <span class="imagen">
-          <span class="relleno r-asistente"></span>
-          <span class="zoom"><img class="foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 900px) 520px, calc(100vw - 40px)" alt="" fetchpriority="high" decoding="async" width="1200" height="900"></span>
-          <span class="pildora"><span class="punto" aria-hidden="true"></span>En línea · 24/7</span>
-        </span>
-        <span class="cuerpo">
-          <span class="texto">
-            <span class="rotulo">WhatsApp</span>
-            <span class="titulo">Asistente <em>Dekog</em></span>
-            <span class="bajada">Modelos y precios al instante.</span>
-          </span>
-          <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-        </span>
+    <div class="g-grid">
+      <a class="g-card g-ancho" href="https://wa.me/584124423350?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Asistente Dekog por WhatsApp, 24/7: modelos y precios al instante">
+        <span class="g-tag" aria-hidden="true">WhatsApp · 24/7</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1152px) 1104px, 100vw" alt="" fetchpriority="high" decoding="async" width="1200" height="900">
+          <div class="g-texto"><div class="g-t">Asistente Dekog</div><div class="g-s">Modelos y precios al instante</div></div>
+        </div>
       </a>
 
-      <section class="grupo aparece" aria-labelledby="t-asesoras">
-        <h2 class="cabeza" id="t-asesoras"><span>Asesoras por WhatsApp</span></h2>
-        <p class="nota">Lunes a sábado · 9:00 a. m. a 6:00 p. m.</p>
-        <div class="pareja">
-          <a class="tarjeta linea" href="https://wa.me/584145847791?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 1 por WhatsApp, 0414-584 7791: asesorías y ventas">
-            <span class="icono-wa" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg></span>
-            <span class="linea-texto"><span class="titulo">Línea 1</span><span class="numero">0414-584 7791</span></span>
-            <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-          </a>
-          <a class="tarjeta linea" href="https://wa.me/584244006086?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 2 por WhatsApp, 0424-400 6086: asesorías y ventas">
-            <span class="icono-wa" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg></span>
-            <span class="linea-texto"><span class="titulo">Línea 2</span><span class="numero">0424-400 6086</span></span>
-            <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-          </a>
+      <a class="g-card" href="https://wa.me/584145847791?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 1 por WhatsApp, 0414-584 7791: asesorías y ventas">
+        <span class="g-tag" aria-hidden="true">Contacto</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="900">
+          <div class="g-texto"><div class="g-t">Línea 1</div><div class="g-n">0414-584 7791</div><div class="g-s">Asesorías y ventas</div></div>
         </div>
-      </section>
+      </a>
 
-      <section class="grupo" aria-labelledby="t-explora">
-        <h2 class="cabeza aparece" id="t-explora"><span>Explora</span></h2>
-        <a class="tarjeta arena horizontal invertida aparece" href="/" aria-label="Sitio web: www.dekog.net">
-          <span class="imagen">
-            <span class="relleno r-web"></span>
-            <span class="zoom"><img class="foto" src="/opt/links/sitio-web-2.webp-800.webp" srcset="/opt/links/sitio-web-2.webp-800.webp 800w, /opt/links/sitio-web-2.webp-1200.webp 1200w" sizes="(min-width: 900px) 540px, calc(100vw - 40px)" alt="" loading="lazy" decoding="async" width="1600" height="1000"></span>
-          </span>
-          <span class="cuerpo">
-            <span class="texto">
-              <span class="rotulo">Sitio web</span>
-              <span class="titulo">Nuestra <em>web</em></span>
-              <span class="bajada">Catálogo con precios, proyectos y servicios.</span>
-              <span class="detalle">www.dekog.net</span>
-            </span>
-            <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-          </span>
-        </a>
-        <div class="pareja catalogos">
-          <a class="tarjeta clara aparece" href="https://drive.google.com/file/d/1sTpDlNajdFht5YtRc7kBNWWN0eb5Wm6D/view" target="_blank" rel="noopener noreferrer" aria-label="Catálogo de camas (PDF)">
-            <span class="imagen">
-              <span class="relleno r-catalogo"></span>
-              <span class="zoom"><img class="foto" src="/opt/links/camas-catalogo.webp-800.webp" srcset="/opt/links/camas-catalogo.webp-800.webp 800w, /opt/links/camas-catalogo.webp-1200.webp 1200w" sizes="(min-width: 900px) 480px, (min-width: 560px) 280px, calc(100vw - 40px)" alt="" loading="lazy" decoding="async" width="800" height="569"></span>
-            </span>
-            <span class="cuerpo">
-              <span class="texto"><span class="rotulo">Catálogo · PDF</span><span class="titulo">Camas</span></span>
-              <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-            </span>
-          </a>
-          <a class="tarjeta clara aparece" href="https://drive.google.com/file/d/177KJwPkHzjgh88FgSTqLXcRNWTrR3byE/view" target="_blank" rel="noopener noreferrer" aria-label="Catálogo de mobiliario (PDF)">
-            <span class="imagen">
-              <span class="relleno r-catalogo"></span>
-              <span class="zoom"><img class="foto" src="/opt/links/mobiliario-catalogo.webp-800.webp" srcset="/opt/links/mobiliario-catalogo.webp-800.webp 800w, /opt/links/mobiliario-catalogo.webp-1200.webp 1200w" sizes="(min-width: 900px) 480px, (min-width: 560px) 280px, calc(100vw - 40px)" alt="" loading="lazy" decoding="async" width="800" height="568"></span>
-            </span>
-            <span class="cuerpo">
-              <span class="texto"><span class="rotulo">Catálogo · PDF</span><span class="titulo">Mobiliario</span></span>
-              <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-            </span>
-          </a>
+      <a class="g-card" href="https://wa.me/584244006086?text=Hola" target="_blank" rel="noopener noreferrer" aria-label="Línea 2 por WhatsApp, 0424-400 6086: asesorías y ventas">
+        <span class="g-tag" aria-hidden="true">Contacto</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/vinedo.webp-800.webp" srcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="900">
+          <div class="g-texto"><div class="g-t">Línea 2</div><div class="g-n">0424-400 6086</div><div class="g-s">Asesorías y ventas</div></div>
         </div>
-      </section>
+      </a>
 
-      <section class="grupo" aria-labelledby="t-visitanos">
-        <h2 class="cabeza aparece" id="t-visitanos"><span>Visítanos</span></h2>
-        <a class="tarjeta oscura horizontal aparece" href="https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&amp;entry=ttu&amp;g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" aria-label="Cómo llegar al showroom: CC Vía Veneto, Nivel Roma, Local R17">
-          <span class="imagen">
-            <span class="relleno r-showroom"></span>
-            <span class="zoom"><img class="foto" src="/opt/links/manongo-ubicacion.webp-800.webp" srcset="/opt/links/manongo-ubicacion.webp-800.webp 800w, /opt/links/manongo-ubicacion.webp-1200.webp 1200w" sizes="(min-width: 900px) 540px, calc(100vw - 40px)" alt="" loading="lazy" decoding="async" width="1200" height="960"></span>
-          </span>
-          <span class="cuerpo">
-            <span class="texto">
-              <span class="rotulo">Showroom</span>
-              <span class="titulo">Vía <em>Veneto</em></span>
-              <span class="bajada">CC Vía Veneto, Nivel Roma, Local R17 · Mañongo, Naguanagua.</span>
-              <span class="detalle">Lunes a sábado · 9:00 a. m. a 6:00 p. m.</span>
-            </span>
-            <span class="flecha" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span>
-          </span>
-        </a>
-      </section>
+      <a class="g-card" href="/" aria-label="Sitio web: www.dekog.net">
+        <span class="g-tag" aria-hidden="true">Enlace</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/sitio-web-3.webp-800.webp" srcset="/opt/links/sitio-web-3.webp-800.webp 800w, /opt/links/sitio-web-3.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="960">
+          <div class="g-texto"><div class="g-t">Sitio Web</div><div class="g-s">www.dekog.net</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://drive.google.com/file/d/1sTpDlNajdFht5YtRc7kBNWWN0eb5Wm6D/view" target="_blank" rel="noopener noreferrer" aria-label="Catálogo de camas">
+        <span class="g-tag" aria-hidden="true">Catálogo</span>
+        <div class="g-screen">
+          <img class="g-foto g-izq" src="/opt/links/camas-catalogo.webp-800.webp" alt="" loading="lazy" decoding="async" width="800" height="570">
+          <div class="g-texto"><div class="g-t">Camas</div><div class="g-s">Ver colección</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://drive.google.com/file/d/177KJwPkHzjgh88FgSTqLXcRNWTrR3byE/view" target="_blank" rel="noopener noreferrer" aria-label="Catálogo de mobiliario">
+        <span class="g-tag" aria-hidden="true">Catálogo</span>
+        <div class="g-screen">
+          <img class="g-foto g-izq" src="/opt/links/mobiliario-catalogo.webp-800.webp" alt="" loading="lazy" decoding="async" width="800" height="568">
+          <div class="g-texto"><div class="g-t">Mobiliario</div><div class="g-s">Ver colección</div></div>
+        </div>
+      </a>
+
+      <a class="g-card" href="https://www.google.com/maps/place/Dekog+Home/@10.2337844,-68.0020215,17z/data=!3m1!4b1!4m6!3m5!1s0x8e8067bc8767db79:0x47e49c019b1dfaea!8m2!3d10.2337844!4d-67.9994466!16s%2Fg%2F11t4t66cy3?hl=es&amp;entry=ttu&amp;g_ep=EgoyMDI2MDUyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" aria-label="Cómo llegar al showroom: CC Vía Veneto, Nivel Roma, Local R17">
+        <span class="g-tag" aria-hidden="true">Ubicación</span>
+        <div class="g-screen">
+          <img class="g-foto" src="/opt/links/manongo-ubicacion.webp-800.webp" srcset="/opt/links/manongo-ubicacion.webp-800.webp 800w, /opt/links/manongo-ubicacion.webp-1200.webp 1200w" sizes="(min-width: 1024px) 352px, (min-width: 768px) 50vw, 100vw" alt="" loading="lazy" decoding="async" width="1200" height="960">
+          <div class="g-velo"></div>
+          <div class="g-texto"><div class="g-t">Showroom Vía Veneto</div><div class="g-s">Nivel Roma · Local R17</div></div>
+        </div>
+      </a>
     </div>
 
-    <footer class="pie aparece">
-      <svg class="pie-d" viewBox="0 0 100 100" aria-hidden="true">
-        <path d="M0 2.3H45.8L44.5 0.2H74.3A61.1 61.1 0 0 1 83 7.8H0Z"/>
-        <path d="M0 17.2H53.7L53.2 15.2H89.1A61.1 61.1 0 0 1 93.6 22.8H0Z"/>
-        <path d="M0 32.7H57.2L56.9 30.7H96.9A61.1 61.1 0 0 1 98.8 38.2H0Z"/>
-        <path d="M0 48.1H56.5L56.9 46.1H99.8A61.1 61.1 0 0 1 99.9 53.7H0Z"/>
-        <path d="M0 63.6H51.8L52.8 61.5H98.9A61.1 61.1 0 0 1 96.9 69.1H0Z"/>
-        <path d="M0 79H41.9L43.5 77H93.7A61.1 61.1 0 0 1 89.2 84.6H0Z"/>
-        <path d="M0 94.5H20.7L24.9 92.4H82.9A61.1 61.1 0 0 1 74 100H0Z"/>
-      </svg>
-      <p class="lema">Síguenos</p>
-      <nav class="redes" aria-label="Redes sociales">
-        <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path d="M17.5 6.5h.01"/></svg>@dekog.home</a>
-        <a href="https://www.instagram.com/dekog.arquitectura/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path d="M17.5 6.5h.01"/></svg>@dekog.arquitectura</a>
-        <a href="https://www.facebook.com/dekog.home" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>Facebook</a>
+    <footer>
+      <nav class="g-redes" aria-label="Redes sociales">
+        <a href="https://www.instagram.com/dekog.home/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Dekog Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+        </a>
+        <a href="https://www.facebook.com/dekog.home" target="_blank" rel="noopener noreferrer" aria-label="Facebook de Dekog Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+        </a>
       </nav>
-      <p class="copy">© <span id="anio">2026</span> Dekog Home</p>
+      <p class="g-copy">Copyright © <span id="anio">2026</span> Dekog Home</p>
     </footer>
   </main>
-  <script>
-    (function () {
-      var anio = document.getElementById('anio');
-      if (anio) anio.textContent = new Date().getFullYear();
-      // Las tarjetas entran al aparecer en pantalla; las que entran juntas, una tras otra.
-      var piezas = document.querySelectorAll('.aparece');
-      var primeraVez = true;
-      function ver(el, orden) {
-        var espera = (primeraVez ? 250 : 0) + orden * 90;
-        var fotos = el.querySelectorAll('.foto');
-        el.style.transitionDelay = espera + 'ms';
-        for (var f = 0; f < fotos.length; f++) fotos[f].style.transitionDelay = espera + 'ms';
-        el.className += ' visto';
-        // Ya adentro, sin retraso: si no, el toque y el paso del ratón esperarían lo mismo.
-        setTimeout(function () {
-          el.style.transitionDelay = '';
-          for (var g = 0; g < fotos.length; g++) fotos[g].style.transitionDelay = '';
-        }, espera + 1300);
-      }
-      function verTodas() {
-        for (var i = 0; i < piezas.length; i++) if (piezas[i].className.indexOf('visto') < 0) ver(piezas[i], 0);
-      }
-      if (!('IntersectionObserver' in window)) { verTodas(); return; }
-      var observador = new IntersectionObserver(function (entradas) {
-        var orden = 0;
-        for (var i = 0; i < entradas.length; i++) {
-          if (!entradas[i].isIntersecting) continue;
-          ver(entradas[i].target, orden++);
-          observador.unobserve(entradas[i].target);
-        }
-        primeraVez = false;
-      }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
-      for (var j = 0; j < piezas.length; j++) observador.observe(piezas[j]);
-      // Respaldo: si el navegador de una app no avisara nunca, lo que está a la vista no se queda escondido.
-      setTimeout(function () {
-        for (var k = 0; k < piezas.length; k++) {
-          var caja = piezas[k].getBoundingClientRect();
-          if (caja.top < window.innerHeight && piezas[k].className.indexOf('visto') < 0) ver(piezas[k], 0);
-        }
-      }, 2500);
-    })();
-  </script>
+  <script>document.getElementById('anio').textContent = new Date().getFullYear();</script>
 </body>
 </html>
