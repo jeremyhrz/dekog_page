@@ -73,7 +73,6 @@ function Paneles() {
             onFocus={() => setActivo(i)}
             // Con el dedo (tableta): el primer toque abre el panel y el segundo cotiza.
             onClick={() => (abierto ? elegirWhatsapp(tipo.mensaje) : setActivo(i))}
-            data-cursor="Cotizar"
             aria-label={`${tipo.nombre}: cotizar por WhatsApp`}
             className={cx('group relative h-full min-w-0 overflow-hidden rounded-[18px] bg-piedra text-left', i < TIPOS.length - 1 && 'mr-3')}
             style={{ flexGrow: abierto ? 5 : 1, flexShrink: 1, flexBasis: 0, transition: menos ? 'none' : CRECER }}

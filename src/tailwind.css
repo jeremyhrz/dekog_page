@@ -6,7 +6,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Lo que se quedó de la renovación de 2026 (24-oct): catálogo, vista rápida, tipos de proyecto y cursor ──
+/* ── Lo que se quedó de la renovación de 2026: catálogo, vista rápida y tipos de proyecto (el cursor circular se
+   quitó el 26-oct: la dueña prefiere el puntero de siempre) ──
    Solo sus clases, con la tipografía de la web (Inter y Playfair); el resto de la web es el de antes. */
 :root {
   --hueso: #f4f0ec;
@@ -155,15 +156,5 @@
     vertical-align: top;
     padding: 0.1em 0.06em 0.16em;
     margin: -0.1em -0.06em -0.16em;
-  }
-  /* Cursor circular: solo cuando <Cursor> está activo (ratón). */
-  .con-cursor,
-  .con-cursor * {
-    cursor: none !important;
-  }
-  .con-cursor input:not([type='checkbox']):not([type='radio']):not([type='range']),
-  .con-cursor textarea,
-  .con-cursor [contenteditable] {
-    cursor: text !important;
   }
 }
