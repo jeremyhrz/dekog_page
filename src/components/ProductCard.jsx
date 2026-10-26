@@ -15,7 +15,6 @@ export default function ProductCard({ product, onAdd, onQuickView }) {
       <div
         className="relative cursor-pointer overflow-hidden rounded-[16px] bg-arena"
         style={{ paddingBottom: '125%' }}
-        data-cursor="Ver"
         onClick={() => onQuickView(product)}
       >
         <Imagen

@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import AsistenteChat from './AsistenteChat';
-import Cursor from './efectos/Cursor';
 import { propsWhatsapp } from '../utils/whatsapp';
 
 // El asistente con IA está activo (aprobado por Dekog el 2026-10-05).
@@ -33,12 +32,9 @@ const mostrarAsistente = import.meta.env.VITE_ASISTENTE !== '0';
  * rutas hijas no se renderiza y la pantalla queda en blanco.
  */
 export default function Layout({ cartCount = 0, onCartOpen, onSearch, onCategoryClick }) {
+  // Sin overflow-x-hidden en este div: apagaba el position: sticky de los filtros del catálogo (el body ya lo tiene).
   return (
     <div className="bg-[#f4f0ec] min-h-screen text-gray-900 flex flex-col">
-      {/* El cursor circular de la renovación (24-oct: se quedó). Solo con ratón; en el teléfono no existe.
-          Sin overflow-x-hidden aquí: apagaba el position: sticky de los filtros del catálogo (el body ya lo tiene). */}
-      <Cursor />
-
       {/* ── Asistente con IA (si está activo) o botón flotante WhatsApp ── */}
       {mostrarAsistente ? <AsistenteChat /> : (
       <a

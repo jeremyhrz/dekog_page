@@ -1,12 +1,13 @@
-"""Fuentes livianas para /links (public/links.html): Bodoni Moda y Jost, recortadas a lo que usa esa página.
+"""Fuentes livianas para /links (public/links.html): las de la web (Playfair Display e Inter), recortadas a lo que
+usa esa página.
 
 /links se abre desde Instagram, muchas veces con mala señal, así que no carga las fuentes completas de la web: toma las
-de @fontsource-variable (node_modules), fija Bodoni Moda en peso 400 y tamaño óptico 36 (el de sus títulos), deja a
-Jost solo entre 400 y 500 (texto y rótulos) y se queda con los caracteres del español: letras con tildes, ñ, ü, ¿¡,
-«», números y puntuación. Una palabra nueva en la página no necesita correr esto otra vez; un alfabeto nuevo, sí.
+mismas de @fontsource-variable (node_modules), fija Playfair Display en peso 400 (el de sus títulos), deja a Inter solo
+entre 400 y 500 (texto y rótulos) y se queda con los caracteres del español: letras con tildes, ñ, ü, ¿¡, «», números y
+puntuación. Una palabra nueva en la página no necesita correr esto otra vez; un alfabeto nuevo, sí.
 
 Uso (desde la raíz del repo, con `pip install fonttools brotli`):  python scripts/fuentes_links.py
-Escribe public/fonts/links/{bodoni-moda,bodoni-moda-italica,jost}.woff2.
+Escribe public/fonts/links/{playfair,playfair-italica,inter}.woff2.
 """
 from pathlib import Path
 
@@ -24,16 +25,16 @@ CARACTERES = (
     + [0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026, 0x20AC]
 )
 FUENTES = [
-    ('bodoni-moda/files/bodoni-moda-latin-opsz-normal.woff2', 'bodoni-moda.woff2', {'wght': 400, 'opsz': 36}),
-    ('bodoni-moda/files/bodoni-moda-latin-opsz-italic.woff2', 'bodoni-moda-italica.woff2', {'wght': 400, 'opsz': 36}),
-    ('jost/files/jost-latin-wght-normal.woff2', 'jost.woff2', {'wght': (400, 500)}),
+    ('playfair-display/files/playfair-display-latin-wght-normal.woff2', 'playfair.woff2', {'wght': 400}),
+    ('playfair-display/files/playfair-display-latin-wght-italic.woff2', 'playfair-italica.woff2', {'wght': 400}),
+    ('inter/files/inter-latin-wght-normal.woff2', 'inter.woff2', {'wght': (400, 500)}),
 ]
 
 
 def main():
     DESTINO.mkdir(parents=True, exist_ok=True)
     for origen, nombre, ejes in FUENTES:
-        # Primero el recorte de caracteres y después los ejes: al revés, el recorte falla con los de Jost (gvar).
+        # Primero el recorte de caracteres y después los ejes: al revés, el recorte falla en algunas variables (gvar).
         fuente = TTFont(ORIGEN / origen)
         opciones = subset.Options()
         opciones.layout_features = ['kern', 'liga', 'calt', 'ccmp', 'locl', 'mark', 'mkmk', 'lnum', 'tnum']

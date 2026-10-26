@@ -4,8 +4,8 @@
   aunque la señal sea mala. vercel.json reescribe /links a este archivo, y también /a y /a/: el enlace a la asesora que
   Instagram cortó en la última «/» (21-oct). Por eso cada línea lleva su número, el mismo que dice el pase del asistente.
 
-  Con el estilo de la web renovada (23-oct): hueso, tinta y madera, Bodoni Moda y Jost, y la D de rayas que se arma al
-  abrir. Las fuentes son recortes livianos de las de la web (scripts/fuentes_links.py: 43 KB las tres) y las fotos, las
+  Blanco y negro, con la D de rayas que se arma al abrir y la tipografía de la web (Playfair Display e Inter, 26-oct).
+  Las fuentes son recortes livianos de las de la web (scripts/fuentes_links.py) y las fotos, las
   variantes de public/opt/links (la de la web la arma dekog_trabajo/scripts_cambios/tarjeta_web_links.py; al
   rehacerla, con OTRO nombre: los teléfonos guardan la vieja hasta 8 días, como pasó el 24-oct).
   Escrita a mano para iPhone desde iOS 13: sin `inset`, sin `gap` en flex, sin aspect-ratio y sin `?.` en el script.
@@ -19,21 +19,21 @@
   <meta name="description" content="Asistente por WhatsApp, líneas de asesoría, web, catálogos y ubicación de Dekog.">
   <meta name="theme-color" content="#FDFCFA">
   <link rel="icon" type="image/png" href="/258894739_605232457186188_7067910400417702663_n.png">
-  <link rel="preload" href="/fonts/links/bodoni-moda.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/links/bodoni-moda-italica.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/links/playfair.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/links/playfair-italica.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" as="image" href="/opt/links/vinedo.webp-800.webp" imagesrcset="/opt/links/vinedo.webp-800.webp 800w, /opt/links/vinedo.webp-1200.webp 1200w" imagesizes="(min-width: 900px) 520px, calc(100vw - 40px)" fetchpriority="high">
   <script>document.documentElement.className += ' js';</script>
   <style>
-    @font-face { font-family: 'Bodoni Moda'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/links/bodoni-moda.woff2') format('woff2'); }
-    @font-face { font-family: 'Bodoni Moda'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/links/bodoni-moda-italica.woff2') format('woff2'); }
-    @font-face { font-family: 'Jost'; font-style: normal; font-weight: 400 500; font-display: swap; src: url('/fonts/links/jost.woff2') format('woff2'); }
+    @font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/links/playfair.woff2') format('woff2'); }
+    @font-face { font-family: 'Playfair Display'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/links/playfair-italica.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 500; font-display: swap; src: url('/fonts/links/inter.woff2') format('woff2'); }
 
     :root {
       /* Blanco y negro, como la web (pedido de la dueña, 23-oct); «madera» quedó como los grises de acento. */
       --hueso: #FDFCFA; --papel: #FFFFFF; --arena: #F2F2F0; --piedra: #E2E2DF;
       --tinta: #111111; --grafito: #3A3A3A; --noche: #0E0E0E;
       --madera: #3A3A3A; --madera-titulo: #6A6A6A; --madera-oscuro: #666666; --madera-claro: #B8B8B8;
-      --display: 'Bodoni Moda', 'Bodoni 72', Didot, Georgia, serif;
+      --display: 'Playfair Display', Georgia, serif;
       --expo: cubic-bezier(0.16, 1, 0.3, 1);
       --cortina: cubic-bezier(0.76, 0, 0.24, 1);
     }
@@ -41,7 +41,7 @@
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       margin: 0; background: var(--hueso); color: var(--tinta); overflow-x: hidden;
-      font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
     a { color: inherit; }
