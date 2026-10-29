@@ -22,7 +22,7 @@ import { hojaConfigurada } from './lib/hoja.js';
 import { whatsappGet, whatsappPost, cupoMensual, diagnosticoWhatsapp, reconectarWebhookWhatsapp } from './canales/whatsapp.js';
 import {
   instagramGet, instagramPost, instagramConectar, instagramDesautorizar, instagramBorrarDatos, renovarTokenInstagram,
-  seguimientosInstagram,
+  seguimientosInstagram, asistenteInstagramActivo,
 } from './canales/instagram.js';
 
 const ORIGENES_PERMITIDOS = [
@@ -103,6 +103,8 @@ async function atender(request, env, ctx, url, origen, cors) {
       whatsapp_reconectado: reconectado,
       instagram: Boolean((env.IG_TOKEN || await env.CONVERSACIONES?.get('ig:token'))
         && (env.IG_APP_SECRET || env.META_APP_SECRET) && env.IG_VERIFY_TOKEN),
+      // false = conectado pero sin contestar (IG_ASISTENTE = "0" en wrangler.toml).
+      instagram_asistente: asistenteInstagramActivo(),
     }, 200, cors);
   }
 
