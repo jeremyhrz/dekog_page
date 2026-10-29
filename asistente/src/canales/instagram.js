@@ -285,12 +285,20 @@ export async function instagramConectar(url, env) {
   }
 }
 
+/**
+ * Interruptor del asistente en Instagram: con IG_ASISTENTE = "0" (wrangler.toml) no contesta ni le escribe a nadie. El
+ * 29-oct la dueña lo pidió apagado. El webhook sigue respondiendo 200 a Meta (si no, Meta lo da por caído y lo
+ * desactiva) y el token se sigue renovando los lunes: para encenderlo otra vez basta "1" y desplegar, sin reconectar.
+ */
+export const asistenteInstagramActivo = () => config.IG_ASISTENTE !== '0';
+
 export async function instagramPost(request, env, ctx) {
   const crudo = await request.arrayBuffer();
   const firma = request.headers.get('X-Hub-Signature-256');
   if (!(await firmaValida(crudo, firma, config.IG_APP_SECRET, config.META_APP_SECRET))) {
     return new Response('Firma inválida', { status: 401 });
   }
+  if (!asistenteInstagramActivo()) return new Response('ok');
   let aviso;
   try {
     aviso = JSON.parse(new TextDecoder().decode(crudo));
@@ -537,7 +545,9 @@ const PLAZO_TAREA_MS = 20000;
  */
 export async function seguimientosInstagram(env, ahora = Date.now()) {
   const kv = env.CONVERSACIONES;
-  if (!kv) return;
+  // Apagado, tampoco va la «disculpa la espera». Las esperas pendientes vencen solas a las 23 horas (atenderSeguimiento):
+  // al encenderlo otra vez no le llega un mensaje viejo a nadie.
+  if (!kv || !asistenteInstagramActivo()) return;
   const hasta = Date.now() + PLAZO_TAREA_MS; // con el reloj de verdad, que es el que corta Cloudflare
   await pasarListaVieja(env);
   let cursor;
