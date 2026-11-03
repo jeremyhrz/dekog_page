@@ -15,6 +15,8 @@ import { rutaDesconocida } from '../utils/rutas';
 const BOTON_NEGRO = 'btn-primary inline-flex items-center justify-center rounded-xl bg-black px-8 py-4 text-xs font-bold uppercase tracking-widest text-white';
 const BOTON_CLARO = 'inline-flex items-center justify-center rounded-xl bg-[#FDFCFA] px-8 py-4 text-xs font-bold uppercase tracking-widest text-black ring-1 ring-black/10 transition hover:ring-black';
 const ENLACE = 'text-xs font-semibold text-gray-600 underline hover:text-black';
+// Todo el catálogo, ya en pantalla (App.jsx lee ?categoria y baja a #catalogo).
+const CATALOGO = '/?categoria=todos#catalogo';
 
 /** Título, una frase y lo que se puede hacer. */
 function Aviso({ titulo, texto, children }) {
@@ -52,14 +54,14 @@ export default function NoEncontrada() {
   const tipo = rutaDesconocida(pathname);
 
   useEffect(() => {
-    // replace: «atrás» no vuelve a la ruta rota.
-    if (tipo === 'ofertas') window.location.replace('/ofertas');
+    // replace: «atrás» no vuelve a la ruta rota. Las ofertas terminaron (3-nov): su enlace lleva al catálogo.
+    if (tipo === 'ofertas') window.location.replace(CATALOGO);
   }, [tipo]);
 
   if (tipo === 'ofertas') {
     return (
-      <Aviso titulo="Catálogo de ofertas" texto="Te estamos llevando al catálogo de ofertas…">
-        <a href="/ofertas" className={BOTON_NEGRO}>Ver las ofertas</a>
+      <Aviso titulo="Nuestro catálogo" texto="Te estamos llevando al catálogo…">
+        <a href={CATALOGO} className={BOTON_NEGRO}>Ver el catálogo</a>
       </Aviso>
     );
   }

@@ -10,14 +10,6 @@
             "destination": "/links.html"
         },
         {
-            "source": "/ofertas",
-            "destination": "/ofertas.html"
-        },
-        {
-            "source": "/ofertas/",
-            "destination": "/ofertas.html"
-        },
-        {
             "source": "/a",
             "destination": "/links.html"
         },

@@ -1,6 +1,7 @@
 /**
- * La promoción vigente de Dekog: el catálogo de ofertas «Mobiliario en stock» (PDF en Drive que mandó la dueña el
- * 21-oct-2026). La usan el asistente en WhatsApp, Instagram y la web, y el chat de la web (tarjeta de la promo).
+ * La promoción de Dekog, cuando hay una. Hoy NO hay (VIGENTE, abajo): la última fue el catálogo de ofertas «Mobiliario en
+ * stock» (PDF en Drive que mandó la dueña el 21-oct-2026), y la usaban el asistente en WhatsApp, Instagram y la web, y el
+ * chat de la web (tarjeta de la promo).
  *
  * Qué hace con ella el asistente:
  *   - dice que SÍ hay descuentos (hasta 20 % en mobiliario en stock) y manda el enlace del catálogo de ofertas;
@@ -13,7 +14,12 @@
  */
 import { config } from './config.js';
 
-export const PROMO = {
+// Terminó el 3-nov-2026 (la dueña: «Quitar el 20 % de descuento… Ya no lo tenemos disponible»). false = sin promo en
+// WhatsApp, Instagram y la web. true la enciende otra vez con estas mismas piezas, pero antes hay que devolver lo que ese
+// día se quitó de la web: public/ofertas.html, sus dos rewrites de vercel.json y public/promo/ (en el historial de git).
+const VIGENTE = false;
+
+export const PROMO = VIGENTE ? {
   id: 'stock-2026-10',
   titulo: 'Hasta 20 % de descuento en mobiliario en stock',
   hasta: 20,
@@ -25,7 +31,7 @@ export const PROMO = {
   // JPEG de verdad (WhatsApp rechaza una imagen cuyo tipo no coincide con la extensión) y una WebP liviana para la web.
   imagen: 'https://www.dekog.net/promo/promo-stock.jpg',
   imagenWeb: '/promo/promo-stock.webp',
-};
+} : null;
 
 /** La promo, o null si no hay (o si la variable PROMO=no del Worker apaga el mensaje y el enlace; las pruebas la usan). */
 export const promoActiva = () => (PROMO && config.PROMO !== 'no' ? PROMO : null);

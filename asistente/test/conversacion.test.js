@@ -3,7 +3,7 @@
 // cada prueba le dice (o el proveedor «prueba» de llm.js). No sale nada a internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { kvEnMemoria } from './ayuda.js';
+import { kvEnMemoria, SIN_PROMO } from './ayuda.js';
 import { config } from '../src/lib/config.js';
 import { PROMO } from '../src/lib/promo.js';
 import { recargoDeBoxEnAltaGama, numerosDelCliente } from '../src/lib/catalogo.js';
@@ -198,13 +198,14 @@ test('Alta Gama: el precio de la cama dicho después del box («trae su box incl
   const r = await pensar(cliente('¿La Sydney queen trae box?'), 'whatsapp');
   assert.equal(pedidos.length, 1);
   assert.equal(r.respuesta, respuesta);
-  // Con la promo, el precio de su pieza en stock tampoco es un recargo.
+  // Con la promo, el precio de su pieza en stock tampoco es un recargo (sin promo vigente, esa pieza no existe).
+  if (!PROMO) return;
   delete config.PROMO;
   assert.ok(!altaGama('La Bali Queen en stock trae su box incluido y cuesta REF 790 (antes REF 990).', 6));
   assert.ok(altaGama('La Bali Queen en stock trae su box incluido y cuesta REF 790 (antes REF 990), y el box nube suma REF 150.', 6));
 });
 
-test('Alta Gama: el precio de un copete en stock («solo el cabecero, sin el box: cuesta REF 435») tampoco es un recargo', async () => {
+test('Alta Gama: el precio de un copete en stock («solo el cabecero, sin el box: cuesta REF 435») tampoco es un recargo', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   const altaGama = (texto, id) => recargoDeBoxEnAltaGama(texto, [{ id }]).length > 0;
   for (const [texto, id] of [
@@ -234,7 +235,7 @@ test('«…en oferta pagas el 50 % de anticipo» no se corrige: es lo que dicen 
   assert.equal(r.respuesta, respuesta);
 });
 
-test('Copete: la tarjeta es la del copete (REF 455), no la Manila King entera, y en la hoja queda «copete en stock»', async () => {
+test('Copete: la tarjeta es la del copete (REF 455), no la Manila King entera, y en la hoja queda «copete en stock»', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   gemini(salidaIa('El copete de la Manila King en stock (gris 01 en terciopelo) está a REF 455. Te lo muestro abajo en bolívares.',
     { productos: [producto(31, 'King 2,00x2,00 M', { oferta: 455 })] }));
@@ -248,7 +249,7 @@ test('Copete: la tarjeta es la del copete (REF 455), no la Manila King entera, y
   assert.doesNotMatch(lineaPrecio(t, r.tasa), /antes|760/);
 });
 
-test('Pide lo que está en oferta y la IA marca la vitrina de camas: no sale, quedan las tarjetas de las piezas', async () => {
+test('Pide lo que está en oferta y la IA marca la vitrina de camas: no sale, quedan las tarjetas de las piezas', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   gemini(salidaIa('Tenemos camas en stock con descuento: la Toronto individual a REF 330 y la Manila Queen a REF 420 🏷️', {
     vitrina: 'camas',
@@ -268,7 +269,7 @@ test('Pregunta por ofertas y la IA marca una vitrina sin piezas en stock que tap
   assert.equal((await pensar(cliente('Quiero ver camas, ¿tienen alguna promo?'), 'web')).vitrina?.clave, 'camas');
 });
 
-test('Promo: una lista de piezas o copetes, y el pase de una pieza (sola o con 2 mesas), pasan con una sola llamada y el texto intacto', async () => {
+test('Promo: una lista de piezas o copetes, y el pase de una pieza (sola o con 2 mesas), pasan con una sola llamada y el texto intacto', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   const vinetas = '¡Sí! Tenemos camas en stock con descuento 🏷️:\n'
     + '• Toronto Individual gris 02 en chenille paño: REF 405 → REF 330\n'
@@ -310,14 +311,14 @@ test('Promo: una lista de piezas o copetes, y el pase de una pieza (sola o con 2
   assert.deepEqual(mesas.productos.map((t) => [t.nombre, t.ref]), [['Manila', 420], ['Mesa Kenia', 340]]);
 });
 
-test('Si la IA habla del «catálogo de la promo», va el enlace aunque el cliente no haya dicho «ofertas»', async () => {
+test('Si la IA habla del «catálogo de la promo», va el enlace aunque el cliente no haya dicho «ofertas»', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   gemini(salidaIa('¡Claro! En el catálogo de la promo las ves todas, con sus fotos y precios 🏷️'));
   const r = await pensar(cliente('¿Tienen algo más económico?'), 'web');
   assert.ok(r.respuesta.endsWith(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}`), r.respuesta);
 });
 
-test('El enlace de las ofertas ya enviado vuelve si la IA lo anuncia abajo o el cliente lo pide otra vez; si no, no', async () => {
+test('El enlace de las ofertas ya enviado vuelve si la IA lo anuncia abajo o el cliente lo pide otra vez; si no, no', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   const enlace = `🏷️ Catálogo de ofertas:\n${PROMO.enlace}`;
   const historial = [
@@ -341,7 +342,7 @@ test('El enlace de las ofertas ya enviado vuelve si la IA lo anuncia abajo o el 
   assert.match(sistemaPara('web'), /y\s+no lo vuelve a pedir, no digas que va abajo ni lo anuncies: dile que es el que le pasaste más arriba/);
 });
 
-test('El pase a las asesoras («con los enlaces de abajo») o una vitrina no vuelven a pegar el enlace de las ofertas ya enviado', async () => {
+test('El pase a las asesoras («con los enlaces de abajo») o una vitrina no vuelven a pegar el enlace de las ofertas ya enviado', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   const enlace = `🏷️ Catálogo de ofertas:\n${PROMO.enlace}`;
   const historial = [
@@ -380,7 +381,7 @@ test('El pase a las asesoras («con los enlaces de abajo») o una vitrina no vue
   assert.ok((await pensar([...historial, { role: 'user', content: '¿Qué más hay en oferta?' }], 'whatsapp')).respuesta.endsWith(enlace));
 });
 
-test('El enlace de las ofertas, pedido otra vez sin decir cuál («¿me pasas otra vez el link?»): va si fue el último que recibió', async () => {
+test('El enlace de las ofertas, pedido otra vez sin decir cuál («¿me pasas otra vez el link?»): va si fue el último que recibió', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   const enlace = `🏷️ Catálogo de ofertas:\n${PROMO.enlace}`;
   const conOfertas = [

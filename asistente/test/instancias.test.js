@@ -4,7 +4,7 @@
 // Gemini falso que tarda. Fetch falso: no sale nada a internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoIg } from './ayuda.js';
+import { SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoIg, SIN_PROMO } from './ayuda.js';
 import { config } from '../src/lib/config.js';
 import { PROMO } from '../src/lib/promo.js';
 import { olvidarEnCurso } from '../src/canales/memoria.js';
@@ -54,7 +54,7 @@ function eco(copia, texto, igsid) {
   return entregar(copia.instagramPost, aviso, SECRETO_IG, env);
 }
 
-test('Promo: dos instancias atienden a la vez los primeros mensajes de un cliente nuevo → la promo sale UNA vez', async () => {
+test('Promo: dos instancias atienden a la vez los primeros mensajes de un cliente nuevo → la promo sale UNA vez', { skip: SIN_PROMO }, async () => {
   const [a, b] = await Promise.all([instancia('promo-a'), instancia('promo-b')]);
   iaQueRespondeALosDos();
   await Promise.all([

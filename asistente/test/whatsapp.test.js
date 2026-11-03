@@ -6,7 +6,7 @@
 // internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECRETO_WA, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa } from './ayuda.js';
+import { SECRETO_WA, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, SIN_PROMO } from './ayuda.js';
 import { kvConLimite } from './kv-limite.js';
 import { config } from '../src/lib/config.js';
 import { whatsappPost, textoConCola } from '../src/canales/whatsapp.js';
@@ -67,12 +67,15 @@ const estadoWa = (tel) => env.CONVERSACIONES.get(`wa:PHONE123:${tel}`, 'json');
 
 // ── El cupo: UNA escritura por vuelta ────────────────────────────────────────────────────────────────────────────
 
-test('Cupo: «Hola» de un cliente nuevo con la promo → el saludo y la promo, y el contador en 2 con UNA escritura', async () => {
+// Lo que manda un «Hola» de un cliente nuevo: el saludo y, si hay promo vigente (lib/promo.js), también la promo.
+const POR_VUELTA = PROMO ? 2 : 1;
+
+test('Cupo: «Hola» de un cliente nuevo → el saludo (y la promo, si hay), y el contador con UNA escritura', async () => {
   env = { CONVERSACIONES: kvConLimite() };
   delete config.PROMO;
   await wa(textoWa('Hola'), '584140000201');
-  assert.deepEqual(mensajesWa().map((m) => m.interactive?.type ?? m.type), ['text', 'cta_url']);
-  assert.equal(await cupoWa(), 2);
+  assert.deepEqual(mensajesWa().map((m) => m.interactive?.type ?? m.type), PROMO ? ['text', 'cta_url'] : ['text']);
+  assert.equal(await cupoWa(), POR_VUELTA);
   assert.equal(env.CONVERSACIONES.escritas.filter((clave) => clave === claveCupo()).length, 1);
 });
 
@@ -80,8 +83,8 @@ test('Cupo: dos clientes atendidos a la vez → la suma de los dos (el que choca
   env = { CONVERSACIONES: kvConLimite() };
   delete config.PROMO;
   await Promise.all([wa(textoWa('Hola'), '584140000202'), wa(textoWa('Hola'), '584140000203')]);
-  assert.equal(mensajesWa().length, 4);
-  assert.equal(await cupoWa(), 4);
+  assert.equal(mensajesWa().length, 2 * POR_VUELTA);
+  assert.equal(await cupoWa(), 2 * POR_VUELTA);
 });
 
 test('Cupo: si escribir el contador da 429 (otra instancia lo escribió en ese segundo), relee y suma 1,1 s después', async () => {
@@ -101,21 +104,22 @@ test('Cupo: si escribir el contador da 429 (otra instancia lo escribió en ese s
   assert.equal(await cupoWa(), 41);
 });
 
-test('Cupo: el aviso del 80 % sale al cruzarlo (799 → 801), después de los mensajes del cliente, y una sola vez', async () => {
+test('Cupo: el aviso del 80 % sale al cruzarlo (desde 799), después de los mensajes del cliente, y una sola vez', async () => {
   delete config.PROMO;
   Object.assign(config, HOJA);
   await env.CONVERSACIONES.put(claveCupo(), '799');
   await wa(textoWa('Hola'), '584140000205');
-  assert.equal(await cupoWa(), 801);
+  assert.equal(await cupoWa(), 799 + POR_VUELTA);
   // Antes se anotaba dentro del envío de la respuesta: la promo esperaba a la hoja.
-  assert.deepEqual(pasos, ['meta: text', 'meta: interactive', 'hoja: ⚠️ AVISO DEL ASISTENTE']);
-  assert.equal(filasHoja[0].interes, 'WhatsApp: 801 de 1000 respuestas gratis usadas este mes');
+  assert.deepEqual(pasos, [...(PROMO ? ['meta: text', 'meta: interactive'] : ['meta: text']), 'hoja: ⚠️ AVISO DEL ASISTENTE']);
+  assert.equal(filasHoja[0].interes, `WhatsApp: ${799 + POR_VUELTA} de 1000 respuestas gratis usadas este mes`);
   await wa(textoWa('Hola'), '584140000206');
-  assert.equal(await cupoWa(), 803);
+  assert.equal(await cupoWa(), 799 + 2 * POR_VUELTA);
   assert.equal(filasHoja.length, 1);
 });
 
-test('Cupo: si un envío lanza a mitad de la vuelta (sin red), lo que ya salió se cuenta igual', async () => {
+// Hace falta un segundo mensaje en la vuelta, y sin promo no lo hay: cada vuelta manda uno solo.
+test('Cupo: si un envío lanza a mitad de la vuelta (sin red), lo que ya salió se cuenta igual', { skip: SIN_PROMO }, async () => {
   delete config.PROMO;
   const conRed = globalThis.fetch;
   globalThis.fetch = async (url, o = {}) => {
@@ -171,56 +175,51 @@ test('Vitrina y pase a la vez: UNA lista con las dos asesoras enteras dentro, au
 
 // ── El pie de foto no corta los precios ──────────────────────────────────────────────────────────────────────────
 
-const OFERTAS_QUEEN = [{ id: 31, talla: 'Queen', oferta: 420 }, { id: 40, talla: 'Queen', oferta: 750 }, { id: 21, talla: 'Queen', oferta: 680 }];
-const SOBRE_LAS_OFERTAS = '¡Sí! En queen tenemos varias camas en stock con descuento 🏷️ La Manila Queen en stock está a REF 420 en vez '
-  + 'de REF 520, en gris 02 en chenille paño, gris oscuro en lino o gris 01 en terciopelo. La Paris Queen en stock está a REF 750 '
-  + 'en vez de REF 930, en beige o gris 01 en chenille paño. La Florida Queen en stock está a REF 680 en vez de REF 850, en gris '
-  + 'veteado o crema en zaga. Son piezas ya fabricadas, cada una tal cual está, y se venden rápido. ¿Cuál te gusta más?';
+const QUEEN = [{ id: 31, talla: 'Queen' }, { id: 40, talla: 'Queen' }, { id: 21, talla: 'Queen' }];
+const SOBRE_LAS_QUEEN = '¡Claro! En queen te muestro tres modelos muy distintos entre sí 😊 La Manila Queen está en REF 520: tiene '
+  + 'líneas simples y un cabecero sobrio que combina con cualquier estilo de habitación. La Paris Queen está en REF 990: su '
+  + 'cabecero es alto y acolchado, y se vuelve el protagonista del cuarto. La Florida Queen está en REF 850: tiene un diseño '
+  + 'moderno, de líneas limpias, que se ve elegante tanto en espacios grandes como en espacios pequeños. Las tres se fabrican '
+  + 'a pedido en la tela y el color que elijas, así que puedes adaptarlas a la decoración que ya tienes o a la que estás '
+  + 'planeando. Si me cuentas qué colores tiene tu habitación, qué estilo te gusta más y si prefieres algo más clásico o más '
+  + 'moderno, te ayudo a elegir la que mejor le queda a tu espacio. También te puedo contar de las telas disponibles y de '
+  + 'cómo cuidarlas para que se mantengan como nuevas. ¿Cuál de las tres te gusta más?';
 
 test('Pie de foto: con un texto largo se recorta el texto de la IA, nunca las líneas de precio en Bs (van al final)', async () => {
-  delete config.PROMO; // las piezas en oferta son de la promo
-  conIa({ respuesta: SOBRE_LAS_OFERTAS, productos: OFERTAS_QUEEN });
-  await wa(textoWa('¿Cuánto cuestan la Manila, la Paris y la Florida queen?'), '584140000210'); // sin pedir ofertas: sin enlace
+  conIa({ respuesta: SOBRE_LAS_QUEEN, productos: QUEEN });
+  await wa(textoWa('¿Cuánto cuestan la Manila, la Paris y la Florida queen?'), '584140000210'); // sin pedir el catálogo: sin enlaces
   const [foto] = mensajesWa();
   assert.equal(foto.type, 'image');
   const pie = foto.image.caption;
   assert.ok(pie.length <= 1024, `${pie.length} caracteres`);
-  assert.match(pie, /…\n\n• Manila · Queen [^\n]+ahora REF 420 = Bs [\d.]+,\d\d \([^)]+\)\n• Paris · Queen [^\n]+ahora REF 750 = Bs [\d.]+,\d\d \([^)]+\)\n• Florida · Queen [^\n]+ahora REF 680 = Bs [\d.]+,\d\d \([^)]+\)$/);
+  assert.match(pie, /…\n\n• Manila · Queen [^\n]+REF 520 = Bs [\d.]+,\d\d \([^)]+\)\n• Paris · Queen [^\n]+REF 990 = Bs [\d.]+,\d\d \([^)]+\)\n• Florida · Queen [^\n]+REF 850 = Bs [\d.]+,\d\d \([^)]+\)$/);
   // En el historial, lo que le llegó: el texto del pie, sin las líneas de precio (la IA nunca ve bolívares).
   const dicho = (await estadoWa('584140000210')).mensajes.at(-1).content;
   assert.ok(pie.startsWith(`${dicho}\n\n• Manila · Queen`), dicho);
 });
 
-test('Pie de foto: si el texto con el enlace del catálogo de ofertas no cabe, va todo en UN mensaje de texto, con el enlace', async () => {
-  delete config.PROMO;
-  const tel = '584140000225';
-  await env.CONVERSACIONES.put(`wa:PHONE123:${tel}`, JSON.stringify({
-    mensajes: [{ role: 'user', content: 'Hola' }, { role: 'assistant', content: '¡Hola! Soy el asistente virtual de Dekog 👋 ¿En qué te ayudo?' }],
-    procesados: [], promoVista: PROMO.id,
-  }));
-  conIa({ respuesta: SOBRE_LAS_OFERTAS, productos: OFERTAS_QUEEN });
-  await wa(textoWa('¿Qué camas queen tienen en oferta?'), tel);
+test('Pie de foto: si el texto con los enlaces de los catálogos no cabe, va todo en UN mensaje de texto, con los enlaces', async () => {
+  conIa({ respuesta: SOBRE_LAS_QUEEN, productos: QUEEN });
+  await wa(textoWa('¿Me pasas el catálogo? ¿Y cuánto cuestan la Manila, la Paris y la Florida queen?'), '584140000225');
   const [mensaje, ...otros] = mensajesWa();
   assert.equal(otros.length, 0);
   assert.equal(mensaje.type, 'text');
   const cuerpo = mensaje.text.body;
-  assert.ok(cuerpo.startsWith(SOBRE_LAS_OFERTAS), cuerpo); // el texto de la IA entero, con su pregunta
-  assert.ok(cuerpo.includes(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}\n\n• Manila · Queen`), cuerpo);
-  assert.match(cuerpo, /• Florida · Queen [^\n]+ahora REF 680 = Bs [\d.]+,\d\d \([^)]+\)$/);
-  assert.ok((await estadoWa(tel)).mensajes.at(-1).content.includes(PROMO.enlace)); // ya se le dio: no se repite
+  assert.ok(cuerpo.includes(SOBRE_LAS_QUEEN), cuerpo); // el texto de la IA entero, con su pregunta
+  for (const [nombre, url] of catalogosPdf) assert.ok(cuerpo.includes(`📖 ${nombre}:\n${url}`), `falta ${nombre}`);
+  assert.match(cuerpo, /• Florida · Queen [^\n]+REF 850 = Bs [\d.]+,\d\d \([^)]+\)$/);
 });
 
 test('Pie de foto: si los precios y las asesoras no le dejan lugar al texto, va todo en UN mensaje de texto, sin foto', async () => {
-  delete config.PROMO;
   // Enlaces cortos larguísimos: así la cola (tres líneas de precio y las dos asesoras) no cabe en un pie de foto.
-  config.ENLACE_CORTO_BASE = `https://www.dekog.net/${'enlace-de-prueba/'.repeat(12)}`;
-  conIa({ respuesta: SOBRE_LAS_OFERTAS, productos: OFERTAS_QUEEN, derivar: { necesario: true, area: 'home', resumen: 'Quiere apartar una cama queen en stock' } });
-  await wa(textoWa('Quiero apartar una de esas camas queen en oferta: ¿la Manila, la Paris o la Florida?'), '584140000211');
+  config.ENLACE_CORTO_BASE = `https://www.dekog.net/${'enlace-de-prueba/'.repeat(18)}`;
+  conIa({ respuesta: SOBRE_LAS_QUEEN, productos: QUEEN, derivar: { necesario: true, area: 'home', resumen: 'Quiere una cama queen: Manila, Paris o Florida' } });
+  await wa(textoWa('Quiero comprar una de esas camas queen: ¿la Manila, la Paris o la Florida?'), '584140000211');
   const [mensaje] = mensajesWa();
   assert.equal(mensaje.type, 'text');
   const cuerpo = mensaje.text.body;
-  assert.ok(cuerpo.includes(SOBRE_LAS_OFERTAS)); // el texto de la IA, entero
-  assert.match(cuerpo, /• Florida · Queen [^\n]+ahora REF 680 = Bs [\d.]+,\d\d \([^)]+\)\n\nHabla con una asesora por WhatsApp 👇\n\n/);
+  assert.ok(cuerpo.includes(SOBRE_LAS_QUEEN)); // el texto de la IA, entero
+  assert.match(cuerpo, /• Florida · Queen [^\n]+REF 850 = Bs [\d.]+,\d\d \([^)]+\)\n\nHabla con una asesora por WhatsApp 👇\n\n/);
   assert.match(cuerpo, /\nLínea 2 \(0424-400 6086\):\nhttps:\/\/\S+\/a\/[A-Za-z0-9]+$/);
 });
 
@@ -243,13 +242,13 @@ test('textoConCola: la cola siempre entera; un párrafo con un enlace va entero 
   }
 });
 
-test('textoConCola: si se va un párrafo con enlace (los PDF del catálogo, el de ofertas), el «…» no queda pegado a una URL', () => {
-  // Como lo arma chat.js cuando piden «el catálogo» y hablan de ofertas: el texto de la IA y después cada catálogo, con
-  // su enlace solo en su línea.
-  const catalogos = [...catalogosPdf.map(([nombre, url]) => [`📖 ${nombre}`, url]), ['🏷️ Catálogo de ofertas', PROMO.enlace]];
+test('textoConCola: si se va un párrafo con enlace (los PDF del catálogo), el «…» no queda pegado a una URL', () => {
+  // Como lo arma chat.js cuando piden «el catálogo»: el texto de la IA y después cada catálogo, con su enlace solo en su
+  // línea.
+  const catalogos = catalogosPdf.map(([nombre, url]) => [`📖 ${nombre}`, url]);
   const texto = ['¡Claro! Aquí tienes nuestros catálogos, con todos los modelos y sus medidas. ¿Te ayudo a elegir alguno?',
     ...catalogos.map(([rotulo, url]) => `${rotulo}:\n${url}`)].join('\n\n');
-  const cola = '• Manila · Queen 1,60x1,90 M · 🏷️ oferta en stock (gris 02 en chenille paño): antes REF 520, ahora REF 420 = Bs 78.301,48';
+  const cola = '• Manila · Queen 1,60x1,90 M: REF 520 = Bs 96.944,69 (tasa BCV euro 07/10/2026)';
   for (let maximo = cola.length + 3; maximo <= texto.length + cola.length + 2; maximo++) {
     const { mensaje, dicho } = textoConCola(texto, cola, maximo);
     assert.ok(mensaje.length <= maximo && mensaje === `${dicho}\n\n${cola}`, `${maximo}: ${mensaje}`);
