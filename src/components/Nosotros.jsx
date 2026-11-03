@@ -44,7 +44,7 @@ export default function Nosotros() {
           <div className="flex items-center gap-4 justify-center md:justify-start">
             <FileText size={36} className="text-[#333]" strokeWidth={1} />
             <div>
-              <p className="text-lg font-bold text-[#1a1a1a] leading-tight">+120</p>
+              <p className="text-lg font-bold text-[#1a1a1a] leading-tight">+800</p>
               <p className="text-xs text-[#4a4a4a] leading-snug">Proyectos<br/>realizados</p>
             </div>
           </div>

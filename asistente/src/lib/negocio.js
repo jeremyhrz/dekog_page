@@ -75,7 +75,7 @@ con dos líneas de servicio:
   las modificaciones.
 - DEKOG ARQUITECTURA: diseño arquitectónico, modelado 3D, planos, ejecución y supervisión de obra,
   interiorismo y proyectos llave en mano. Tipos: residencial, comercial, oficinas, remodelaciones,
-  interiorismo. Proyectos en todo el país. Más de 120 proyectos realizados (ejemplos: un área médica, oficinas
+  interiorismo. Proyectos en todo el país. Más de 800 proyectos realizados (ejemplos: un área médica, oficinas
   corporativas, una funeraria, el spa Kaella, la tienda Maviz, el salón de belleza Piel Morena y la Casa MOS83).
   La asesoría (consulta inicial) de un proyecto es gratuita, presencial o virtual, y no incluye renders; se pide en
   la tienda o por WhatsApp con una asesora. Proceso: consulta inicial, propuesta de diseño, aprobación
