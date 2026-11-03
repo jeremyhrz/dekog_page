@@ -128,16 +128,20 @@ test('Después de cada build: ?., ?? y 10n son ES2020 que iOS 13.0 no lee; en un
   }
 });
 
-test('Ruta que no existe: /a… a las asesoras, /ofertas… a /ofertas (sin bucle) y lo demás «No encontramos esta página»', () => {
+test('Ruta que no existe: /a… a las asesoras, /ofertas… al catálogo (la promo terminó) y lo demás «No encontramos esta página»', () => {
   // Las rutas llegan codificadas (location.pathname): la marca de Instagram es %E2%81%A3.
   for (const ruta of ['/a', '/a/', '/a/k3P9xQ1/', '/a/x/y', '/a%E2%81%A3', '/a.', '/A']) {
     assert.equal(rutaDesconocida(ruta), 'asesoras', ruta);
   }
-  for (const ruta of ['/ofertas%E2%81%A3', '/ofertas.', '/ofertas/x', '/Ofertas', '/ofertas.html']) {
+  // dekog.net/ofertas ya no tiene página (la promo terminó el 3-nov): todas sus formas, también las de los mensajes viejos
+  // con la marca de Instagram o un punto pegado, van al catálogo (no a /ofertas, que volvería aquí sin parar).
+  for (const ruta of ['/ofertas', '/ofertas/', '/ofertas%E2%81%A3', '/ofertas.', '/ofertas/x', '/Ofertas', '/ofertas.html']) {
     assert.equal(rutaDesconocida(ruta), 'ofertas', ruta);
   }
-  // /ofertas misma nunca se redirige: si llega a la web es que no hay rewrite, y volvería aquí sin parar.
-  for (const ruta of ['/ofertas', '/ofertas/', '/abc', '/arquitecturas', '/producto/123']) {
+  const pagina = leer('src/pages/NoEncontrada.jsx');
+  assert.match(pagina, /window\.location\.replace\(CATALOGO\)/);
+  assert.doesNotMatch(pagina, /replace\('\/ofertas'\)|href="\/ofertas"/);
+  for (const ruta of ['/abc', '/arquitecturas', '/producto/123']) {
     assert.equal(rutaDesconocida(ruta), 'no-encontrada', ruta);
   }
   // Y la ruta comodín existe, dentro del Layout (menú, pie y asistente a la vista), con el aviso de error alrededor.
@@ -177,6 +181,7 @@ test('vercel.json: /a y /a/ a /links.html, /a/<código> (también con la barra d
   }
   // Una foto de /wa/ o de /ia/ que no existe sigue dando 404, no la página de la web.
   for (const ruta of ['/wa/no-existe.webp', '/ia/no-existe.png']) assert.equal(destino(ruta), null, ruta);
-  assert.equal(destino('/ofertas/'), '/ofertas.html');
+  // dekog.net/ofertas ya no tiene página (3-nov): llega a la web, que la lleva al catálogo.
+  for (const ruta of ['/ofertas', '/ofertas/']) assert.equal(destino(ruta), '/index.html', ruta);
   assert.equal(destino('/producto/123'), '/index.html');
 });

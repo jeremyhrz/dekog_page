@@ -483,9 +483,10 @@ export async function pensar(entrada, canal = 'web', { yaSaludo = false, imagen 
   if (!vitrina) {
     // Sin vitrina no hay «Ver modelos»: si la IA lo promete, esa frase se quita (13-oct: el cliente pidió el catálogo,
     // le dijeron «toca Ver modelos» y no le llegó nada). Si pidió «el catálogo», van los dos en PDF; si pidió «el
-    // catálogo de ofertas», solo el de la promo (abajo).
+    // catálogo de ofertas», solo el de la promo (abajo), y sin promo vigente, los dos: lo siguen pidiendo por las
+    // publicaciones viejas (3-nov).
     respuesta = sinPromesaDeVitrina(respuesta);
-    if (pideCatalogo(ultimo) && !pideCatalogoDeOfertas(ultimo) && !catalogosPdf.some(([, url]) => respuesta.includes(url))) {
+    if (pideCatalogo(ultimo) && (!promo || !pideCatalogoDeOfertas(ultimo)) && !catalogosPdf.some(([, url]) => respuesta.includes(url))) {
       // Cada enlace solo en su línea: Instagram no detecta bien uno pegado a otro texto (21-oct).
       respuesta += `\n\n${catalogosPdf.map(([nombre, url]) => `📖 ${nombre}:\n${url}`).join('\n\n')}`;
     }

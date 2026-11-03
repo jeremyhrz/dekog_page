@@ -5,12 +5,12 @@
  * `ruta` es location.pathname, que llega codificado: /ofertas%E2%81%A3.
  *
  *   'asesoras'      /a, /a/… o /a con algo pegado: los WhatsApp de las dos asesoras
- *   'ofertas'       /ofertas con algo pegado: se va a /ofertas (vercel.json la manda a ofertas.html)
- *   'no-encontrada' todo lo demás, también /ofertas misma: donde no exista el rewrite (npm run dev) volvería aquí sin
- *                   parar
+ *   'ofertas'       /ofertas, sola o con algo pegado: va al catálogo. La promo terminó el 3-nov y su página se quitó,
+ *                   pero los mensajes y las publicaciones viejas siguen trayendo el enlace
+ *   'no-encontrada' todo lo demás
  */
 export function rutaDesconocida(ruta) {
   if (/^\/a(?![a-z0-9])/i.test(ruta)) return 'asesoras';
-  if (/^\/ofertas/i.test(ruta) && !/^\/ofertas\/?$/.test(ruta)) return 'ofertas';
+  if (/^\/ofertas/i.test(ruta)) return 'ofertas';
   return 'no-encontrada';
 }

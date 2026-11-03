@@ -4,6 +4,7 @@
  */
 import { createHmac } from 'node:crypto';
 import { configurar } from '../src/lib/config.js';
+import { PROMO } from '../src/lib/promo.js';
 
 export const SECRETO_WA = 'secreto-wa';
 export const SECRETO_IG = 'secreto-ig';
@@ -15,6 +16,13 @@ configurar({
   // Sin el mensaje de la promo (lib/promo.js), para que cada prueba cuente solo sus mensajes; promo.test.js la prende.
   PROMO: 'no',
 });
+
+/**
+ * Las pruebas que solo tienen sentido con una promoción vigente (lib/promo.js → VIGENTE) se saltan cuando no la hay, con
+ * el motivo a la vista; las de «sin promo», al revés. Así quedan listas para la próxima promo.
+ */
+export const SIN_PROMO = !PROMO && 'sin promoción vigente (lib/promo.js)';
+export const CON_PROMO = Boolean(PROMO) && 'hay una promoción vigente (lib/promo.js)';
 
 /** El texto que mandó el asistente a Instagram, sin el espacio y la marca invisible del final (instagram.js → MARCA). */
 export const sinMarca = (texto) => (typeof texto === 'string' ? texto.replace(/ ?\u2063$/, '') : texto);

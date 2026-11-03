@@ -3,8 +3,10 @@
 // de contestar «solo puedo leer mensajes de texto y fotos». IA: proveedor «prueba». Fetch falso: no sale nada a internet.
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg, sinMarca } from './ayuda.js';
+import { existsSync, readFileSync } from 'node:fs';
+import {
+  SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, avisoIg, sinMarca, SIN_PROMO, CON_PROMO,
+} from './ayuda.js';
 import { config } from '../src/lib/config.js';
 import {
   PROMO, OFERTAS, COPETES, ofertaElegida, copeteElegido, ofertasDelModelo, hayOfertaEn, pideOfertas, pideCatalogoDeOfertas,
@@ -18,6 +20,7 @@ import { catalogosPdf } from '../src/lib/negocio.js';
 import { pensar } from '../src/chat.js';
 import { whatsappPost } from '../src/canales/whatsapp.js';
 import { instagramPost } from '../src/canales/instagram.js';
+import { rutaDesconocida } from '../../src/utils/rutas.js';
 
 const TASA = { valor: 100, etiqueta: 'tasa BCV euro', fecha: '21/10/2026' };
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 0xff, 0xd9]);
@@ -53,7 +56,7 @@ const estadoWa = (tel = '584140000001') => JSON.parse(env.CONVERSACIONES.datos.g
 
 // ── Lo que sabe el asistente ─────────────────────────────────────────────────────────────────────────────────────
 
-test('Prompt y políticas: hay descuentos (hasta 20 % en stock) y ya no dice «no hay promociones»', () => {
+test('Prompt y políticas: hay descuentos (hasta 20 % en stock) y ya no dice «no hay promociones»', { skip: SIN_PROMO }, () => {
   const sistema = sistemaPara('instagram');
   assert.match(sistema, /PROMOCIÓN VIGENTE/);
   assert.match(sistema, /\[48\] Toronto · Individual · gris 02 en chenille paño: REF 405 → REF 330/);
@@ -83,7 +86,7 @@ test('Las piezas de la promo: cada id es del modelo que dice y su precio de ante
   assert.equal(COPETES.length, 12);
 });
 
-test('Montos: los de la promo valen cuando el texto habla de ella; el «hasta 20 %» vale, otro descuento o Cashea no', () => {
+test('Montos: los de la promo valen cuando el texto habla de ella; el «hasta 20 %» vale, otro descuento o Cashea no', { skip: SIN_PROMO }, () => {
   assert.deepEqual(montosInventados('Tenemos hasta 20 % de descuento en mobiliario en stock 🏷️'), []);
   assert.deepEqual(montosInventados('La Toronto individual en stock está a REF 330 en vez de REF 405.', { ids: [48] }), []);
   assert.deepEqual(montosInventados('Hasta 20 % en stock; con el 50 % de anticipo te la apartamos.'), []);
@@ -95,7 +98,7 @@ test('Montos: los de la promo valen cuando el texto habla de ella; el «hasta 20
   assert.deepEqual(montosInventados('Tenemos hasta 20 % de descuento.'), ['20 %']);
 });
 
-test('Montos de la promo: desde la oración que habla de ella, nunca antes; «por ahora» o «elegantes» no cuentan', () => {
+test('Montos de la promo: desde la oración que habla de ella, nunca antes; «por ahora» o «elegantes» no cuentan', { skip: SIN_PROMO }, () => {
   // La Bali Queen cuesta REF 990 y la Toronto Queen REF 550: 790 y 580 son montos de la promo, no sus precios.
   assert.deepEqual(montosInventados('Por ahora la Bali Queen está en REF 790', { ids: [6] }), ['REF 790']);
   assert.deepEqual(montosInventados('La Bali Queen ahora está en REF 790', { ids: [6] }), ['REF 790']);
@@ -112,7 +115,7 @@ test('Montos de la promo: desde la oración que habla de ella, nunca antes; «po
   assert.deepEqual(montosInventados('La Manila Queen gris 02 está rebajada: antes a REF 520, ahora a REF 420.', { ids: [31] }), []);
 });
 
-test('Montos de la promo en una lista de piezas o copetes (lo que pide el prompt): valen en todos los renglones', () => {
+test('Montos de la promo en una lista de piezas o copetes (lo que pide el prompt): valen en todos los renglones', { skip: SIN_PROMO }, () => {
   // Una frase sobre la promo y después una pieza por renglón, con viñetas o numerada (el «1.» corta la oración).
   const vinetas = '¡Sí! Tenemos camas en stock con descuento 🏷️:\n'
     + '• Toronto Individual gris 02 en chenille paño: REF 405 → REF 330\n'
@@ -145,7 +148,7 @@ test('El 50 % de anticipo vale aunque la oración hable de una pieza en oferta; 
   assert.deepEqual(montosInventados('Con Cashea das el 50 % de inicial para apartarla.'), ['50 %']);
 });
 
-test('totalesIncoherentes: un monto de la promo vale desde donde se habla de ella, no antes; un total mal sumado se caza igual', () => {
+test('totalesIncoherentes: un monto de la promo vale desde donde se habla de ella, no antes; un total mal sumado se caza igual', { skip: SIN_PROMO }, () => {
   const king = tarjeta(48, 'King', null, { box: 'nube', telaPremium: true }); // 665 + 150 + 150 = 965
   assert.equal(king.ref, 965);
   // 785 es la Hamburgo en stock: la segunda oración, que sí habla de la promo, no la vuelve válida en la primera.
@@ -159,7 +162,7 @@ test('totalesIncoherentes: un monto de la promo vale desde donde se habla de ell
   assert.deepEqual(totalesIncoherentes('Te queda en REF 965. Y en stock tenemos la Toronto individual a REF 330 en vez de REF 405.', [king]), []);
 });
 
-test('totalesIncoherentes: los precios de las piezas en stock y de los copetes de las tarjetas valen en todo el texto', () => {
+test('totalesIncoherentes: los precios de las piezas en stock y de los copetes de las tarjetas valen en todo el texto', { skip: SIN_PROMO }, () => {
   const manila = tarjeta(31, 'Queen', null, { oferta: 420 });
   const mesas = tarjeta(67, '', null, { cantidad: 2 }); // 2 x 170 = 340
   // Ninguna oración nombra la oferta: REF 420 salía «mal sumado», con el total de la otra tarjeta como el exacto.
@@ -174,7 +177,7 @@ test('totalesIncoherentes: los precios de las piezas en stock y de los copetes d
     + 'individual gris 02 a REF 330.', [king, tarjeta(48, 'Individual', null, { oferta: 330 })]), [{ dicho: 'REF 815.', correcto: 'REF 965' }]);
 });
 
-test('Tarjeta de una pieza en oferta: su precio en REF y en Bs, el de antes, color y tela; si no coincide, la normal', () => {
+test('Tarjeta de una pieza en oferta: su precio en REF y en Bs, el de antes, color y tela; si no coincide, la normal', { skip: SIN_PROMO }, () => {
   const t = tarjeta(48, 'Individual', TASA, { oferta: 330, box: 'nube', telaPremium: true, cantidad: 2 });
   assert.equal(t.oferta, true);
   assert.equal(t.ref, 330);
@@ -195,7 +198,7 @@ test('Tarjeta de una pieza en oferta: su precio en REF y en Bs, el de antes, col
   assert.deepEqual(ofertaElegida(29, 'Matrimonial 1,40x1,90 M', 495).map((o) => o.color), ['rosa viejo']);
 });
 
-test('Tarjeta con medida: «Hay oferta» solo si hay piezas en stock en esa medida; sin medida, si el modelo tiene alguna', async () => {
+test('Tarjeta con medida: «Hay oferta» solo si hay piezas en stock en esa medida; sin medida, si el modelo tiene alguna', { skip: SIN_PROMO }, async () => {
   assert.equal(tarjeta(48, 'Queen', null).enOferta, false); // las Toronto en stock son individual y matrimonial
   assert.equal(tarjeta(53, 'Queen 1,60x1,90 M', null).enOferta, false); // las Bruselas en stock son King
   assert.equal(tarjeta(53, 'King', null).enOferta, true);
@@ -209,7 +212,7 @@ test('Tarjeta con medida: «Hay oferta» solo si hay piezas en stock en esa medi
   assert.equal(tarjeta(31, 'Queen', null).enOferta, false);
 });
 
-test('WhatsApp e Instagram: la línea del precio de la pieza y la ficha del modelo con sus piezas en oferta', () => {
+test('WhatsApp e Instagram: la línea del precio de la pieza y la ficha del modelo con sus piezas en oferta', { skip: SIN_PROMO }, () => {
   const t = tarjeta(48, 'Individual', TASA, { oferta: 330 });
   assert.equal(lineaPrecio(t, TASA),
     '• Toronto · Individual 1,00x1,90 M · 🏷️ oferta en stock (gris 02 en chenille paño): antes REF 405, ahora REF 330 = Bs 33.000,00 (tasa BCV euro 21/10/2026)');
@@ -219,7 +222,7 @@ test('WhatsApp e Instagram: la línea del precio de la pieza y la ficha del mode
   assert.doesNotMatch(fichaElegida(1, TASA).caption, /En stock con descuento/); // un sofá sin piezas en oferta
 });
 
-test('Copete en stock: su propia tarjeta con su precio (no la cama completa) y su línea sin «antes»', () => {
+test('Copete en stock: su propia tarjeta con su precio (no la cama completa) y su línea sin «antes»', { skip: SIN_PROMO }, () => {
   const t = tarjeta(31, 'King', TASA, { oferta: 455 });
   assert.equal(t.ref, 455);
   assert.equal(t.unitario, 455);
@@ -247,7 +250,7 @@ test('Copete en stock: su propia tarjeta con su precio (no la cama completa) y s
   assert.equal(tarjeta(31, 'King', null, { oferta: 455 }).ref, 760);
 });
 
-test('«¿Qué camas tienen en oferta?»: sin la vitrina de camas a precio de catálogo, que taparía las piezas en oferta', async () => {
+test('«¿Qué camas tienen en oferta?»: sin la vitrina de camas a precio de catálogo, que taparía las piezas en oferta', { skip: SIN_PROMO }, async () => {
   for (const pregunta of ['¿Qué camas tienen en oferta?', 'Muéstrame las camas en descuento', 'quiero ver las camas de la promo']) {
     const r = await pensar([{ role: 'user', content: pregunta }], 'whatsapp');
     assert.equal(r.vitrina, null, pregunta);
@@ -259,7 +262,7 @@ test('«¿Qué camas tienen en oferta?»: sin la vitrina de camas a precio de ca
   assert.equal((await pensar([{ role: 'user', content: '¿Qué camas tienen en oferta?' }], 'whatsapp')).vitrina?.clave, 'camas');
 });
 
-test('Pregunta por ofertas en sofás, mesas o puffs (no hay piezas en stock que tapar): su vitrina va igual; en camas, no', async () => {
+test('Pregunta por ofertas en sofás, mesas o puffs (no hay piezas en stock que tapar): su vitrina va igual; en camas, no', { skip: SIN_PROMO }, async () => {
   for (const [pregunta, clave] of [
     ['¿Qué sofás tienen en oferta?', 'sofas'],
     ['Muéstrame las mesas de noche. ¿Hay alguna promo?', 'mesas'],
@@ -272,7 +275,7 @@ test('Pregunta por ofertas en sofás, mesas o puffs (no hay piezas en stock que 
   }
 });
 
-test('La línea de las piezas en oferta y el enlace del catálogo de ofertas van una vez, no en cada respuesta', async () => {
+test('La línea de las piezas en oferta y el enlace del catálogo de ofertas van una vez, no en cada respuesta', { skip: SIN_PROMO }, async () => {
   const historial = [];
   const turno = async (texto) => {
     historial.push({ role: 'user', content: texto });
@@ -288,7 +291,7 @@ test('La línea de las piezas en oferta y el enlace del catálogo de ofertas van
   assert.deepEqual(enlace.map((r) => r.includes(PROMO.enlace)), [true, false, true]);
 });
 
-test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el servidor agrega la línea', async () => {
+test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el servidor agrega la línea', { skip: SIN_PROMO }, async () => {
   assert.equal(ofertasDelModelo(31, 'Queen 1,60x1,90 M'),
     '🏷️ En stock con descuento: Queen gris 02 en chenille paño / gris oscuro en lino / gris 01 en terciopelo, a REF 420 (antes REF 520).');
   assert.equal(ofertasDelModelo(1), ''); // un sofá sin piezas en oferta
@@ -302,7 +305,7 @@ test('Si la IA no menciona las piezas en oferta del modelo que preguntan, el ser
   assert.doesNotMatch((await pensar([{ role: 'user', content: '¿Cuánto es la Manila queen?' }], 'whatsapp')).respuesta, /En stock con descuento/);
 });
 
-test('dekog.net/ofertas abre el PDF de la promo y trae su vista previa (JPEG 1200 x 630); los rewrites van antes del comodín', () => {
+test('dekog.net/ofertas abre el PDF de la promo y trae su vista previa (JPEG 1200 x 630); los rewrites van antes del comodín', { skip: SIN_PROMO }, () => {
   const leer = (ruta) => readFileSync(new URL(`../../${ruta}`, import.meta.url));
   const html = leer('public/ofertas.html').toString('utf8');
   assert.equal(PROMO.enlace, 'https://www.dekog.net/ofertas');
@@ -342,7 +345,7 @@ test('Qué cuenta como pedir ofertas y como pedir el catálogo de ofertas', () =
   }
 });
 
-test('Web: preguntar por descuentos trae el enlace del catálogo de ofertas; «el catálogo de ofertas» no manda los otros dos', async () => {
+test('Web: preguntar por descuentos trae el enlace del catálogo de ofertas; «el catálogo de ofertas» no manda los otros dos', { skip: SIN_PROMO }, async () => {
   const r = await pensar([{ role: 'user', content: '¿Tienen descuentos o alguna promoción?' }], 'web');
   assert.ok(r.respuesta.endsWith(`🏷️ Catálogo de ofertas:\n${PROMO.enlace}`), r.respuesta); // el enlace solo en su línea
   for (const pedido of ['Buenas noches... Pudiera por favor enviarme el catálogo de ofertas... Gracias', 'Pásame el catálogo de la promo']) {
@@ -360,7 +363,7 @@ test('Web: preguntar por descuentos trae el enlace del catálogo de ofertas; «e
 
 // ── El mensaje de la promo después de la bienvenida ─────────────────────────────────────────────────────────────
 
-test('WhatsApp: «Hola» → el saludo de la dueña y DESPUÉS la promo (imagen, texto y botón «Ver ofertas»); solo una vez', async () => {
+test('WhatsApp: «Hola» → el saludo de la dueña y DESPUÉS la promo (imagen, texto y botón «Ver ofertas»); solo una vez', { skip: SIN_PROMO }, async () => {
   await wa(textoWa('Hola'));
   const [saludo, promo] = mensajesWa();
   assert.equal(mensajesWa().length, 2);
@@ -374,7 +377,7 @@ test('WhatsApp: «Hola» → el saludo de la dueña y DESPUÉS la promo (imagen,
   assert.equal(mensajesWa().length, 3); // la respuesta, sin otra promo
 });
 
-test('WhatsApp: si Meta rechaza el botón, la imagen con el enlace; un cliente que ya escribía antes la recibe una vez', async () => {
+test('WhatsApp: si Meta rechaza el botón, la imagen con el enlace; un cliente que ya escribía antes la recibe una vez', { skip: SIN_PROMO }, async () => {
   usar({ rechazar: (c) => c.interactive?.type === 'cta_url' && Boolean(c.interactive.header?.image?.link?.includes('/promo/')) });
   // Otro número: el que ya recibió la promo en la prueba anterior queda recordado en la memoria del módulo.
   await env.CONVERSACIONES.put('wa:PHONE123:584140000005', JSON.stringify({ mensajes: [{ role: 'user', content: 'hola' }, { role: 'assistant', content: 'Hola' }] }));
@@ -394,7 +397,7 @@ test('WhatsApp: un sticker no se responde; dos notas de voz el mismo día → UN
   assert.equal(avisos.length, 1);
 });
 
-test('Instagram: «Hola» → el saludo, la imagen de la promo y su texto con el enlace; la segunda vez, sin promo', async () => {
+test('Instagram: «Hola» → el saludo, la imagen de la promo y su texto con el enlace; la segunda vez, sin promo', { skip: SIN_PROMO }, async () => {
   await ig({ text: 'Hola' });
   const envios = enviosIg();
   assert.match(sinMarca(envios[0].text), /Bienvenido a DEKOG/);
@@ -415,7 +418,9 @@ test('Instagram: compartir una publicación ya no responde «solo puedo leer…�
   const [primero] = estadoIg().mensajes;
   assert.match(primero.content, /^\[Foto del cliente\] \(compartió una publicación de Instagram: «Hasta 20% de descuento en todo nuestro stock\./);
   assert.doesNotMatch(primero.content, /dato personal|0412|@dekog/); // el pie es de la publicación: sin teléfonos ni usuarios
-  assert.ok(textosIg()[0].includes(PROMO.enlace)); // habla de descuentos: va el enlace de las ofertas
+  // Habla de descuentos: con promo va el enlace de las ofertas; sin promo, ningún enlace de ofertas.
+  if (PROMO) assert.ok(textosIg()[0].includes(PROMO.enlace));
+  else assert.ok(!textosIg().some((t) => /dekog\.net\/ofertas/.test(t)), textosIg().join(' | '));
 });
 
 test('Instagram: reel compartido y respuesta a una historia en video → la IA sabe qué es (sin descargar el video)', async () => {
@@ -451,4 +456,64 @@ test('unirSeguidos: dos mensajes seguidos del mismo lado van en uno', () => {
     { role: 'user', content: 'a' }, { role: 'user', content: 'b' }, { role: 'assistant', content: 'c' }, { role: 'assistant', content: 'd' }, { role: 'user', content: 'e' },
   ]);
   assert.deepEqual(unidos, [{ role: 'user', content: 'a\nb' }, { role: 'assistant', content: 'c\nd' }, { role: 'user', content: 'e' }]);
+});
+
+// ── Sin promo (3-nov, la dueña: «Quitar el 20 % de descuento… Ya no lo tenemos disponible») ───────────────────────────
+
+test('Sin promo: el prompt y las políticas dicen que no hay ninguna vigente y que la de stock terminó; nada del 20 % ni de sus piezas', { skip: CON_PROMO }, () => {
+  for (const canal of ['whatsapp', 'instagram', 'web']) {
+    const sistema = sistemaPara(canal);
+    assert.doesNotMatch(sistema, /PROMOCIÓN VIGENTE|hasta 20 %|REF 405 → REF 330|catálogo de ofertas/i, canal);
+    assert.match(sistema, /por ahora no hay promociones vigentes/, canal);
+    assert.match(sistema, /En "oferta", siempre 0\./, canal);
+  }
+  const descuentos = politicas.find((p) => p.startsWith('Descuentos y promociones'));
+  assert.match(descuentos, /por ahora no hay ninguna vigente/);
+  assert.match(descuentos, /ya terminó/);
+  assert.doesNotMatch(politicas.join('\n'), /20 %/);
+});
+
+test('Sin promo: «¿tienen descuentos?» no trae enlace de ofertas, y «el catálogo de ofertas» trae los dos catálogos', { skip: CON_PROMO }, async () => {
+  const r = await pensar([{ role: 'user', content: '¿Tienen descuentos o alguna promoción?' }], 'web');
+  assert.doesNotMatch(r.respuesta, /dekog\.net\/ofertas|🏷️/, r.respuesta);
+  for (const pedido of ['Buenas noches... Pudiera por favor enviarme el catálogo de ofertas... Gracias', 'Pásame el catálogo de la promo']) {
+    const o = await pensar([{ role: 'user', content: pedido }], 'web');
+    assert.doesNotMatch(o.respuesta, /dekog\.net\/ofertas|🏷️/, pedido);
+    for (const [, url] of catalogosPdf) assert.ok(o.respuesta.includes(url), `${pedido}: falta ${url}`);
+  }
+});
+
+test('Sin promo: «Hola» en WhatsApp y en Instagram → solo el saludo, sin la imagen ni el botón de las ofertas', { skip: CON_PROMO }, async () => {
+  await wa(textoWa('Hola'), '584140000301');
+  assert.deepEqual(mensajesWa().map((m) => m.type), ['text']);
+  assert.equal(estadoWa('584140000301').promoVista, '');
+  await ig({ text: 'Hola' }, 'IGSID30');
+  const aInstagram = enviosIg().filter(Boolean);
+  assert.ok(aInstagram.length > 0 && aInstagram.every((m) => m.text && !m.attachment && !m.attachments), JSON.stringify(aInstagram));
+  assert.equal(estadoIg('IGSID30').promoVista, '');
+  assert.doesNotMatch(JSON.stringify(meta.enviados), /ofertas|promo-stock|descuento/i);
+});
+
+test('Sin promo: un precio de oferta o el «hasta 20 %» que escriba la IA se caza como inventado; la tarjeta con «oferta» es la normal', { skip: CON_PROMO }, () => {
+  const malos = montosInventados('¡Hasta 20 % de descuento! La Toronto individual en stock está a REF 330 en vez de REF 405.', { ids: [48], delCliente: [] });
+  assert.ok(malos.some((m) => /20\s*%/.test(m)), malos.join(' | '));
+  assert.ok(malos.some((m) => /330/.test(m)), malos.join(' | '));
+  assert.ok(!malos.some((m) => /405/.test(m)), malos.join(' | ')); // el precio del catálogo sí vale
+  const t = tarjeta(48, 'Individual', TASA, { oferta: 330 });
+  assert.equal(t.ref, 405);
+  assert.ok(!t.oferta && !t.antes && !t.enOferta, JSON.stringify(t));
+  assert.equal(ofertasDelModelo(48), '');
+  assert.equal(hayOfertaEn(48), false);
+});
+
+test('Sin promo: dekog.net/ofertas ya no existe (ni su página, ni sus rewrites, ni las imágenes de la promo): lleva al catálogo', { skip: CON_PROMO }, () => {
+  const raiz = (ruta) => new URL(`../../${ruta}`, import.meta.url);
+  assert.ok(!existsSync(raiz('public/ofertas.html')), 'public/ofertas.html sigue ahí');
+  assert.ok(!existsSync(raiz('public/promo')), 'public/promo sigue ahí');
+  const { rewrites } = JSON.parse(readFileSync(raiz('vercel.json'), 'utf8'));
+  assert.ok(!rewrites.some((r) => /ofertas/.test(`${r.source} ${r.destination}`)), 'vercel.json todavía tiene /ofertas');
+  for (const ruta of ['/ofertas', '/ofertas/', '/ofertas%E2%81%A3', '/ofertas.']) assert.equal(rutaDesconocida(ruta), 'ofertas', ruta);
+  const pagina = readFileSync(raiz('src/pages/NoEncontrada.jsx'), 'utf8');
+  assert.match(pagina, /const CATALOGO = '\/\?categoria=todos#catalogo'/);
+  assert.doesNotMatch(pagina, /'\/ofertas'|"\/ofertas"|las ofertas/);
 });

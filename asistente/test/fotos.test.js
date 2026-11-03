@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SECRETO_WA, SECRETO_IG, kvEnMemoria, metaFalso, entregar, avisoWa, textoWa, filaWa, avisoIg } from './ayuda.js';
 import { config } from '../src/lib/config.js';
+import { PROMO } from '../src/lib/promo.js';
 import { productos } from '../../src/data/productos.js';
 import { fotoParaCanales, buscarProducto, tarjeta } from '../src/lib/catalogo.js';
 import { whatsappPost } from '../src/canales/whatsapp.js';
@@ -121,7 +122,7 @@ test('WhatsApp e Instagram: toda foto que sale es la copia JPEG de public/wa, nu
   const crudos = [];
   const juntar = () => { fotos.push(...fotosEnviadas()); crudos.push(JSON.stringify(meta.enviados)); };
   // WhatsApp: vitrina → tocar un modelo (foto sin IA) → preguntar por una medida (foto de la respuesta de la IA);
-  // y «comprar» como primer mensaje de otro cliente (botón de la asesora con la foto en la cabecera).
+  // y «comprar» como primer mensaje de otro cliente (con promo, su botón lleva la foto en la cabecera).
   await wa(textoWa('Quiero ver camas'));
   await wa(filaWa('prod:48', 'Toronto'));
   await wa(textoWa('¿Cuánto es la Toronto queen en bolívares?'));
@@ -139,13 +140,16 @@ test('WhatsApp e Instagram: toda foto que sale es la copia JPEG de public/wa, nu
   await ig({ text: '¿Cuánto es la Toronto queen en bolívares?' }, 'IGSID2');
   juntar();
 
+  // La imagen de la promo, si hay una: en la cabecera de su botón en WhatsApp y suelta en Instagram.
   assert.deepEqual([...new Set(fotos.map(([donde]) => donde))].sort(),
-    ['Instagram: imagen', 'Instagram: tarjeta', 'WhatsApp: cabecera del botón', 'WhatsApp: imagen']);
-  assert.ok(fotos.length >= 14, `solo ${fotos.length} fotos`); // 2 de WhatsApp + 1 cabecera + 9 tarjetas + 3 de Instagram
+    ['Instagram: imagen', 'Instagram: tarjeta', ...(PROMO ? ['WhatsApp: cabecera del botón'] : []), 'WhatsApp: imagen']);
+  assert.ok(fotos.length >= 14, `solo ${fotos.length} fotos`); // 2 de WhatsApp + 9 tarjetas + 3 de Instagram (+ las de la promo)
   for (const [donde, url] of fotos) revisarFoto(url, donde);
   assert.ok(fotos.some(([, url]) => url === `${SITIO}/wa/muebles/doha.jpg`));
-  assert.ok(fotos.some(([donde, url]) => donde === 'WhatsApp: cabecera del botón' && url === `${SITIO}/promo/promo-stock.jpg`));
-  assert.ok(fotos.some(([donde, url]) => donde === 'Instagram: imagen' && url === `${SITIO}/promo/promo-stock.jpg`));
+  if (PROMO) {
+    assert.ok(fotos.some(([donde, url]) => donde === 'WhatsApp: cabecera del botón' && url === `${SITIO}/promo/promo-stock.jpg`));
+    assert.ok(fotos.some(([donde, url]) => donde === 'Instagram: imagen' && url === `${SITIO}/promo/promo-stock.jpg`));
+  } else assert.ok(!fotos.some(([, url]) => url.includes('/promo/')));
   for (const crudo of crudos) assert.doesNotMatch(crudo, /dekog\.net\/(muebles|mesas)\/|\.png/i);
 });
 
