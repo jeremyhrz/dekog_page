@@ -24,5 +24,14 @@ export function varianteHasta(ruta, ancho) {
 /** Recorte vertical del centro de una foto del hero, para teléfonos en vertical. */
 export const recorteMovil = (ruta) => encodeURI(`/opt${ruta}-movil.webp`);
 
+/**
+ * Encuadre de una foto que no es vertical (src/data/variantes.json, «encuadre»): el punto que queda a la vista cuando la
+ * tarjeta 4:5 o la vista rápida la recortan, para el object-position. undefined si no tiene: se ve centrada, como siempre.
+ */
+export function encuadreDe(ruta) {
+  const punto = variantes.encuadre[String(ruta || '').replace(/^\//, '')];
+  return Array.isArray(punto) ? `${Math.round(punto[0] * 100)}% ${Math.round(punto[1] * 100)}%` : undefined;
+}
+
 /** Miniatura 4:5 (320×400) de un producto de /muebles o /mesas: chat y carrito. */
 export const miniatura = (ruta) => encodeURI(`/mini${ruta}.webp`);

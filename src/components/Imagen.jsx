@@ -1,5 +1,5 @@
 import React from 'react';
-import { anchosDe, variante } from '../utils/imagenes';
+import { anchosDe, encuadreDe, variante } from '../utils/imagenes';
 
 /**
  * <img> que pide la variante WebP del tamaño justo (srcset + sizes) en vez de la foto original, que
@@ -7,12 +7,15 @@ import { anchosDe, variante } from '../utils/imagenes';
  * Acepta las mismas props que un <img>, más:
  *   sizes      cuánto mide en pantalla, p. ej. "(min-width: 1024px) 50vw, 100vw" (por defecto, todo el ancho)
  *   prioridad  para la imagen principal de la página (LCP): sin lazy y con fetchpriority alta
+ * Una foto con encuadre (variantes.json) lo lleva como object-position: al recortarla se ve el mueble, no el centro.
  */
-export default function Imagen({ src, sizes = '100vw', prioridad = false, loading, onError, ...props }) {
+export default function Imagen({ src, sizes = '100vw', prioridad = false, loading, onError, style, ...props }) {
   const anchos = anchosDe(src);
+  const encuadre = encuadreDe(src);
   return (
     <img
       {...props}
+      style={encuadre ? { objectPosition: encuadre, ...style } : style}
       srcSet={anchos.map((a) => `${variante(src, a)} ${a}w`).join(', ')}
       sizes={sizes}
       loading={prioridad ? 'eager' : loading}

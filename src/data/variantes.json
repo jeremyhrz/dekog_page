@@ -13,5 +13,11 @@
     "otros": [640, 1280, 2048]
   },
   "miniaturas": ["muebles", "mesas"],
+  "encuadre": {
+    "_nota": "Fotos de producto que no son verticales: el punto [x, y] (de 0 a 1) que queda a la vista cuando la tarjeta 4:5, la vista rápida o la miniatura del chat las recortan. Lo leen src/utils/imagenes.js (object-position) y scripts/optimizar_imagenes.py (miniatura). Sin entrada, el centro.",
+    "muebles/nueva-coleccion/zurich.jpg": [0.42, 0.5],
+    "muebles/nueva-coleccion/austria.jpg": [0.72, 0.5],
+    "muebles/nueva-coleccion/budapest.jpg": [0.5, 0.85]
+  },
   "recorte_movil": { "carpetas": ["hero"], "proporcion": 0.7, "alto_max": 1800 }
 }

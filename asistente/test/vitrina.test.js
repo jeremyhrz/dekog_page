@@ -44,12 +44,12 @@ test('páginas: nunca repite un modelo hasta haberlos mostrado todos; luego empi
     assert.deepEqual(otraVez.productos.map((t) => t.id), armarVitrina(v).productos.map((t) => t.id), `${clave}: vuelve a empezar`);
   }
   assert.equal(VITRINAS.camas.todos.length, 40);
-  assert.equal(VITRINAS.sofas.todos.length, 17); // sin puffs…
-  assert.equal(VITRINAS.sofas.boton, 'Ver los 24 sofás y puffs'); // …pero la web con ese filtro muestra 24
+  assert.equal(VITRINAS.sofas.todos.length, 20); // sin puffs (4 de la Nueva Colección y 16 más)…
+  assert.equal(VITRINAS.sofas.boton, 'Ver los 27 sofás y puffs'); // …pero la web con ese filtro muestra 27
 });
 
 test('secciones que caben enteras (≤ 10) van siempre completas', () => {
-  for (const [clave, n] of [['camas_clasicas', 8], ['camas_kids', 9], ['puffs', 7], ['mesas', 8]]) {
+  for (const [clave, n] of [['camas_clasicas', 8], ['camas_kids', 9], ['puffs', 7], ['mesas', 8], ['nueva_coleccion', 4]]) {
     const v = armarVitrina(VITRINAS[clave]);
     assert.equal(v.productos.length, n, clave);
     assert.equal(v.mas, null, clave);
@@ -88,6 +88,10 @@ const FRASES = [
   ['quiero ver la cama Toronto', null], ['¿Qué telas tienen para la cama?', null], ['quiero una cama con box nube', null],
   ['¿Cuánto es la Toronto queen en bolívares?', null], ['Quiero cotizar un proyecto', null], ['¿Dónde están ubicados?', null],
   ['muéstrame otras', null], ['¿tienes más?', null], // sin una vitrina antes, «más» no abre nada
+  ['Quiero ver la nueva colección', 'nueva_coleccion'], ['¿Qué trae la colección nueva?', 'nueva_coleccion'],
+  ['¿tienen nueva colección?', 'nueva_coleccion'], ['muéstrame los sofás de la colección 2026', 'nueva_coleccion'],
+  ['quiero ver camas de la nueva colección', 'camas'], // la colección es de sofás
+  ['¿Cuánto cuesta el sofá Zurich?', null], ['¿el Budapest viene en otra medida?', null],
 ];
 test('respaldo sin IA (sin historial): frases explícitas sí; preguntas de un modelo, pagos o envío no', () => {
   for (const [frase, esperada] of FRASES) assert.equal(resolverVitrina('', frase, [])?.clave ?? null, esperada, frase);
@@ -202,4 +206,49 @@ test('calentarVitrina no lanza ni cambia nada', () => {
   assert.deepEqual(nombres(armarVitrina(VITRINAS.camas)), ['Toronto', 'Milan', 'Georgia', 'Sky', 'Charlotte', 'Oslo', 'Monaco', 'Barcelona', 'Mykonos']);
   assert.equal(seccionDe(buscarProducto(100)), 'Puffs');
   assert.ok(tarjeta(48, '', null));
+});
+
+test('Nueva Colección (9-nov): los 4 sofás del PDF, su vitrina, primero en la de sofás y su ficha en WhatsApp', () => {
+  const coleccion = productos.filter((p) => p.subcategoria === 'Nueva Colección');
+  // Nombre, precio y medida del catálogo «Muebles colección 2026»; la de Austria, la que mandó Dekog por WhatsApp (el
+  // PDF repite en Austria la de Zurich). Budapest, «1x0.80m c/p»: por pieza.
+  assert.deepEqual(coleccion.map((p) => [p.id, p.nombre, p.categoria, p.precio, p.tallas.map((t) => [t.nombre, t.precio])]), [
+    [104, 'Zurich', 'Sofás', 1550, [['2,40 x 1,60 M', 1550]]],
+    [105, 'Viena', 'Sofás', 1480, [['2,60 x 1,50 M', 1480]]],
+    [5, 'Austria', 'Sofás', 1450, [['2,80 x 1,20 M', 1450]]],
+    [106, 'Budapest', 'Sofás', 1400, [['1,00 x 0,80 M c/p', 1400]]],
+  ]);
+  // Austria es la de siempre (id 5) con la foto nueva: un solo modelo con ese nombre, y ningún nombre repetido en sofás.
+  const sofas = productos.filter((p) => p.categoria === 'Sofás').map((p) => p.nombre);
+  assert.equal(new Set(sofas).size, sofas.length);
+
+  const v = armarVitrina(VITRINAS.nueva_coleccion, { tasa });
+  assert.deepEqual(nombres(v), ['Budapest', 'Austria', 'Viena', 'Zurich']); // de la más económica a la más alta
+  assert.equal(v.rotulo, 'Nueva Colección · 4 modelos');
+  assert.equal(v.boton, 'Ver los 4 sofás de la Nueva Colección');
+  assert.equal(v.url, 'https://www.dekog.net/?categoria=nueva-coleccion#catalogo');
+  assert.ok(v.productos.every((t) => t.linea === 'Nueva Colección' && t.tipo === 'Nueva Colección' && t.bs));
+  assert.ok(v.productos.every((t) => t.imagen.startsWith('https://www.dekog.net/muebles/nueva-coleccion/')));
+
+  // En la de sofás, primero los 4 de la colección y después 5 de los demás (sin puffs).
+  const s = armarVitrina(VITRINAS.sofas);
+  assert.deepEqual(nombres(s).slice(0, 4), ['Budapest', 'Austria', 'Viena', 'Zurich']);
+  assert.equal(s.productos.length, 9);
+  assert.ok(s.productos.slice(4).every((t) => t.seccion === 'Sofás'));
+
+  // Lo que llega al tocarlo en WhatsApp: la línea, la primera frase de su ficha (sin la nota interna) y su precio en REF y Bs.
+  const zurich = fichaElegida(104, tasa);
+  assert.match(zurich.caption, /^\*Zurich\* · Nueva Colección\nSofá en L con chaise, respaldo de rollos cilíndricos/);
+  assert.match(zurich.caption, /• 2,40 x 1,60 M: REF 1\.550 \(Bs \d/);
+  assert.doesNotMatch(zurich.caption, /según su foto/);
+  assert.match(fichaElegida(5, tasa).caption, /^\*Austria\* · Nueva Colección\nSofá recto con chaise[\s\S]*• 2,80 x 1,20 M: REF 1\.450/);
+  assert.match(fichaElegida(106, tasa).caption, /• 1,00 x 0,80 M c\/p: REF 1\.400/);
+  assert.match(fichaElegida(105, null).caption, /• 2,60 x 1,50 M: REF 1\.480\n/);
+
+  // El sofá Viena y la cama Vienna son dos modelos: cada nombre encuentra el suyo.
+  assert.equal(nombraModelo('me gusta el sofá viena'), true);
+  assert.deepEqual(productos.filter((p) => /^vienn?a$/i.test(p.nombre)).map((p) => [p.nombre, p.categoria]), [['Viena', 'Sofás'], ['Vienna', 'Camas']]);
+  // Y la IA sabe que es lo nuevo y cuándo abrir su vitrina.
+  assert.match(sistemaPara('web'), /Nueva Colección 2026 de sofás[^\n]*Zurich, Viena, Austria y Budapest/);
+  assert.match(sistemaPara('whatsapp'), /es nueva_coleccion/);
 });

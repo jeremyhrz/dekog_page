@@ -23,6 +23,7 @@ import Catalogo from '../sections/inicio/Catalogo';
  * /?categoria=camas#catalogo abre el catálogo ya filtrado: lo usan el botón «Ver las 40 camas» del
  * asistente y los enlaces que manda por WhatsApp e Instagram (asistente/src/lib/vitrina.js).
  * /?categoria=todos#catalogo, el catálogo entero: el botón de la página «No encontramos esta página».
+ * /?categoria=nueva-coleccion#catalogo, los sofás de la Nueva Colección: el botón de esa vitrina del asistente.
  */
 const CATEGORIA_DE_URL = {
   todos: 'Todos',
@@ -31,6 +32,7 @@ const CATEGORIA_DE_URL = {
   'camas-kids': 'Camas Kids',
   'camas-alta-gama': 'Camas Alta Gama',
   sofas: 'Sofás',
+  'nueva-coleccion': 'Nueva Colección',
   mesas: 'Mesas',
 };
 

@@ -54,7 +54,7 @@ export async function descargarImagen(url, { token, mime } = {}) {
 // KV (la comparten todos los isolates) y en memoria, y se renueva a las 46 h.
 const ARCHIVOS_GEMINI = 'https://generativelanguage.googleapis.com/upload/v1beta/files';
 // Con la versión en la clave: si cambian las hojas, las referencias viejas guardadas en KV no se reusan.
-const CLAVE_HOJAS = 'ia:hojas:v3';
+const CLAVE_HOJAS = 'ia:hojas:v4'; // v4: la Nueva Colección de sofás (9-nov)
 const DURAN_MS = 46 * 3600 * 1000;
 // Las que escribe scripts/hojas_catalogo_ia.py: el catálogo en hojas de 10 (en una sola, la IA confundía modelos
 // parecidos) y al final los proyectos de arquitectura.

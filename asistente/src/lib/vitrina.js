@@ -15,9 +15,12 @@ export const MAX = 10; // filas de una lista de WhatsApp / tarjetas de un generi
 export const PAGINA = 9; // si quedan más de 10, van 9 y el lugar 10 es «Ver más»
 
 const esPuff = (p) => /^puff\b/i.test(p.nombre);
-/** Sección de un producto en la vitrina: la línea en las camas; los puffs, aparte de los sofás. */
-export const seccionDe = (p) => (p.categoria === 'Camas' ? p.subcategoria : esPuff(p) ? 'Puffs' : p.categoria);
-const LINEA = { 'Camas Clásicas': 'Clásica', 'Camas Kids': 'Kids', 'Camas Alta Gama': 'Alta Gama', Sofás: 'Sofá', Puffs: 'Puff', Mesas: 'Mesa' };
+/** Sección de un producto en la vitrina: la línea en las camas y en los sofás (la Nueva Colección); los puffs, aparte. */
+export const seccionDe = (p) => (p.categoria === 'Camas' ? p.subcategoria : esPuff(p) ? 'Puffs' : p.subcategoria ?? p.categoria);
+const LINEA = {
+  'Camas Clásicas': 'Clásica', 'Camas Kids': 'Kids', 'Camas Alta Gama': 'Alta Gama', 'Nueva Colección': 'Nueva Colección',
+  Sofás: 'Sofá', Puffs: 'Puff', Mesas: 'Mesa',
+};
 
 // Las claves son el enum `vitrina` del ESQUEMA. `filtro` es el ?categoria= que entiende la web (Home.jsx).
 const DEFINICION = {
@@ -25,7 +28,9 @@ const DEFINICION = {
   camas_clasicas: { titulo: 'Camas Clásicas', categoria: 'Camas', filtro: 'camas-clasicas', boton: 'las {n} Camas Clásicas', mas: 'Ver más Clásicas', grupos: [['Camas Clásicas', PAGINA]] },
   camas_kids: { titulo: 'Camas Kids', categoria: 'Camas', filtro: 'camas-kids', boton: 'las {n} Camas Kids', mas: 'Ver más Kids', grupos: [['Camas Kids', PAGINA]] },
   camas_alta_gama: { titulo: 'Camas Alta Gama', categoria: 'Camas', filtro: 'camas-alta-gama', boton: 'las {n} Camas Alta Gama', mas: 'Ver más Alta Gama', grupos: [['Camas Alta Gama', PAGINA]] },
-  sofas: { titulo: 'Sofás', categoria: 'Sofás', filtro: 'sofas', boton: 'los {n} sofás y puffs', mas: 'Ver más sofás', grupos: [['Sofás', PAGINA]] },
+  // Los sofás de la Nueva Colección (9-nov) van primero en la de sofás, y tienen la suya.
+  sofas: { titulo: 'Sofás', categoria: 'Sofás', filtro: 'sofas', boton: 'los {n} sofás y puffs', mas: 'Ver más sofás', grupos: [['Nueva Colección', 4], ['Sofás', 5]] },
+  nueva_coleccion: { titulo: 'Nueva Colección', categoria: 'Sofás', filtro: 'nueva-coleccion', boton: 'los {n} sofás de la Nueva Colección', mas: 'Ver más de la colección', grupos: [['Nueva Colección', PAGINA]] },
   puffs: { titulo: 'Puffs', categoria: 'Sofás', filtro: 'sofas', boton: 'los {n} sofás y puffs', mas: 'Ver más puffs', grupos: [['Puffs', PAGINA]] },
   mesas: { titulo: 'Mesas', categoria: 'Mesas', filtro: 'mesas', boton: 'las {n} mesas', mas: 'Ver más mesas', grupos: [['Mesas', PAGINA]] },
 };
@@ -38,6 +43,7 @@ const EN_LA_WEB = {
   'camas-kids': (p) => p.subcategoria === 'Camas Kids',
   'camas-alta-gama': (p) => p.subcategoria === 'Camas Alta Gama',
   sofas: (p) => p.categoria === 'Sofás',
+  'nueva-coleccion': (p) => p.subcategoria === 'Nueva Colección',
   mesas: (p) => p.categoria === 'Mesas',
 };
 
@@ -163,6 +169,13 @@ const PIDE_VER = [
   new RegExp(String.raw`\b(?:tienen|tienes|hay|venden)\s+${SECCION}\s*\??$`),
   new RegExp(String.raw`\b(?:tienen|tienes|hay|venden)\s+(camas?)\s+(?:para\s+)?(?:ninos?|ninas?|kids|infantiles?|juveniles?)\b`),
 ];
+// «quiero ver la nueva colección», «¿qué trae la colección nueva?», «¿tienen colección nueva?»: la de la Nueva Colección.
+const COLECCION = String.raw`(?:nueva\s+coleccion|coleccion\s+nueva|coleccion\s+2026)`;
+const PIDE_COLECCION = [
+  new RegExp(String.raw`\b(?:ver|mirar|conocer|mostrar|muestrame|ensename|mandame|pasame)\b[^.?!]{0,40}\b${COLECCION}\b`),
+  new RegExp(String.raw`\bque\s+(?:trae|tiene|hay\s+en)\s+(?:la\s+)?${COLECCION}\b`),
+  new RegExp(String.raw`\b(?:tienen|tienes|hay)\s+(?:una\s+|la\s+)?${COLECCION}\b`),
+];
 const PIDE_MAS = [
   /\b(?:mas|otr[oa]s)\s+(?:opciones|modelos|camas?|sofas?|mesas?|puffs?)\b/, // «más camas», «otras opciones»
   /\b(?:ver|muestrame|ensename|mandame|dame|pasame|tienes|tienen|hay)\s+(?:mas|otr[oa]s?)\s*[?!.]*\s*$/, // «¿tienes más?»
@@ -182,6 +195,8 @@ export function nombraModelo(texto) {
 /** Clave de vitrina si el texto pide explícitamente ver una categoría; '' si no. */
 export function pideVerCategoria(texto) {
   const t = plano(texto);
+  // La Nueva Colección es de sofás: «camas de la nueva colección» no la abre (sigue como un pedido de camas).
+  if (PIDE_COLECCION.some((r) => r.test(t)) && !/\b(camas?|mesas?)\b/.test(t)) return 'nueva_coleccion';
   const m = PIDE_VER.map((r) => t.match(r)).find(Boolean);
   if (!m) return '';
   const seccion = m[1].replace(/s$/, '');

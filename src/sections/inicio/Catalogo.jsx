@@ -5,7 +5,16 @@ import { productos } from '../../data/productos';
 import { EXPO, cx } from '../../lib/movimiento';
 
 const CATEGORIAS = ['Todos', 'Sofás', 'Camas', 'Mesas'];
-const SUBCATEGORIAS = ['Camas', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'];
+// La segunda fila de la barra: las líneas de una categoría. La primera de cada lista es «todas» (filtra por categoria) y
+// las demás filtran por subcategoria. La Nueva Colección de sofás llegó el 9-nov (catálogo «Muebles colección 2026»).
+const LINEAS = {
+  Camas: ['Camas', 'Camas Clásicas', 'Camas Alta Gama', 'Camas Kids'],
+  'Sofás': ['Sofás', 'Nueva Colección'],
+};
+const TODAS = { Camas: 'Todas las Camas', 'Sofás': 'Todos los Sofás' };
+const tieneLineas = (c) => Object.prototype.hasOwnProperty.call(LINEAS, c);
+/** La categoría de la que `c` es una línea ('Camas Kids' → 'Camas'); null si no es una línea. */
+const categoriaDeLinea = (c) => Object.keys(LINEAS).find((k) => LINEAS[k].indexOf(c) > 0) || null;
 
 /**
  * El catálogo de la portada (#catalogo): mismo filtrado, búsqueda y «Cargar más» de siempre (el estado vive en
@@ -19,7 +28,7 @@ export default function Catalogo({
   const filtrados = useMemo(() => {
     let resultado = productos;
     if (categoria !== 'Todos') {
-      resultado = SUBCATEGORIAS.indexOf(categoria) > 0
+      resultado = categoriaDeLinea(categoria)
         ? productos.filter((p) => p.subcategoria === categoria)
         : productos.filter((p) => p.categoria === categoria);
     }
@@ -33,7 +42,8 @@ export default function Catalogo({
     return resultado;
   }, [categoria, searchQuery]);
 
-  const esCamas = categoria === 'Camas' || SUBCATEGORIAS.indexOf(categoria) > 0;
+  // La categoría cuya fila de líneas se ve (Camas o Sofás, entera o en una de sus líneas); null si ninguna.
+  const conLineas = tieneLineas(categoria) ? categoria : categoriaDeLinea(categoria);
 
   return (
     <section id="catalogo" ref={catalogRef} aria-labelledby="catalogo-titulo" className="relative bg-hueso pb-[var(--aire)] pt-[var(--aire)]" style={{ scrollMarginTop: 0 }}>
@@ -53,7 +63,7 @@ export default function Catalogo({
       >
         <div className="contenedor flex items-center overflow-x-auto py-3 [scrollbar-width:none]">
           {CATEGORIAS.map((c) => {
-            const activa = !searchQuery && (categoria === c || (c === 'Camas' && esCamas));
+            const activa = !searchQuery && (categoria === c || c === conLineas);
             return (
               <button
                 key={c}
@@ -78,9 +88,9 @@ export default function Catalogo({
             Mostrando {Math.min(visibleCount, filtrados.length)} de {filtrados.length} piezas
           </span>
         </div>
-        {esCamas && !searchQuery && (
+        {conLineas && !searchQuery && (
           <div className="contenedor flex overflow-x-auto pb-3 [scrollbar-width:none]">
-            {SUBCATEGORIAS.map((s) => (
+            {LINEAS[conLineas].map((s) => (
               <button
                 key={s}
                 type="button"
@@ -91,7 +101,7 @@ export default function Catalogo({
                   categoria === s ? 'bg-gray-800 text-white' : 'border border-gray-200 bg-white text-gray-500 hover:bg-gray-100',
                 )}
               >
-                {s === 'Camas' ? 'Todas las Camas' : s}
+                {s === conLineas ? TODAS[conLineas] : s}
               </button>
             ))}
           </div>
