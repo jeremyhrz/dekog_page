@@ -47,7 +47,7 @@ export const fichas = {
   1: "Sofá seccional de cojines rectos; disponible en individual, 2 y 3 puestos y modular en L. Puff a juego opcional (+REF 200). No confundir con la mesa de noche Amsterdam.",
   3: "Sofá curvo de 2 puestos (170 cm) con respaldo de canales verticales.",
   4: "Lo más destacado es su panel protector en forma de L, que funciona a la vez como cabecero y lateral, compuesto por paneles segmentados con terminaciones redondeadas. Estilo: Funcionalidad envolvente con estética de geometría suave.",
-  5: "Sofá curvo envolvente de 3 puestos (280 cm), con un extremo redondeado tipo chaise.",
+  5: "Sofá recto con chaise en un extremo, de líneas limpias y respaldo de cojines bajos, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,80 x 1,20 m.",
   6: "Su cabecero está dividido en tres grandes paneles rectangulares acolchados, que le dan estructura y un ritmo sutil sin perder la limpieza del diseño. Estilo: Contemporáneo minimalista.",
   7: "Su cabecero está formado por grandes bloques rectangulares acolchados que se extienden en horizontal, aportando orden arquitectónico y amplitud al diseño. Estilo: Minimalismo contemporáneo y lujo silencioso.",
   8: "Toda la estructura, base y cabecero, tiene un aspecto redondeado y acolchado que busca transmitir una sensación de suavidad y confort extremo. Estilo: Estética volumétrica con diseño orgánico y curvilíneo.",
@@ -116,6 +116,10 @@ export const fichas = {
   101: "Puff cúbico de 40 cm de alto por 30 cm de ancho. Colores: blanco, gris claro, negro, beige y gris.",
   102: "Puff cilíndrico de 40 cm de alto por 30 cm de ancho. Colores: blanco, gris claro, negro, beige y gris.",
   103: "Puff redondo de 40 cm de alto por 60 cm de ancho. Colores: blanco, gris claro, negro, beige y gris.",
+  // Nueva Colección (catálogo «Muebles colección 2026», 9-nov): el catálogo da solo la medida y el precio.
+  104: "Sofá en L con chaise, respaldo de rollos cilíndricos y base baja de formas redondeadas, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,40 x 1,60 m.",
+  105: "Sofá seccional en L de módulos bajos y redondeados, con chaise y varios cojines, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,60 x 1,50 m. No confundir con la cama Vienna (Alta Gama).",
+  106: "Sofá modular de piezas rectas y bajas que se arman en L, con brazos anchos, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 1 x 0,80 m c/p (así la da el catálogo: por pieza). Cuántas piezas lleva el precio del catálogo y otras configuraciones las confirma una asesora.",
 };
 
 /** Reglas generales de cada línea, de los catálogos 2026 (sin añadir nada que no digan). */
@@ -128,8 +132,9 @@ export const especificaciones = [
   'Sofás y piezas de 1 puesto (COD-2000 a COD-2003): estructura de madera de pino secada al horno, relleno de espuma de alta densidad, base reforzada con soporte central, patas ocultas y tapizado a elección del catálogo de textiles.',
   'Puffs COD-2004, COD-2005 y COD-2006: estructura de madera de pino secada al horno y acabados de alta calidad; colores blanco, gris claro, negro, beige y gris.',
   'Mesas de noche y peinadora: estructura de madera de pino secada al horno, correderas telescópicas de alta resistencia, acabados de alta calidad y el color y acabado de tu preferencia (mesas: taupe, marrón, negro, beige y gris; peinadora: blanco, marrón, negro y beige).',
+  'Nueva Colección 2026 de sofás (catálogo «Muebles colección 2026»): Zurich, Viena, Austria y Budapest; sus medidas y precios, en el CATÁLOGO. Es lo más nuevo de Dekog Home: si preguntan por novedades, por lo último o por la colección nueva, son estos cuatro. Ese catálogo da solo la medida y el precio de cada uno; la estructura, el relleno y el tapizado son los de todos los sofás.',
   'Puff a juego opcional solo en los sofás Amsterdam (+REF 200), Mississippi (+REF 300) y Dubai (+REF 130).',
-  'Nombres repetidos: Amsterdam y Dubai son sofás y también mesas de noche; Paris es cama y mesa de noche; London es cama y Londres es sofá; Venecia (Clásica) y Venecia Era (Alta Gama) son camas distintas. Si hay duda, pregunta a cuál se refiere.',
+  'Nombres repetidos: Amsterdam y Dubai son sofás y también mesas de noche; Paris es cama y mesa de noche; London es cama y Londres es sofá; Vienna es cama (Alta Gama) y Viena es sofá (Nueva Colección); Venecia (Clásica) y Venecia Era (Alta Gama) son camas distintas. Si hay duda, pregunta a cuál se refiere.',
   'Lema: «Dekog Home · Elevamos tu descanso con mobiliario arquitectónico».',
 ];
 

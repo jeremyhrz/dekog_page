@@ -5,7 +5,8 @@ Uso (desde la raíz del repo, con Python 3 y Pillow):  python scripts/optimizar_
 Genera, sin tocar las fotos originales:
   public/opt/<ruta original>-<ancho>.webp   un WebP por cada ancho de src/data/variantes.json
                                              (el sitio las pide con srcset: src/utils/imagenes.js)
-  public/mini/<ruta original>.webp          miniatura 320×400 (4:5) de cada producto, para el chat
+  public/mini/<ruta original>.webp          miniatura 320×400 (4:5) de cada producto, para el chat (recortada en
+                                             el «encuadre» de variantes.json si la foto tiene uno)
   public/opt/<ruta original>-movil.webp     recorte vertical del centro (fotos del hero): en un teléfono la
                                              foto apaisada se ve recortada, y así llega nítida y liviana
   public/wa/<carpeta>/<nombre>.jpg          copia de cada producto para WhatsApp e Instagram (la URL la arma
@@ -32,6 +33,8 @@ EXTENSIONES = {'.jpg', '.jpeg', '.png', '.webp'}
 SALIDAS = {'opt', 'mini', 'wa'}
 CALIDAD = 76
 MINI = (320, 400)
+# Dónde recortar la miniatura de una foto que no es vertical (el mismo punto que usa la web para el object-position).
+ENCUADRE = {ruta: tuple(punto) for ruta, punto in CONFIG.get('encuadre', {}).items() if isinstance(punto, list)}
 # Copias para WhatsApp e Instagram: las fotos de los productos, que son las carpetas que llevan miniatura.
 CANALES = CONFIG['miniaturas']
 LADO_CANALES = 1080
@@ -117,7 +120,8 @@ def procesar(relativa):
             escritos += destino.stat().st_size
         if mini is not None and pendiente(origen, mini):
             mini.parent.mkdir(parents=True, exist_ok=True)
-            ImageOps.fit(imagen, MINI, Image.LANCZOS, centering=(0.5, 0.55)).save(mini, 'WEBP', quality=72, method=6)
+            centro = ENCUADRE.get(relativa, (0.5, 0.55))
+            ImageOps.fit(imagen, MINI, Image.LANCZOS, centering=centro).save(mini, 'WEBP', quality=72, method=6)
             escritos += mini.stat().st_size
         if movil is not None and pendiente(origen, movil):
             alto = min(imagen.height, recorte['alto_max'])

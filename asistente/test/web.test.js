@@ -4,13 +4,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { archivosDeLaWeb, revisar, revisarSalida } from '../../scripts/compatibilidad.mjs';
 import { rutaDesconocida } from '../../src/utils/rutas.js';
+import { productos } from '../../src/data/productos.js';
+import { VITRINAS } from '../src/lib/vitrina.js';
 
 const GUARDA = fileURLToPath(new URL('../../scripts/compatibilidad.mjs', import.meta.url));
 const leer = (ruta) => readFileSync(new URL(`../../${ruta}`, import.meta.url), 'utf8');
@@ -184,4 +186,31 @@ test('vercel.json: /a y /a/ a /links.html, /a/<código> (también con la barra d
   // dekog.net/ofertas ya no tiene página (3-nov): llega a la web, que la lleva al catálogo.
   for (const ruta of ['/ofertas', '/ofertas/']) assert.equal(destino(ruta), '/index.html', ruta);
   assert.equal(destino('/producto/123'), '/index.html');
+});
+
+test('Nueva Colección (9-nov): sus fotos con todas sus copias, su línea en el catálogo y un ?categoria= para cada vitrina', () => {
+  const variantes = JSON.parse(leer('src/data/variantes.json'));
+  const enPublic = (ruta) => existsSync(fileURLToPath(new URL(`../../public/${ruta}`, import.meta.url)));
+  const coleccion = productos.filter((p) => p.subcategoria === 'Nueva Colección');
+  assert.equal(coleccion.length, 4);
+  for (const p of coleccion) {
+    const ruta = p.imagen.slice(1);
+    // La original, un WebP por ancho, la miniatura del chat y la copia JPEG de WhatsApp (scripts/optimizar_imagenes.py):
+    // sin ellas la web cargaría la original pesada y el bot mandaría una foto que no existe.
+    const copias = [ruta, ...variantes.anchos.muebles.map((a) => `opt/${ruta}-${a}.webp`), `mini/${ruta}.webp`, `wa/${ruta.replace(/\.[^./]+$/, '.jpg')}`];
+    for (const c of copias) assert.ok(enPublic(c), c);
+  }
+  // Cada encuadre es de una foto de producto que existe, con x e y entre 0 y 1.
+  for (const [ruta, punto] of Object.entries(variantes.encuadre).filter(([r]) => !r.startsWith('_'))) {
+    assert.ok(productos.some((p) => p.imagen === `/${ruta}`), ruta);
+    assert.ok(punto.length === 2 && punto.every((n) => n >= 0 && n <= 1), ruta);
+  }
+  // La línea en la barra del catálogo, como las de Camas, y su enlace.
+  assert.match(leer('src/sections/inicio/Catalogo.jsx'), /'Sofás': \['Sofás', 'Nueva Colección'\]/);
+  // Cada botón de una vitrina del asistente lleva a un ?categoria= que la web entiende (si no, abre el catálogo sin filtrar).
+  const home = leer('src/pages/Home.jsx');
+  for (const v of Object.values(VITRINAS)) {
+    const filtro = new URL(v.url).searchParams.get('categoria');
+    assert.match(home, new RegExp(`^\\s+'?${filtro}'?: '`, 'm'), filtro);
+  }
 });

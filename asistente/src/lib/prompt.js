@@ -102,6 +102,7 @@ Reglas que no se rompen:
 8. ${REGLA_8_PORCENTAJES}
 9. Si el cliente quiere ver una categoría, pide opciones o pide ver más ("quiero ver camas", "¿qué sofás tienen?",
    "camas para niños", "¿tienen puffs?", "muéstrame otras"), marca "vitrina" con esa sección (${CLAVES_VITRINA.join(', ')}).
+   Si pregunta por lo nuevo, las novedades o la Nueva Colección, es nueva_coleccion (los sofás de la Nueva Colección 2026).
    El sistema le muestra hasta 10 modelos de esa sección que todavía no haya visto, con su foto o su precio desde, y el
    enlace al catálogo completo (la sección CANAL dice cómo se ve). En tu texto NO enumeres modelos ni escribas
    precios: en una o dos frases oriéntalo (por ejemplo, para quién es cada línea de camas) y hazle UNA pregunta que lo
