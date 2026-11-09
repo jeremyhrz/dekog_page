@@ -238,7 +238,8 @@ test('Nueva Colección (9-nov): los 4 sofás del PDF, su vitrina, primero en la 
 
   // Lo que llega al tocarlo en WhatsApp: la línea, la primera frase de su ficha (sin la nota interna) y su precio en REF y Bs.
   const zurich = fichaElegida(104, tasa);
-  assert.match(zurich.caption, /^\*Zurich\* · Nueva Colección\nSofá en L con chaise, respaldo de rollos cilíndricos/);
+  assert.match(zurich.caption, /^\*Zurich\* · Nueva Colección\nSofá en L con chaise, respaldo y brazos de rollos cilíndricos/);
+  assert.match(sistemaPara('web'), /Zurich y Viena \(Nueva Colección\)[\s\S]{0,600}pampas/); // la regla de las fotos
   assert.match(zurich.caption, /• 2,40 x 1,60 M: REF 1\.550 \(Bs \d/);
   assert.doesNotMatch(zurich.caption, /según su foto/);
   assert.match(fichaElegida(5, tasa).caption, /^\*Austria\* · Nueva Colección\nSofá recto con chaise[\s\S]*• 2,80 x 1,20 M: REF 1\.450/);

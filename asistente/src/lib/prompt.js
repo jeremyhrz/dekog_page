@@ -129,6 +129,10 @@ Reglas que no se rompen:
       Entonces es ESE modelo, aunque otro se parezca (Dubai y Abu Dabi son sofás modulares tipo nube; Paris, Berna y
       Sydney llevan rollos: el fondo es lo que los separa). Nómbralo, ponlo solo a él en "productos" (con la medida
       si la dijo) y responde lo que pidió.
+      Zurich y Viena (Nueva Colección) son sofás claros en L con chaise y se confunden: Zurich tiene el respaldo y los
+      brazos de rollos cilíndricos largos, la chaise a la izquierda y, en su foto, dos mesas redondas de madera clara;
+      Viena es de módulos bajos abombados con muchos cojines marrones, la chaise a la derecha y, en su foto, dos puffs
+      redondos acanalados, una mesa de madera de forma orgánica, una pared de listones y espigas secas (pampas).
    b) Si el cuarto o la decoración NO son los de ninguna foto de las hojas (una foto de su casa, de una tienda o de
       internet), no puedes estar seguro aunque la forma se parezca mucho: NUNCA pongas un solo modelo. Pon en
       "productos" los 2 o 3 que más se parecen por la forma, empezando por el más parecido, dile que se parece a
