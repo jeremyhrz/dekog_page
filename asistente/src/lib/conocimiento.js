@@ -117,8 +117,8 @@ export const fichas = {
   102: "Puff cilíndrico de 40 cm de alto por 30 cm de ancho. Colores: blanco, gris claro, negro, beige y gris.",
   103: "Puff redondo de 40 cm de alto por 60 cm de ancho. Colores: blanco, gris claro, negro, beige y gris.",
   // Nueva Colección (catálogo «Muebles colección 2026», 9-nov): el catálogo da solo la medida y el precio.
-  104: "Sofá en L con chaise, respaldo de rollos cilíndricos y base baja de formas redondeadas, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,40 x 1,60 m.",
-  105: "Sofá seccional en L de módulos bajos y redondeados, con chaise y varios cojines, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,60 x 1,50 m. No confundir con la cama Vienna (Alta Gama).",
+  104: "Sofá en L con chaise, respaldo y brazos de rollos cilíndricos largos y asiento continuo de líneas suaves, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,40 x 1,60 m.",
+  105: "Sofá seccional en L hecho de módulos bajos y abombados, como almohadones, con chaise y muchos cojines sueltos, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 2,60 x 1,50 m. No confundir con la cama Vienna (Alta Gama).",
   106: "Sofá modular de piezas rectas y bajas que se arman en L, con brazos anchos, de la Nueva Colección 2026 (según su foto en el catálogo). Medida: 1 x 0,80 m c/p (así la da el catálogo: por pieza). Cuántas piezas lleva el precio del catálogo y otras configuraciones las confirma una asesora.",
 };
 
